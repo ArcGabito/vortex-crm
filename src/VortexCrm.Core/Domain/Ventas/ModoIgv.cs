@@ -1,6 +1,6 @@
 namespace VortexCrm.Core.Domain.Ventas;
 
-/// <summary>Cómo se aplica el IGV a los precios de una cotización.</summary>
+/// <summary>Cómo se aplica el impuesto al consumo (IGV, IVA, VAT…) a los precios de una cotización.</summary>
 public enum ModoIgv
 {
     /// <summary>Los precios ya incluyen el IGV; se desglosa del total (lo usual al vender a personas).</summary>
@@ -15,13 +15,14 @@ public enum ModoIgv
 
 public static class Impuestos
 {
-    /// <summary>Tasa general: 16 % de IGV + 2 % de Impuesto de Promoción Municipal.</summary>
+    /// <summary>Tasa general de Perú (16 % de IGV + 2 % de IPM). La de cada empresa sale de su país (<see cref="Cotizacion.Regimen"/>).</summary>
     public const decimal TasaIgv = 0.18m;
 
-    public static string Nombre(this ModoIgv modo) => modo switch
+    /// <summary>"Precios con IGV incluido", "Precios sin IVA (se suma 16 %)"… según el impuesto del país.</summary>
+    public static string Nombre(this ModoIgv modo, string impuesto = "IGV", decimal tasa = TasaIgv) => modo switch
     {
-        ModoIgv.Incluido => "Precios con IGV incluido",
-        ModoIgv.Adicional => "Precios sin IGV (se suma 18 %)",
-        _ => "Sin IGV (Nuevo RUS, exonerado)",
+        ModoIgv.Incluido => $"Precios con {impuesto} incluido",
+        ModoIgv.Adicional => $"Precios sin {impuesto} (se suma {tasa * 100:0.##} %)",
+        _ => $"Sin {impuesto} (exonerado, inafecto o régimen simplificado)",
     };
 }

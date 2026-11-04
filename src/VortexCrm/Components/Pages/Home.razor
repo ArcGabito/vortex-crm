@@ -42,7 +42,7 @@
                         <div class="chart-bars" role="img" aria-label="Ventas ganadas por mes">
                             @foreach (var m in ventas.VentasPorMes)
                             {
-                                <div class="col" title="@($"{Fmt.Soles(m.Monto)} en {Fmt.Count(m.Cantidad, "venta", "ventas")}")">
+                                <div class="col" title="@($"{Fmt.Amount(m.Monto)} en {Fmt.Count(m.Cantidad, "venta", "ventas")}")">
                                     <span class="value">@Fmt.Compact(m.Monto)</span>
                                     <div class="stack" style="height:@(max == 0 ? 0 : (int)(m.Monto / max * 100))%"><span class="pos" style="flex:1"></span></div>
                                     <span class="label">@m.Mes.ToString("MMM", Fmt.Culture)</span>

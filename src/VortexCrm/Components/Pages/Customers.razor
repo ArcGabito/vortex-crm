@@ -9,7 +9,10 @@
             <h2>Clientes</h2>
             <p>Un solo directorio para la suite: el ERP, el POS y el WMS ven los mismos clientes.</p>
         </div>
-        <button class="btn btn-dark" @onclick="Abrir"><Icon Name="plus" Size="18" />Nuevo cliente</button>
+        @if (Session.Can(CrmPermissions.CreateCustomer))
+        {
+            <button class="btn btn-dark" @onclick="Abrir"><Icon Name="plus" Size="18" />Nuevo cliente</button>
+        }
     </div>
 
     <div class="filters">

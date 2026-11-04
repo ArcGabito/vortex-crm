@@ -9,7 +9,10 @@
             <h2>Sedes</h2>
             <p>Las sedes son comunes a toda la suite: cada cotización lleva la dirección de la sede que la emite.</p>
         </div>
-        <button class="btn btn-dark" @onclick="Open"><Icon Name="plus" Size="18" />Nueva sede</button>
+        @if (Session.Can(CrmPermissions.EditCatalog))
+        {
+            <button class="btn btn-dark" @onclick="Open"><Icon Name="plus" Size="18" />Nueva sede</button>
+        }
     </div>
 
     @if (_sites.Count == 0 && !Loading)

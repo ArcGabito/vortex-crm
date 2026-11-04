@@ -64,7 +64,7 @@
         }
     </ChildContent>
     <Footer>
-        @if (!Nueva)
+        @if (!Nueva && (Valor.ResponsableId == Session.UserId || Session.Can(CrmPermissions.Delete)))
         {
             <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
         }

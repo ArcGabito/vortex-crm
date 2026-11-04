@@ -25,14 +25,15 @@ internal static class Registros
 
     public sealed record OportunidadDatos(
         Guid Id, string Titulo, Guid? ClienteId, Guid? ContactoId, decimal Monto, string Etapa, DateOnly? FechaCierreEstimada,
-        string? MotivoPerdida, string? Notas, DateTimeOffset CreadoEn, DateTimeOffset? CerradoEn);
+        string? MotivoPerdida, string? Notas, DateTimeOffset CreadoEn, DateTimeOffset? CerradoEn, Guid? ResponsableId = null,
+        string? ResponsableNombre = null);
 
     public sealed record LineaDatos(Guid? ItemId, string Descripcion, string Unidad, decimal Cantidad, decimal PrecioUnitario);
 
     public sealed record CotizacionDatos(
         Guid Id, string? Numero, Guid? ClienteId, Guid? ContactoId, Guid? OportunidadId, Guid? SedeId, DateOnly FechaEmision,
         DateOnly ValidaHasta, string ModoIgv, string? Condiciones, string Estado, Guid? PedidoId, DateTimeOffset CreadoEn,
-        IReadOnlyList<LineaDatos> Lineas);
+        IReadOnlyList<LineaDatos> Lineas, string Moneda = "PEN", Guid? ResponsableId = null, string? ResponsableNombre = null);
 
     public sealed record TareaDatos(
         Guid Id, string Titulo, string Tipo, DateOnly Fecha, TimeOnly? Hora, int? AvisarMinutosAntes, Guid? ClienteId,
@@ -92,24 +93,28 @@ internal static class Registros
                 var op = data.Deserialize<OportunidadDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
                     INSERT OR REPLACE INTO oportunidades (id, titulo, cliente_id, contacto_id, monto, etapa, fecha_cierre_estimada, motivo_perdida,
-                                                          notas, creado_en, cerrado_en, actualizado_en)
-                    VALUES ($id, $titulo, $cliente, $contacto, $monto, $etapa, $cierre, $motivo, $notas, $creado, $cerrado, $actualizado)
+                                                          notas, creado_en, cerrado_en, responsable_id, responsable_nombre, actualizado_en)
+                    VALUES ($id, $titulo, $cliente, $contacto, $monto, $etapa, $cierre, $motivo, $notas, $creado, $cerrado, $responsable,
+                            $responsableNombre, $actualizado)
                     """, tx, ("$id", op.Id), ("$titulo", op.Titulo), ("$cliente", op.ClienteId), ("$contacto", op.ContactoId), ("$monto", op.Monto),
                     ("$etapa", op.Etapa), ("$cierre", Fecha(op.FechaCierreEstimada)), ("$motivo", op.MotivoPerdida), ("$notas", op.Notas),
-                    ("$creado", op.CreadoEn), ("$cerrado", op.CerradoEn), ("$actualizado", actualizado));
+                    ("$creado", op.CreadoEn), ("$cerrado", op.CerradoEn), ("$responsable", op.ResponsableId),
+                    ("$responsableNombre", op.ResponsableNombre), ("$actualizado", actualizado));
                 return true;
 
             case CrmRecordKinds.Cotizacion:
                 var co = data.Deserialize<CotizacionDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
                     INSERT OR REPLACE INTO cotizaciones (id, numero, cliente_id, contacto_id, oportunidad_id, sede_id, fecha_emision, valida_hasta,
-                                                         modo_igv, condiciones, estado, pedido_id, creado_en, actualizado_en)
+                                                         modo_igv, condiciones, estado, pedido_id, creado_en, moneda, responsable_id,
+                                                         responsable_nombre, actualizado_en)
                     VALUES ($id, $numero, $cliente, $contacto, $oportunidad, $sede, $emision, $valida, $modo, $condiciones, $estado, $pedido,
-                            $creado, $actualizado)
+                            $creado, $moneda, $responsable, $responsableNombre, $actualizado)
                     """, tx, ("$id", co.Id), ("$numero", co.Numero), ("$cliente", co.ClienteId), ("$contacto", co.ContactoId),
                     ("$oportunidad", co.OportunidadId), ("$sede", co.SedeId), ("$emision", Fecha(co.FechaEmision)), ("$valida", Fecha(co.ValidaHasta)),
                     ("$modo", co.ModoIgv), ("$condiciones", co.Condiciones), ("$estado", co.Estado), ("$pedido", co.PedidoId),
-                    ("$creado", co.CreadoEn), ("$actualizado", actualizado));
+                    ("$creado", co.CreadoEn), ("$moneda", co.Moneda ?? "PEN"), ("$responsable", co.ResponsableId),
+                    ("$responsableNombre", co.ResponsableNombre), ("$actualizado", actualizado));
                 await c.ExecAsync("DELETE FROM cotizacion_lineas WHERE cotizacion_id = $id", tx, ("$id", co.Id));
                 var n = 0;
                 foreach (var l in co.Lineas ?? [])
@@ -176,12 +181,13 @@ internal static class Registros
 
     public static OportunidadDatos Datos(Oportunidad o) =>
         new(o.Id, o.Titulo.Trim(), o.ClienteId, o.ContactoId, o.Monto, o.Etapa.ToString(), o.FechaCierreEstimada, Limpio(o.MotivoPerdida),
-            Limpio(o.Notas), o.CreadoEn, o.CerradoEn);
+            Limpio(o.Notas), o.CreadoEn, o.CerradoEn, o.ResponsableId, o.ResponsableNombre);
 
     public static CotizacionDatos Datos(Cotizacion c) =>
         new(c.Id, c.Numero, c.ClienteId, c.ContactoId, c.OportunidadId, c.SedeId, c.FechaEmision, c.ValidaHasta, c.ModoIgv.ToString(),
             Limpio(c.Condiciones), c.Estado.ToString(), c.PedidoId, c.CreadoEn,
-            c.Lineas.Where(l => !l.EstaVacia).Select(l => new LineaDatos(l.ItemId, l.Descripcion.Trim(), l.Unidad, l.Cantidad, l.PrecioUnitario)).ToList());
+            c.Lineas.Where(l => !l.EstaVacia).Select(l => new LineaDatos(l.ItemId, l.Descripcion.Trim(), l.Unidad, l.Cantidad, l.PrecioUnitario)).ToList(),
+            c.Moneda, c.ResponsableId, c.ResponsableNombre);
 
     public static TareaDatos Datos(Tarea t) =>
         new(t.Id, t.Titulo.Trim(), t.Tipo.ToString(), t.Fecha, t.Hora, t.AvisarMinutosAntes, t.ClienteId, t.ContactoId, t.OportunidadId,
@@ -199,7 +205,7 @@ internal static class Registros
         Id = r.Guid("id"), Titulo = r.Str("titulo"), ClienteId = r.GuidOrNull("cliente_id"), ContactoId = r.GuidOrNull("contacto_id"),
         Monto = r.Dec("monto"), Etapa = Enum.Parse<EtapaOportunidad>(r.Str("etapa")), FechaCierreEstimada = FechaOrNull(r, "fecha_cierre_estimada"),
         MotivoPerdida = r.StrOrNull("motivo_perdida"), Notas = r.StrOrNull("notas"), CreadoEn = r.Time("creado_en"),
-        CerradoEn = r.TimeOrNull("cerrado_en"),
+        CerradoEn = r.TimeOrNull("cerrado_en"), ResponsableId = r.GuidOrNull("responsable_id"), ResponsableNombre = r.StrOrNull("responsable_nombre"),
     };
 
     public static Cotizacion LeerCotizacion(SqliteDataReader r) => new()
@@ -208,6 +214,7 @@ internal static class Registros
         OportunidadId = r.GuidOrNull("oportunidad_id"), SedeId = r.GuidOrNull("sede_id"), FechaEmision = FechaOrNull(r, "fecha_emision")!.Value,
         ValidaHasta = FechaOrNull(r, "valida_hasta")!.Value, ModoIgv = Enum.Parse<ModoIgv>(r.Str("modo_igv")), Condiciones = r.StrOrNull("condiciones"),
         Estado = Enum.Parse<EstadoCotizacion>(r.Str("estado")), PedidoId = r.GuidOrNull("pedido_id"), CreadoEn = r.Time("creado_en"),
+        Moneda = r.Str("moneda"), ResponsableId = r.GuidOrNull("responsable_id"), ResponsableNombre = r.StrOrNull("responsable_nombre"),
     };
 
     public static LineaCotizacion LeerLinea(SqliteDataReader r) => new()

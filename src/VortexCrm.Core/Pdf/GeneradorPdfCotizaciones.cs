@@ -167,8 +167,8 @@ public static class GeneradorPdfCotizaciones
             fila.Cells[1].AddParagraph(linea.Descripcion);
             fila.Cells[2].AddParagraph(linea.Cantidad.ToString("0.##", FormatoPeru.Cultura));
             fila.Cells[3].AddParagraph(linea.Unidad);
-            fila.Cells[4].AddParagraph(FormatoPeru.Soles(linea.PrecioUnitario));
-            fila.Cells[5].AddParagraph(FormatoPeru.Soles(linea.Importe));
+            fila.Cells[4].AddParagraph(Dinero(cotizacion, linea.PrecioUnitario));
+            fila.Cells[5].AddParagraph(Dinero(cotizacion, linea.Importe));
         }
 
         foreach (var columna in new[] { 2, 4, 5 })
@@ -178,9 +178,9 @@ public static class GeneradorPdfCotizaciones
 
         var nota = cotizacion.ModoIgv switch
         {
-            ModoIgv.Incluido => "Los precios unitarios incluyen IGV.",
-            ModoIgv.Adicional => "Los precios unitarios no incluyen IGV.",
-            _ => "Operación no afecta al IGV.",
+            ModoIgv.Incluido => $"Los precios unitarios incluyen {cotizacion.NombreImpuesto}.",
+            ModoIgv.Adicional => $"Los precios unitarios no incluyen {cotizacion.NombreImpuesto}.",
+            _ => $"Operación no afecta al {cotizacion.NombreImpuesto}.",
         };
         var parrafo = seccion.AddParagraph(nota);
         parrafo.Format.Font.Size = 7.5;
@@ -200,25 +200,25 @@ public static class GeneradorPdfCotizaciones
 
         if (cotizacion.ModoIgv != ModoIgv.NoAplica)
         {
-            AgregarFilaTotal(tabla, "Subtotal", totales.Subtotal, destacada: false);
-            AgregarFilaTotal(tabla, "IGV (18 %)", totales.Igv, destacada: false);
+            AgregarFilaTotal(tabla, "Subtotal", totales.Subtotal, cotizacion, destacada: false);
+            AgregarFilaTotal(tabla, $"{cotizacion.NombreImpuesto} ({cotizacion.TasaImpuesto * 100:0.##} %)", totales.Igv, cotizacion, destacada: false);
         }
 
-        AgregarFilaTotal(tabla, "TOTAL", totales.Total, destacada: true);
+        AgregarFilaTotal(tabla, "TOTAL", totales.Total, cotizacion, destacada: true);
 
         var letras = seccion.AddParagraph();
         letras.Format.SpaceBefore = Unit.FromCentimeter(0.4);
         letras.AddFormattedText("SON: ", TextFormat.Bold);
-        letras.AddText(MontoEnLetras.Soles(totales.Total));
+        letras.AddText(MontoEnLetras.Monto(totales.Total, cotizacion.Moneda));
     }
 
-    private static void AgregarFilaTotal(Table tabla, string concepto, decimal monto, bool destacada)
+    private static void AgregarFilaTotal(Table tabla, string concepto, decimal monto, Cotizacion cotizacion, bool destacada)
     {
         var fila = tabla.AddRow();
         fila.TopPadding = Unit.FromCentimeter(0.1);
         fila.BottomPadding = Unit.FromCentimeter(0.1);
         fila.Cells[0].AddParagraph(concepto);
-        fila.Cells[1].AddParagraph(FormatoPeru.Soles(monto));
+        fila.Cells[1].AddParagraph(Dinero(cotizacion, monto));
 
         if (destacada)
         {
@@ -252,6 +252,9 @@ public static class GeneradorPdfCotizaciones
             texto.AddText(lineas[i]);
         }
     }
+
+    private static string Dinero(Cotizacion cotizacion, decimal monto) =>
+        VortexApi.Suite.Money.Currencies.Get(cotizacion.Moneda).Format(monto, FormatoPeru.Cultura);
 
     private static void AgregarSiHay(Cell celda, string? texto)
     {

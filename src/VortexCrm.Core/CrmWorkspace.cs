@@ -21,6 +21,7 @@ public sealed class CrmWorkspace
         Cotizaciones = new ServicioCotizaciones(db, context, clock);
         Tareas = new ServicioTareas(db, context, clock, recordatorios);
         Clientes = new ServicioClientes(db, context, clock, Contactos, Oportunidades, Cotizaciones, Tareas);
+        Audit = new AuditService(db, context, clock);
         SyncStore = new SqliteSyncStore(db);
         SyncHandlers = new CrmSyncHandlers(db, Master, clock);
         SyncHandlers.TasksChanged += () => _ = Tareas.ReprogramarAvisosAsync();
@@ -33,6 +34,7 @@ public sealed class CrmWorkspace
     public ServicioCotizaciones Cotizaciones { get; }
     public ServicioTareas Tareas { get; }
     public ServicioClientes Clientes { get; }
+    public AuditService Audit { get; }
     public SqliteSyncStore SyncStore { get; }
     public CrmSyncHandlers SyncHandlers { get; }
 

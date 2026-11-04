@@ -16,6 +16,12 @@ public interface ICrmContext
 
     /// <summary>Sede que emite las cotizaciones de este equipo (puede ser null: domicilio fiscal).</summary>
     Guid? DefaultSiteId { get; }
+
+    /// <summary>Rol efectivo del usuario en el CRM (<see cref="CrmPermissions"/>).</summary>
+    string Role { get; }
+
+    /// <summary>Si el usuario puede hacer la acción (<see cref="CrmPermissions"/>).</summary>
+    bool Can(string permission);
 }
 
 /// <summary>Dato inválido o regla de negocio incumplida: se muestra tal cual al usuario.</summary>
@@ -33,26 +39,34 @@ public sealed record ItemRow(
     decimal Price, string CurrencyCode, string? TaxCode, bool TrackInventory, bool IsActive, int Version, bool Pending,
     decimal? OnHand)
 {
-    /// <summary>Con <c>taxCode = "igv"</c> el precio de lista incluye el IGV.</summary>
-    public bool Taxable => string.Equals(TaxCode, "igv", StringComparison.OrdinalIgnoreCase);
-
     /// <summary>Línea de cotización con los datos del artículo copiados (no cambia si luego se edita el artículo).</summary>
-    public LineaCotizacion CrearLinea(ModoIgv modo, decimal cantidad = 1) => new()
+    public LineaCotizacion CrearLinea(Cotizacion cotizacion, decimal cantidad = 1) => new()
     {
         ItemId = Id,
         Descripcion = string.IsNullOrWhiteSpace(Description) ? Name : Description,
         Unidad = Unit.ToUpperInvariant(),
         Cantidad = cantidad,
-        PrecioUnitario = PrecioPara(modo),
+        PrecioUnitario = PrecioPara(cotizacion),
     };
 
     /// <summary>
-    /// El precio de lista (con IGV si está gravado) expresado como lo espera una cotización con ese modo: sin IGV se
-    /// le quita el 18 %; en Nuevo RUS, el precio es el que es.
+    /// El precio de lista (con el impuesto del país incluido, salvo en EE. UU.) expresado como lo espera la cotización:
+    /// "más impuesto" lo quita y "con impuesto" lo agrega si la lista no lo trae. Si el artículo no paga impuesto, el precio
+    /// es el que es.
     /// </summary>
-    public decimal PrecioPara(ModoIgv modo) => modo == ModoIgv.Adicional && Taxable
-        ? Math.Round(Price / (1 + Impuestos.TasaIgv), 2, MidpointRounding.AwayFromZero)
-        : Price;
+    public decimal PrecioPara(Cotizacion cotizacion)
+    {
+        var regimen = cotizacion.Regimen;
+        var tasa = regimen.RateOf(TaxCode);
+        var decimales = VortexApi.Suite.Money.Currencies.Get(cotizacion.Moneda).Decimals;
+        var precio = cotizacion.ModoIgv switch
+        {
+            ModoIgv.Adicional when regimen.PricesIncludeTax => Price / (1 + tasa),
+            ModoIgv.Incluido when !regimen.PricesIncludeTax => Price * (1 + tasa),
+            _ => Price,
+        };
+        return Math.Round(precio, Math.Max(2, decimales), MidpointRounding.AwayFromZero);
+    }
 }
 
 public sealed record SiteRow(
@@ -74,7 +88,7 @@ public sealed record PartyRow(
 
 public sealed record CompanyInfo(
     string LegalName, string? TradeName, string? TaxId, string CountryCode, string CurrencyCode, string? Email = null,
-    string? Phone = null, string? AddressLine = null, string? City = null)
+    string? Phone = null, string? AddressLine = null, string? City = null, decimal? DefaultTaxRate = null, string? TimeZone = null)
 {
     public string DisplayName => string.IsNullOrWhiteSpace(TradeName) ? LegalName : TradeName;
 }
@@ -99,7 +113,7 @@ public sealed record OportunidadVista(Oportunidad Oportunidad, string? Cliente, 
 
 public sealed record CotizacionVista(
     Guid Id, string Codigo, Guid? ClienteId, string? Cliente, EstadoCotizacion Estado, DateOnly FechaEmision, DateOnly ValidaHasta,
-    decimal Total, Guid? OportunidadId, Guid? PedidoId, DateTimeOffset CreadoEn)
+    decimal Total, Guid? OportunidadId, Guid? PedidoId, DateTimeOffset CreadoEn, string Moneda = "PEN")
 {
     public bool Vencida(DateOnly hoy) => Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada && ValidaHasta < hoy;
 }
@@ -128,6 +142,9 @@ public sealed record Ajustes(ModoIgv ModoIgvPredeterminado, string? CondicionesP
 public sealed record FichaCliente(
     PartyRow Cliente, IReadOnlyList<Contacto> Contactos, IReadOnlyList<OportunidadVista> Oportunidades,
     IReadOnlyList<CotizacionVista> Cotizaciones, IReadOnlyList<TareaVista> Tareas, IReadOnlyList<ActividadRow> Actividad);
+
+public sealed record AuditRow(
+    Guid Id, DateTimeOffset At, string? UserName, string? Device, string Action, string Entity, string? Reference, string? Detail);
 
 public sealed record PanelCrm(
     ResumenPipeline Pipeline, IReadOnlyList<VentaMes> VentasPorMes, decimal GanadoEsteMes, int TareasParaHoy, int TareasVencidas,

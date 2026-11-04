@@ -23,6 +23,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         Guid? clienteId = null, Guid? oportunidadId = null, CancellationToken ct = default)
     {
         await using var c = await Db.OpenAsync(ct);
+        var (regimen, _) = await FiscalAsync(c, null);
         return await c.QueryAsync("""
             SELECT q.*, p.name AS cliente,
                    (SELECT COALESCE(SUM(ROUND(l.cantidad * l.precio_unitario, 2)), 0) FROM cotizacion_lineas l WHERE l.cotizacion_id = q.id) AS suma
@@ -35,11 +36,14 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             {
                 var modo = Enum.Parse<ModoIgv>(r.Str("modo_igv"));
                 var suma = r.Dec("suma");
-                var total = modo == ModoIgv.Adicional ? suma + Math.Round(suma * Impuestos.TasaIgv, 2, MidpointRounding.AwayFromZero) : suma;
+                var decimales = VortexApi.Suite.Money.Currencies.Get(r.Str("moneda")).Decimals;
+                var total = modo == ModoIgv.Adicional
+                    ? suma + Math.Round(suma * regimen.StandardRate, decimales, MidpointRounding.AwayFromZero)
+                    : suma;
                 return new CotizacionVista(r.Guid("id"), r.StrOrNull("numero") ?? "Nueva", r.GuidOrNull("cliente_id"), r.StrOrNull("cliente"),
                     Enum.Parse<EstadoCotizacion>(r.Str("estado")), DateOnly.Parse(r.Str("fecha_emision"), System.Globalization.CultureInfo.InvariantCulture),
                     DateOnly.Parse(r.Str("valida_hasta"), System.Globalization.CultureInfo.InvariantCulture), total, r.GuidOrNull("oportunidad_id"),
-                    r.GuidOrNull("pedido_id"), r.Time("creado_en"));
+                    r.GuidOrNull("pedido_id"), r.Time("creado_en"), r.Str("moneda"));
             }, null, ("$estado", estado?.ToString()), ("$cliente", clienteId), ("$oportunidad", oportunidadId), ("$q", Clean(busqueda)),
             ("$like", Like(busqueda)));
     }
@@ -55,12 +59,14 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     {
         await using var c = await Db.OpenAsync(ct);
         var ajustes = await ServicioClientes.AjustesAsync(c);
+        var (regimen, moneda) = await FiscalAsync(c, null);
         var hoy = FormatoPeru.Hoy(Clock);
         var cotizacion = new Cotizacion
         {
             ClienteId = clienteId, OportunidadId = oportunidadId, SedeId = DefaultSite, ModoIgv = ajustes.ModoIgvPredeterminado,
             Condiciones = ajustes.CondicionesPredeterminadas, FechaEmision = hoy, ValidaHasta = hoy.AddDays(Cotizacion.DiasDeValidezPredeterminados),
-            CreadoEn = Clock.GetUtcNow(),
+            CreadoEn = Clock.GetUtcNow(), Moneda = moneda, Regimen = regimen, ResponsableId = Context.UserId,
+            ResponsableNombre = Context.UserName,
         };
         if (oportunidadId is { } op && await ServicioOportunidades.ObtenerAsync(c, null, op) is { } oportunidad)
         {
@@ -74,6 +80,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     /// <summary>Guarda la cotización (borrador o enviada). La primera vez recibe su número.</summary>
     public Task<string> GuardarAsync(Cotizacion cotizacion, CancellationToken ct = default)
     {
+        RequirePermission(CrmPermissions.Sell);
         cotizacion.Lineas.RemoveAll(l => l.EstaVacia);
         var errores = cotizacion.Validar();
         Require(errores.Count == 0, string.Join(" ", errores));
@@ -82,6 +89,10 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             var guardada = await ObtenerAsync(c, tx, cotizacion.Id);
             Require(guardada is null || guardada.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada,
                 "La cotización ya fue aceptada o rechazada: crea una nueva.");
+            if (guardada is not null)
+                RequireOwner(guardada.ResponsableId, guardada.ResponsableNombre);
+            cotizacion.ResponsableId ??= Context.UserId;
+            cotizacion.ResponsableNombre ??= Context.UserName;
             cotizacion.Numero ??= guardada?.Numero ?? await DocumentNumbers.NextAsync(c, tx, DocumentNumbers.Cotizacion, Context.DeviceTag);
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
             return cotizacion.Codigo;
@@ -92,11 +103,14 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     /// Cambia el estado y avanza la oportunidad vinculada (enviada → Cotizado, aceptada → Ganado). Al aceptarse publica
     /// <c>quote.accepted</c> con las líneas del catálogo, para que el ERP la convierta en pedido.
     /// </summary>
-    public Task CambiarEstadoAsync(Guid id, EstadoCotizacion estado, CancellationToken ct = default) =>
-        InTransactionAsync(async (c, tx, now) =>
+    public Task CambiarEstadoAsync(Guid id, EstadoCotizacion estado, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.Sell);
+        return InTransactionAsync(async (c, tx, now) =>
         {
             var cotizacion = await ObtenerAsync(c, tx, id);
             Require(cotizacion is not null, "Guarda la cotización antes de cambiar su estado.");
+            RequireOwner(cotizacion!.ResponsableId, cotizacion.ResponsableNombre);
             Require(cotizacion!.Estado != estado, "La cotización ya está en ese estado.");
             Require(cotizacion.PedidoId is null, "La cotización ya tiene pedido: no puede cambiar de estado.");
 
@@ -106,23 +120,28 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
             if (cambioOportunidad)
                 await ServicioOportunidades.GuardarAsync(c, tx, now, oportunidad!, etapaAnterior);
+            await AuditAsync(c, tx, now, "quote." + estado.ToString().ToLowerInvariant(), "quote", id, cotizacion.Numero,
+                $"Total {cotizacion.Totales.Total:0.##} {cotizacion.Moneda}");
 
             if (estado == EstadoCotizacion.Aceptada && cotizacion.ClienteId is { } cliente)
             {
-                var moneda = await MonedaAsync(c, tx);
                 await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.QuoteAccepted,
-                    new QuoteAccepted(cotizacion.Id, cotizacion.Numero, cliente, LineasDelCatalogo(cotizacion), cotizacion.Totales.Total, moneda),
+                    new QuoteAccepted(cotizacion.Id, cotizacion.Numero, cliente, LineasDelCatalogo(cotizacion), cotizacion.Totales.Total, cotizacion.Moneda),
                     subjectType: "quote", subjectId: cotizacion.Numero, id: DeterministicId.From("quote_accepted", cotizacion.Id));
             }
             return 0;
         }, ct);
+    }
 
     /// <summary>Genera el pedido de una cotización aceptada: el WMS lo prepara y el ERP lo factura.</summary>
-    public Task<string> GenerarPedidoAsync(Guid id, CancellationToken ct = default) =>
-        InTransactionAsync(async (c, tx, now) =>
+    public Task<string> GenerarPedidoAsync(Guid id, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.Sell);
+        return InTransactionAsync(async (c, tx, now) =>
         {
             var cotizacion = await ObtenerAsync(c, tx, id);
             Require(cotizacion is not null, "La cotización no existe.");
+            RequireOwner(cotizacion!.ResponsableId, cotizacion.ResponsableNombre);
             Require(cotizacion!.Estado == EstadoCotizacion.Aceptada, "Solo se genera el pedido de una cotización aceptada.");
             Require(cotizacion.PedidoId is null, "La cotización ya tiene pedido.");
             Require(cotizacion.Lineas.All(l => l.ItemId is not null),
@@ -132,19 +151,24 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             var numero = "PED-" + cotizacion.Codigo.Replace("COT-", "", StringComparison.Ordinal);
             await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.OrderCreated,
                 new OrderCreated(pedidoId, numero, cotizacion.ClienteId!.Value, cotizacion.SedeId, LineasDelCatalogo(cotizacion),
-                    cotizacion.Totales.Total, await MonedaAsync(c, tx), cotizacion.Id),
+                    cotizacion.Totales.Total, cotizacion.Moneda, cotizacion.Id),
                 subjectType: "order", subjectId: numero, id: pedidoId);
             cotizacion.PedidoId = pedidoId;
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
+            await AuditAsync(c, tx, now, "quote.order_created", "quote", id, cotizacion.Numero, numero);
             return numero;
         }, ct);
+    }
 
     public Task EliminarAsync(Guid id, CancellationToken ct = default) =>
         InTransactionAsync(async (c, tx, now) =>
         {
             var cotizacion = await ObtenerAsync(c, tx, id);
             Require(cotizacion is null || cotizacion.Estado == EstadoCotizacion.Borrador, "Solo se elimina una cotización en borrador.");
+            if (cotizacion is not null)
+                RequireOwner(cotizacion.ResponsableId, cotizacion.ResponsableNombre);
             await Registros.EliminarAsync(c, tx, now, CrmRecordKinds.Cotizacion, id);
+            await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.Deleted, "quote", id, cotizacion?.Numero, null);
             return 0;
         }, ct);
 
@@ -180,9 +204,11 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     internal static async Task<Cotizacion?> ObtenerAsync(SqliteConnection c, SqliteTransaction? tx, Guid id)
     {
         var cotizacion = await c.FirstOrDefaultAsync("SELECT * FROM cotizaciones WHERE id = $id", Registros.LeerCotizacion, tx, ("$id", id));
-        if (cotizacion is not null)
-            cotizacion.Lineas = await c.QueryAsync("SELECT * FROM cotizacion_lineas WHERE cotizacion_id = $id ORDER BY linea",
-                Registros.LeerLinea, tx, ("$id", id));
+        if (cotizacion is null)
+            return null;
+        cotizacion.Lineas = await c.QueryAsync("SELECT * FROM cotizacion_lineas WHERE cotizacion_id = $id ORDER BY linea",
+            Registros.LeerLinea, tx, ("$id", id));
+        cotizacion.Regimen = (await FiscalAsync(c, tx)).Regimen;
         return cotizacion;
     }
 
@@ -204,20 +230,21 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     }
 
     /// <summary>
-    /// Líneas con artículo, con el precio como lo usa la suite (IGV incluido): si la cotización es "más IGV", el importe se
-    /// lleva a precio con IGV.
+    /// Líneas con artículo, con el precio como lo usa la suite (con impuesto donde los precios de lista lo incluyen, sin él en
+    /// EE. UU.): si la cotización va en el otro modo, el importe se convierte con la tasa del país.
     /// </summary>
     private static List<OrderLine> LineasDelCatalogo(Cotizacion cotizacion) => cotizacion.Lineas
         .Where(l => l.ItemId is not null && l.Cantidad > 0)
         .Select(l =>
         {
-            var importe = cotizacion.ModoIgv == ModoIgv.Adicional
-                ? Math.Round(l.Importe * (1 + Impuestos.TasaIgv), 2, MidpointRounding.AwayFromZero)
-                : l.Importe;
+            var tasa = cotizacion.TasaImpuesto;
+            var importe = (cotizacion.ModoIgv, cotizacion.Regimen.PricesIncludeTax) switch
+            {
+                (ModoIgv.Adicional, true) => Math.Round(l.Importe * (1 + tasa), 2, MidpointRounding.AwayFromZero),
+                (ModoIgv.Incluido, false) => Math.Round(l.Importe / (1 + tasa), 2, MidpointRounding.AwayFromZero),
+                _ => l.Importe,
+            };
             return new OrderLine(l.ItemId!.Value, l.Cantidad, Math.Round(importe / l.Cantidad, 4, MidpointRounding.AwayFromZero));
         })
         .ToList();
-
-    private static async Task<string> MonedaAsync(SqliteConnection c, SqliteTransaction tx) =>
-        await c.ScalarAsync<string?>("SELECT currency_code FROM company WHERE id = 1", tx) ?? "PEN";
 }

@@ -32,6 +32,7 @@ public sealed class ServicioContactos(CrmDatabase db, ICrmContext context, TimeP
 
     public Task GuardarAsync(Contacto contacto, CancellationToken ct = default)
     {
+        RequirePermission(CrmPermissions.Sell);
         var errores = contacto.Validar();
         Require(errores.Count == 0, string.Join(" ", errores));
         return InTransactionAsync(async (c, tx, now) =>
@@ -41,10 +42,15 @@ public sealed class ServicioContactos(CrmDatabase db, ICrmContext context, TimeP
         }, ct);
     }
 
-    public Task EliminarAsync(Guid id, CancellationToken ct = default) =>
-        InTransactionAsync(async (c, tx, now) =>
+    public Task EliminarAsync(Guid id, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.Delete);
+        return InTransactionAsync(async (c, tx, now) =>
         {
+            var contacto = await c.FirstOrDefaultAsync("SELECT * FROM contactos WHERE id = $id", Registros.LeerContacto, tx, ("$id", id));
             await Registros.EliminarAsync(c, tx, now, CrmRecordKinds.Contacto, id);
+            await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.Deleted, "contact", id, contacto?.NombreCompleto, null);
             return 0;
         }, ct);
+    }
 }

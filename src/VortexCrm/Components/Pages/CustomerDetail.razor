@@ -27,10 +27,10 @@
         </div>
 
         <div class="stat-strip boxed">
-            <StatTile Icon="target" Label="En curso" Value="@Fmt.Soles(f.Oportunidades.Where(o => o.Oportunidad.Etapa.EstaAbierta()).Sum(o => o.Oportunidad.Monto))" Hint="@Fmt.Count(f.Oportunidades.Count(o => o.Oportunidad.Etapa.EstaAbierta()), "oportunidad", "oportunidades")" />
-            <StatTile Icon="star" Label="Ganado" Value="@Fmt.Soles(f.Oportunidades.Where(o => o.Oportunidad.Etapa == EtapaOportunidad.Ganado).Sum(o => o.Oportunidad.Monto))" />
-            <StatTile Icon="receipt" Label="Facturado" Value="@Fmt.Soles(f.Actividad.Where(a => a.Tipo == TiposActividad.Comprobante).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
-            <StatTile Icon="wallet" Label="Pagado" Value="@Fmt.Soles(f.Actividad.Where(a => a.Tipo == TiposActividad.Cobro).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
+            <StatTile Icon="target" Label="En curso" Value="@Fmt.Amount(f.Oportunidades.Where(o => o.Oportunidad.Etapa.EstaAbierta()).Sum(o => o.Oportunidad.Monto))" Hint="@Fmt.Count(f.Oportunidades.Count(o => o.Oportunidad.Etapa.EstaAbierta()), "oportunidad", "oportunidades")" />
+            <StatTile Icon="star" Label="Ganado" Value="@Fmt.Amount(f.Oportunidades.Where(o => o.Oportunidad.Etapa == EtapaOportunidad.Ganado).Sum(o => o.Oportunidad.Monto))" />
+            <StatTile Icon="receipt" Label="Facturado" Value="@Fmt.Amount(f.Actividad.Where(a => a.Tipo == TiposActividad.Comprobante).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
+            <StatTile Icon="wallet" Label="Pagado" Value="@Fmt.Amount(f.Actividad.Where(a => a.Tipo == TiposActividad.Cobro).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
         </div>
 
         <div class="grid-2">
@@ -48,7 +48,7 @@
                             <div class="list-row" style="cursor:pointer" @onclick="() => EditarOportunidad(v.Oportunidad)">
                                 <div class="two-line" style="flex:1"><span class="t1">@v.Oportunidad.Titulo</span><span class="t2">@(v.Contacto is { Length: > 0 } k ? k : "Sin contacto")</span></div>
                                 <StatusPill Text="@text" Tone="@tone" />
-                                <strong class="end">@Fmt.Soles(v.Oportunidad.Monto)</strong>
+                                <strong class="end">@Fmt.Amount(v.Oportunidad.Monto)</strong>
                             </div>
                         }
                     </div>
@@ -67,7 +67,7 @@
                             <a class="list-row" href="@($"cotizaciones/{q.Id}")">
                                 <div class="two-line" style="flex:1"><span class="t1">@q.Codigo</span><span class="t2">@Fmt.Date(q.FechaEmision)</span></div>
                                 <StatusPill Text="@text" Tone="@tone" />
-                                <strong class="end">@Fmt.Soles(q.Total)</strong>
+                                <strong class="end">@Fmt.Money(q.Total, q.Moneda)</strong>
                             </a>
                         }
                     </div>

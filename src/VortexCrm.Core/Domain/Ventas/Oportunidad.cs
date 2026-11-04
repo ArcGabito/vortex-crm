@@ -20,6 +20,11 @@ public sealed class Oportunidad
 
     public DateOnly? FechaCierreEstimada { get; set; }
 
+    /// <summary>Vendedor responsable (usuario del hub): un vendedor solo edita las suyas.</summary>
+    public Guid? ResponsableId { get; set; }
+
+    public string? ResponsableNombre { get; set; }
+
     /// <summary>Por qué se perdió la venta. Solo aplica en la etapa Perdido.</summary>
     public string? MotivoPerdida { get; set; }
 
