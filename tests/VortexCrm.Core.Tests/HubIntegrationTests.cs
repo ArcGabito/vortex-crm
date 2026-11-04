@@ -55,7 +55,8 @@ public sealed class HubIntegrationTests : IAsyncLifetime
         Assert.True(second.Completed, second.InterruptedBy);
         Assert.Equal(0, second.Failed);
         Assert.Equal(0, second.PendingOutbox);
-        Assert.Equal(7, second.PushedEvents);         // 5 crm.record.upserted + quote.accepted + deal.won
+        // crm.record.upserted: oportunidad, cotización (guardada y aceptada) y oportunidad ganada; + quote.accepted y deal.won.
+        Assert.Equal(6, second.PushedEvents);
         Assert.Equal(1, second.PushedMasterWrites);   // cliente
     }
 }
