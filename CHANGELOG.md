@@ -26,6 +26,6 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
 ### Removed
 - Modo servidor (`Vortex.Api` con SQL Server), host web (`Vortex.Web`) y la configuración protegida con clave de
-  administrador: los reemplaza el hub. El trabajo en curso quedó en la rama `respaldo/modo-servidor`.
+  administrador: los cuatro sistemas de la suite usan solamente el hub.
 - Consulta de RUC/DNI de prueba y catálogo de ubigeos del INEI.
 - Workflow de publicación para Windows anterior.
