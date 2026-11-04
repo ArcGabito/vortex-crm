@@ -1,0 +1,109 @@
+@page "/contactos"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">Contactos</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>Contactos</h2>
+            <p>Las personas con las que tratas en cada cliente.</p>
+        </div>
+        <button class="btn btn-dark" @onclick="Nuevo"><Icon Name="plus" Size="18" />Nuevo contacto</button>
+    </div>
+
+    <div class="filters">
+        <div class="field search">
+            <label>Buscar</label>
+            <div class="input-icon">
+                <Icon Name="search" Size="16" />
+                <input class="control" placeholder="Nombre, empresa, celular o correo" value="@_busqueda" @oninput="BuscarAsync" />
+            </div>
+        </div>
+    </div>
+
+    @if (_contactos.Count == 0 && !Loading)
+    {
+        <EmptyState Icon="users" Title="No hay contactos" Text="Agrega a las personas con las que tratas en tus clientes." />
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Nombre</th><th>Cliente</th><th>Celular</th><th>Correo</th><th class="actions-col"></th></tr></thead>
+                <tbody>
+                    @foreach (var v in _contactos)
+                    {
+                        var k = v.Contacto;
+                        <tr @key="k.Id" style="cursor:pointer" @onclick="() => Editar(k)">
+                            <td><div class="cell-main"><Avatar Text="@k.NombreCompleto" Size="34" /><div class="two-line"><span class="t1">@k.NombreCompleto</span><span class="t2">@k.Cargo</span></div></div></td>
+                            <td>
+                                @if (k.ClienteId is { } cliente)
+                                {
+                                    <a href="@($"clientes/{cliente}")" @onclick:stopPropagation style="font-weight:600">@(v.Cliente ?? "—")</a>
+                                }
+                                else
+                                {
+                                    <span class="faint">Sin empresa</span>
+                                }
+                            </td>
+                            <td><span class="muted">@(k.Telefono ?? "—")</span></td>
+                            <td><span class="muted">@(k.Email ?? "—")</span></td>
+                            <td class="actions-col" @onclick:stopPropagation>
+                                @if (TelefonoPeru.ParaWhatsApp(k.Telefono) is { } numero)
+                                {
+                                    <button class="btn btn-ghost icon-btn sm" title="WhatsApp" @onclick="@(() => Launcher.Default.OpenAsync(new Uri($"https://wa.me/{numero}")))"><Icon Name="message" Size="16" /></button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (_editando is { } e)
+{
+    <ContactoModal Valor="e" Nuevo="_nuevo" OnClose="() => _editando = null" OnSaved="GuardadoAsync" />
+}
+
+@code {
+    private IReadOnlyList<ContactoVista> _contactos = [];
+    private string _busqueda = "";
+    private CancellationTokenSource? _debounce;
+    private Contacto? _editando;
+    private bool _nuevo;
+
+    protected override async Task LoadAsync() => _contactos = await Crm.Contactos.ListarAsync(_busqueda);
+
+    private async Task BuscarAsync(ChangeEventArgs e)
+    {
+        _busqueda = e.Value?.ToString() ?? "";
+        _debounce?.Cancel();
+        _debounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(220, _debounce.Token);
+            await ReloadAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private void Nuevo() { _nuevo = true; _editando = new Contacto { CreadoEn = DateTimeOffset.UtcNow }; }
+    private void Editar(Contacto k) { _nuevo = false; _editando = k.Clonar(); }
+
+    private async Task GuardadoAsync()
+    {
+        _editando = null;
+        await ReloadAsync();
+    }
+
+    public override void Dispose()
+    {
+        _debounce?.Cancel();
+        base.Dispose();
+    }
+}

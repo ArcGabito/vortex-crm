@@ -1,0 +1,90 @@
+@page "/cotizaciones"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">Cotizaciones</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>Cotizaciones</h2>
+            <p>Con IGV, en PDF o por WhatsApp. Al aceptarse, el ERP las convierte en pedido y el WMS las despacha.</p>
+        </div>
+        <a class="btn btn-dark" href="cotizaciones/nueva"><Icon Name="plus" Size="18" />Nueva cotización</a>
+    </div>
+
+    <div class="filters">
+        <div class="field search">
+            <label>Buscar</label>
+            <div class="input-icon">
+                <Icon Name="search" Size="16" />
+                <input class="control" placeholder="Número, cliente o RUC" value="@_busqueda" @oninput="BuscarAsync" />
+            </div>
+        </div>
+        <div class="field" style="width:auto">
+            <label>Estado</label>
+            <div class="segmented">
+                <button class="@(_estado is null ? "on" : "")" @onclick="async () => { _estado = null; await ReloadAsync(); }">Todas</button>
+                @foreach (var e in EstadosCotizacion.Todos)
+                {
+                    <button class="@(_estado == e ? "on" : "")" @onclick="async () => { _estado = e; await ReloadAsync(); }">@StatusPill.ForEstado(e).Text</button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (_cotizaciones.Count == 0 && !Loading)
+    {
+        <EmptyState Icon="file" Title="No hay cotizaciones" Text="Crea una desde aquí o desde una oportunidad del pipeline." />
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Cotización</th><th>Cliente</th><th>Válida hasta</th><th class="num">Total</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @foreach (var q in _cotizaciones)
+                    {
+                        var (text, tone) = StatusPill.ForCotizacion(q, Fmt.Today);
+                        <tr @key="q.Id" style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"cotizaciones/{q.Id}"))">
+                            <td><div class="two-line"><span class="t1">@q.Codigo</span><span class="t2">@Fmt.Date(q.FechaEmision)</span></div></td>
+                            <td><span style="font-weight:600">@(q.Cliente ?? "—")</span></td>
+                            <td><span class="@(q.Vencida(Fmt.Today) ? "warn-text" : "muted")">@Fmt.Date(q.ValidaHasta)</span></td>
+                            <td class="num strong">@Fmt.Soles(q.Total)</td>
+                            <td><StatusPill Text="@text" Tone="@tone" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<CotizacionVista> _cotizaciones = [];
+    private EstadoCotizacion? _estado;
+    private string _busqueda = "";
+    private CancellationTokenSource? _debounce;
+
+    protected override async Task LoadAsync() => _cotizaciones = await Crm.Cotizaciones.ListarAsync(_busqueda, _estado);
+
+    private async Task BuscarAsync(ChangeEventArgs e)
+    {
+        _busqueda = e.Value?.ToString() ?? "";
+        _debounce?.Cancel();
+        _debounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(220, _debounce.Token);
+            await ReloadAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    public override void Dispose()
+    {
+        _debounce?.Cancel();
+        base.Dispose();
+    }
+}

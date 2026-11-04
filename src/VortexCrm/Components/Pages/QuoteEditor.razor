@@ -1,0 +1,317 @@
+@page "/cotizaciones/nueva"
+@page "/cotizaciones/{Id:guid}"
+@inherits CrmPage
+@inject FileExporter Exporter
+
+<SectionContent SectionName="page-title">Cotización</SectionContent>
+
+@if (_cotizacion is { } q)
+{
+    var editable = q.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada;
+    var totales = q.Totales;
+    <div class="page">
+        <div class="page-head">
+            <div>
+                <h2>Cotización @q.Codigo</h2>
+                <p>
+                    @{ var (text, tone) = StatusPill.ForEstado(q.Estado); }
+                    <StatusPill Text="@text" Tone="@tone" />
+                    @if (q.PedidoId is not null)
+                    {
+                        <StatusPill Text="Pedido generado" Tone="good" />
+                    }
+                </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                @if (Id is not null)
+                {
+                    <button class="btn btn-outline" @onclick="WhatsAppAsync"><Icon Name="message" Size="18" />WhatsApp</button>
+                    <button class="btn btn-outline" @onclick="PdfAsync"><Icon Name="download" Size="18" />PDF</button>
+                }
+                @if (editable)
+                {
+                    <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync"><Icon Name="check" Size="18" />Guardar</button>
+                }
+            </div>
+        </div>
+
+        @if (_error is not null)
+        {
+            <div class="alert error"><Icon Name="alert" Size="18" /><span>@_error</span></div>
+        }
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-head"><h3>Productos y servicios</h3></div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+                    @if (editable)
+                    {
+                        <ItemPicker Placeholder="Agrega del catálogo por nombre o código" OnSelected="AgregarArticulo" />
+                    }
+                    <div class="quote-lines">
+                        <div class="quote-line head"><span>Descripción</span><span>Cantidad</span><span>Unidad</span><span>P. unitario</span><span style="text-align:right">Importe</span><span></span></div>
+                        @foreach (var linea in q.Lineas)
+                        {
+                            <div class="quote-line" @key="linea">
+                                <input class="control" placeholder="Descripción" disabled="@(!editable)" @bind="linea.Descripcion" />
+                                <input class="control" type="number" min="0" step="any" disabled="@(!editable)" @bind="linea.Cantidad" @bind:event="oninput" />
+                                <input class="control" disabled="@(!editable)" @bind="linea.Unidad" />
+                                <input class="control" type="number" min="0" step="0.01" disabled="@(!editable)" @bind="linea.PrecioUnitario" @bind:event="oninput" />
+                                <span class="amount">@Fmt.Soles(linea.Importe)</span>
+                                @if (editable)
+                                {
+                                    <button class="btn btn-ghost icon-btn sm" @onclick="() => q.Lineas.Remove(linea)" aria-label="Quitar"><Icon Name="x" Size="16" /></button>
+                                }
+                                else
+                                {
+                                    <span></span>
+                                }
+                            </div>
+                        }
+                    </div>
+                    @if (editable)
+                    {
+                        <button class="btn btn-sm btn-ghost" style="align-self:flex-start" @onclick="() => q.Lineas.Add(new LineaCotizacion())"><Icon Name="plus" Size="16" />Línea libre</button>
+                    }
+                    <dl class="totals" style="max-width:340px;margin-left:auto;width:100%">
+                        @if (q.ModoIgv != ModoIgv.NoAplica)
+                        {
+                            <dt>Subtotal</dt><dd>@Fmt.Soles(totales.Subtotal)</dd>
+                            <dt>IGV (18 %)</dt><dd>@Fmt.Soles(totales.Igv)</dd>
+                        }
+                        <dt class="grand">Total</dt><dd class="grand">@Fmt.Soles(totales.Total)</dd>
+                    </dl>
+                    <p class="muted" style="font-size:12px;text-align:right">@MontoEnLetras.Soles(totales.Total)</p>
+                </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+                <div class="card">
+                    <div class="card-head"><h3>Datos</h3></div>
+                    <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+                        <div class="field">
+                            <label>Cliente</label>
+                            <select class="select" disabled="@(!editable)" value="@q.ClienteId" @onchange="ElegirClienteAsync">
+                                <option value="">Elige un cliente</option>
+                                @foreach (var c in _clientes)
+                                {
+                                    <option value="@c.Id">@c.Label@(c.Detail is null ? "" : $" · {c.Detail}")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="field">
+                                <label>A la atención de</label>
+                                <select class="select" disabled="@(!editable)" @bind="q.ContactoId">
+                                    <option value="">Nadie en particular</option>
+                                    @foreach (var c in _contactos)
+                                    {
+                                        <option value="@c.Id">@c.Label</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Oportunidad</label>
+                                <select class="select" disabled="@(!editable)" @bind="q.OportunidadId">
+                                    <option value="">Sin oportunidad</option>
+                                    @foreach (var o in _oportunidades)
+                                    {
+                                        <option value="@o.Id">@o.Label</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="field">
+                                <label>Emisión</label>
+                                <input class="control" type="date" disabled="@(!editable)" @bind="q.FechaEmision" />
+                            </div>
+                            <div class="field">
+                                <label>Válida hasta</label>
+                                <input class="control" type="date" disabled="@(!editable)" @bind="q.ValidaHasta" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="field">
+                                <label>IGV</label>
+                                <select class="select" disabled="@(!editable)" @bind="q.ModoIgv">
+                                    @foreach (var m in Enum.GetValues<ModoIgv>())
+                                    {
+                                        <option value="@m">@m.Nombre()</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Sede que emite</label>
+                                <select class="select" disabled="@(!editable)" @bind="q.SedeId">
+                                    <option value="">Domicilio fiscal</option>
+                                    @foreach (var s in _sedes)
+                                    {
+                                        <option value="@s.Id">@s.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Condiciones</label>
+                            <textarea class="control" rows="3" disabled="@(!editable)" placeholder="Forma de pago, tiempo de entrega, garantía…" @bind="q.Condiciones"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                @if (Id is not null)
+                {
+                    <div class="card">
+                        <div class="card-head"><h3>Siguiente paso</h3></div>
+                        <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+                            @switch (q.Estado)
+                            {
+                                case EstadoCotizacion.Borrador:
+                                    <button class="btn btn-block" @onclick="() => CambiarAsync(EstadoCotizacion.Enviada)"><Icon Name="send" Size="18" />Marcar como enviada</button>
+                                    <button class="btn btn-block btn-ghost" @onclick="EliminarAsync"><Icon Name="trash" Size="18" />Eliminar borrador</button>
+                                    break;
+                                case EstadoCotizacion.Enviada:
+                                    <button class="btn btn-block btn-dark" @onclick="() => CambiarAsync(EstadoCotizacion.Aceptada)"><Icon Name="check" Size="18" />El cliente aceptó</button>
+                                    <button class="btn btn-block btn-danger" @onclick="() => CambiarAsync(EstadoCotizacion.Rechazada)"><Icon Name="x" Size="18" />El cliente rechazó</button>
+                                    break;
+                                case EstadoCotizacion.Aceptada when q.PedidoId is null:
+                                    <p class="muted" style="font-size:13px">El ERP ya la ve como cotización por convertir. También puedes generar el pedido desde aquí: el WMS lo prepara y el ERP lo factura.</p>
+                                    <button class="btn btn-block btn-dark" @onclick="PedidoAsync"><Icon Name="truck" Size="18" />Generar pedido</button>
+                                    break;
+                                case EstadoCotizacion.Aceptada:
+                                    <p class="muted" style="font-size:13px">Pedido generado. Su avance (despacho, comprobante y cobro) aparece en la ficha del cliente.</p>
+                                    break;
+                                default:
+                                    <p class="muted" style="font-size:13px">Cotización rechazada. Puedes crear una nueva para el mismo cliente.</p>
+                                    break;
+                            }
+                            @if (q.ClienteId is { } cliente)
+                            {
+                                <a class="btn btn-block btn-ghost" href="@($"clientes/{cliente}")"><Icon Name="briefcase" Size="18" />Ver ficha del cliente</a>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "cliente")] public Guid? ClienteQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "oportunidad")] public Guid? OportunidadQuery { get; set; }
+
+    private Cotizacion? _cotizacion;
+    private IReadOnlyList<Option> _clientes = [], _contactos = [], _oportunidades = [];
+    private IReadOnlyList<SiteRow> _sedes = [];
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task LoadAsync()
+    {
+        // Mientras se edita no se pisa lo escrito con lo que llegue de la sincronización.
+        if (_cotizacion is null || (Id is { } id && _cotizacion.Id == id && _cotizacion.Estado is not (EstadoCotizacion.Borrador or EstadoCotizacion.Enviada)))
+        {
+            _cotizacion = Id is { } existente
+                ? await Crm.Cotizaciones.ObtenerAsync(existente)
+                : await Crm.Cotizaciones.NuevaAsync(ClienteQuery, OportunidadQuery);
+            if (_cotizacion is null)
+            {
+                Nav.NavigateTo("cotizaciones", replace: true);
+                return;
+            }
+        }
+        _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
+        _sedes = await Crm.Master.GetSitesAsync(activeOnly: true);
+        await CargarRelacionadosAsync();
+    }
+
+    private async Task CargarRelacionadosAsync()
+    {
+        var cliente = _cotizacion?.ClienteId;
+        _contactos = cliente is null ? [] : await Crm.Contactos.OpcionesAsync(cliente);
+        _oportunidades = cliente is null ? [] : await Crm.Oportunidades.OpcionesAsync(cliente);
+    }
+
+    private async Task ElegirClienteAsync(ChangeEventArgs e)
+    {
+        _cotizacion!.ClienteId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+        _cotizacion.ContactoId = null;
+        _cotizacion.OportunidadId = null;
+        await CargarRelacionadosAsync();
+    }
+
+    private void AgregarArticulo(ItemRow item) => _cotizacion!.AgregarLinea(item.CrearLinea(_cotizacion.ModoIgv));
+
+    private async Task<bool> GuardarAsync()
+    {
+        _busy = true;
+        string? codigo = null;
+        _error = await TryAsync(async () => codigo = await Crm.Cotizaciones.GuardarAsync(_cotizacion!));
+        _busy = false;
+        if (_error is not null)
+            return false;
+        Toasts.Success($"Cotización {codigo} guardada.");
+        if (Id is null)
+            Nav.NavigateTo($"cotizaciones/{_cotizacion!.Id}", replace: true);
+        return true;
+    }
+
+    private async Task CambiarAsync(EstadoCotizacion estado)
+    {
+        if (_cotizacion!.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada && !await GuardarAsync())
+            return;
+        _error = await TryAsync(() => Crm.Cotizaciones.CambiarEstadoAsync(_cotizacion.Id, estado), estado switch
+        {
+            EstadoCotizacion.Aceptada => "¡Cotización aceptada! El ERP ya puede convertirla en pedido.",
+            EstadoCotizacion.Enviada => "Cotización marcada como enviada.",
+            _ => "Cotización marcada como rechazada.",
+        });
+        _cotizacion = await Crm.Cotizaciones.ObtenerAsync(_cotizacion.Id);
+    }
+
+    private async Task PedidoAsync()
+    {
+        string? numero = null;
+        _error = await TryAsync(async () => numero = await Crm.Cotizaciones.GenerarPedidoAsync(_cotizacion!.Id));
+        if (_error is null)
+        {
+            Toasts.Success($"Pedido {numero} enviado a la suite.");
+            _cotizacion = await Crm.Cotizaciones.ObtenerAsync(_cotizacion!.Id);
+        }
+    }
+
+    private async Task EliminarAsync()
+    {
+        _error = await TryAsync(() => Crm.Cotizaciones.EliminarAsync(_cotizacion!.Id), "Borrador eliminado.");
+        if (_error is null)
+            Nav.NavigateTo("cotizaciones", replace: true);
+    }
+
+    private async Task WhatsAppAsync()
+    {
+        if (_cotizacion!.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada && !await GuardarAsync())
+            return;
+        var (_, enlace) = await Crm.Cotizaciones.WhatsAppAsync(_cotizacion.Id);
+        if (enlace is null)
+            Toasts.Error("El cliente o el contacto no tiene un celular registrado.");
+        else
+            await Launcher.Default.OpenAsync(new Uri(enlace));
+    }
+
+    private async Task PdfAsync()
+    {
+        if (_cotizacion!.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada && !await GuardarAsync())
+            return;
+        try
+        {
+            var pdf = await Crm.Cotizaciones.GenerarPdfAsync(_cotizacion.Id);
+            await Exporter.ExportBytesAsync($"{_cotizacion.Codigo}.pdf", pdf, "application/pdf");
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

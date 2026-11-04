@@ -1,0 +1,108 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AppSession Session
+@inject NavigationManager Nav
+
+@if (Session.IsSignedIn)
+{
+    <div class="app">
+        <div class="sidebar-backdrop @(_menuOpen ? "open" : "")" @onclick="() => _menuOpen = false"></div>
+        <aside class="sidebar @(_menuOpen ? "open" : "")">
+            <div class="brand"><Logo /></div>
+            <nav class="nav" @onclick="() => _menuOpen = false">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All"><Icon Name="home" />Panel</NavLink>
+                <NavLink class="nav-link" href="pipeline"><Icon Name="layers" />Pipeline</NavLink>
+                <NavLink class="nav-link" href="cotizaciones"><Icon Name="file" />Cotizaciones</NavLink>
+                <NavLink class="nav-link" href="tareas">
+                    <Icon Name="calendar" />Tareas
+                    @if (_pendientes > 0)
+                    {
+                        <span class="count" title="Tareas para hoy y vencidas">@_pendientes</span>
+                    }
+                </NavLink>
+
+                <div class="nav-section">Clientes</div>
+                <NavLink class="nav-link" href="clientes"><Icon Name="briefcase" />Clientes</NavLink>
+                <NavLink class="nav-link" href="contactos"><Icon Name="users" />Contactos</NavLink>
+
+                <div class="nav-section">Catálogo</div>
+                <NavLink class="nav-link" href="articulos"><Icon Name="tag" />Productos y servicios</NavLink>
+                <NavLink class="nav-link" href="sedes"><Icon Name="store" />Sedes</NavLink>
+
+                <div class="nav-section">Sistema</div>
+                <NavLink class="nav-link" href="configuracion"><Icon Name="settings" />Configuración</NavLink>
+            </nav>
+
+            <div class="promo">
+                <Logo IconOnly Size="64" />
+                <h4 style="margin-top:8px">Libre y de código abierto</h4>
+                <p>Vortex CRM es AGPL-3.0. Hecho en Perú para LATAM y el mundo.</p>
+                <button class="btn btn-accent btn-sm" @onclick="OpenRepoAsync">Contribuir</button>
+            </div>
+        </aside>
+
+        <div class="main">
+            <TopBar OnMenu="() => _menuOpen = !_menuOpen" />
+            <div class="content">
+                <ErrorBoundary @ref="_boundary">
+                    @Body
+                </ErrorBoundary>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _menuOpen;
+    private int _pendientes;
+    private ErrorBoundary? _boundary;
+
+    protected override void OnInitialized()
+    {
+        Session.Changed += OnSessionChanged;
+        Session.DataChanged += OnDataChanged;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Session.IsSignedIn)
+        {
+            Nav.NavigateTo("login", replace: true);
+            return;
+        }
+        await LoadCountsAsync();
+    }
+
+    private async Task LoadCountsAsync()
+    {
+        if (Session.Workspace is not { } crm)
+            return;
+        var panel = await crm.Clientes.PanelAsync();
+        _pendientes = panel.TareasParaHoy + panel.TareasVencidas;
+    }
+
+    private void OnSessionChanged() => _ = InvokeAsync(() =>
+    {
+        if (!Session.IsSignedIn)
+            Nav.NavigateTo("login", replace: true);
+        StateHasChanged();
+    });
+
+    private void OnDataChanged() => _ = InvokeAsync(async () =>
+    {
+        await LoadCountsAsync();
+        StateHasChanged();
+    });
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => _boundary?.Recover();
+
+    private static Task OpenRepoAsync() => Launcher.Default.OpenAsync("https://github.com/ArcGabito/vortex-crm");
+
+    public void Dispose()
+    {
+        Session.Changed -= OnSessionChanged;
+        Session.DataChanged -= OnDataChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+}

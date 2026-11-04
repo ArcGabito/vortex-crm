@@ -1,0 +1,96 @@
+@inject AppSession Session
+@* Alta y edición de una persona de contacto. *@
+<Modal Title="@(Nuevo ? "Nuevo contacto" : "Editar contacto")" Subtitle="Persona con la que tratas en el cliente." Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        <div class="form-row">
+            <div class="field">
+                <label>Nombres</label>
+                <input class="control" @bind="Valor.Nombres" />
+            </div>
+            <div class="field">
+                <label>Apellidos</label>
+                <input class="control" @bind="Valor.Apellidos" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="field">
+                <label>Cliente (empresa)</label>
+                <select class="select" @bind="Valor.ClienteId">
+                    <option value="">Sin empresa</option>
+                    @foreach (var c in _clientes)
+                    {
+                        <option value="@c.Id">@c.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Cargo</label>
+                <input class="control" placeholder="Jefe de compras" @bind="Valor.Cargo" />
+            </div>
+        </div>
+        <div class="form-row three">
+            <div class="field">
+                <label>Celular</label>
+                <input class="control" type="tel" placeholder="987 654 321" @bind="Valor.Telefono" />
+            </div>
+            <div class="field">
+                <label>Correo</label>
+                <input class="control" type="email" @bind="Valor.Email" />
+            </div>
+            <div class="field">
+                <label>DNI (opcional)</label>
+                <input class="control" inputmode="numeric" maxlength="8" @bind="Valor.Dni" />
+            </div>
+        </div>
+    </ChildContent>
+    <Footer>
+        @if (!Nuevo)
+        {
+            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
+        }
+        <button class="btn" @onclick="OnClose">Cancelar</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Contacto Valor { get; set; } = null!;
+    [Parameter] public bool Nuevo { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private IReadOnlyList<Option> _clientes = [];
+    private string? _error;
+    private bool _busy;
+
+    private CrmWorkspace Crm => Session.Workspace!;
+
+    protected override async Task OnInitializedAsync() => _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
+
+    private async Task GuardarAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Crm.Contactos.GuardarAsync(Valor);
+            Session.NotifyLocalChange();
+            await OnSaved.InvokeAsync();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task EliminarAsync()
+    {
+        await Crm.Contactos.EliminarAsync(Valor.Id);
+        Session.NotifyLocalChange();
+        await OnSaved.InvokeAsync();
+    }
+}

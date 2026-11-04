@@ -1,0 +1,134 @@
+@page "/"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">Panel</SectionContent>
+
+@if (_panel is { } p)
+{
+    <div class="stat-strip">
+        <StatTile Icon="target" Label="En curso" Value="@Fmt.MoneyCompact(p.Pipeline.MontoEnCurso, "PEN")" Hint="@Fmt.Count(p.Pipeline.CantidadEnCurso, "oportunidad", "oportunidades")" />
+        <StatTile Icon="star" Label="Ganado este mes" Value="@Fmt.MoneyCompact(p.GanadoEsteMes, "PEN")" Hint="@(p.Pipeline.TasaDeCierre is { } t ? $"cierras el {t:P0}" : null)" />
+        <StatTile Icon="file" Label="Cotizaciones abiertas" Value="@Fmt.Compact(p.CotizacionesAbiertas)" Hint="@Fmt.MoneyCompact(p.MontoCotizado, "PEN")" />
+        <StatTile Icon="calendar" Label="Para hoy" Value="@Fmt.Compact(p.TareasParaHoy)" Hint="@(p.TareasVencidas > 0 ? $"{p.TareasVencidas} vencidas" : "nada vencido")" />
+    </div>
+}
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>Hola, @FirstName</h2>
+            <p>@Session.Session?.Access.OrganizationName · Así van tus ventas.</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn btn-outline" href="pipeline?nueva=1"><Icon Name="target" Size="18" />Nueva oportunidad</a>
+            <a class="btn btn-dark" href="cotizaciones/nueva"><Icon Name="file" Size="18" />Nueva cotización</a>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Ventas ganadas</h3>
+                        <div class="sub">Oportunidades ganadas en los últimos 6 meses</div>
+                    </div>
+                    <a class="btn btn-sm" href="pipeline">Ver pipeline</a>
+                </div>
+                <div class="card-body">
+                    @if (_panel is { } ventas && ventas.VentasPorMes.Any(m => m.Monto > 0))
+                    {
+                        var max = ventas.VentasPorMes.Max(m => m.Monto);
+                        <div class="chart-bars" role="img" aria-label="Ventas ganadas por mes">
+                            @foreach (var m in ventas.VentasPorMes)
+                            {
+                                <div class="col" title="@($"{Fmt.Soles(m.Monto)} en {Fmt.Count(m.Cantidad, "venta", "ventas")}")">
+                                    <span class="value">@Fmt.Compact(m.Monto)</span>
+                                    <div class="stack" style="height:@(max == 0 ? 0 : (int)(m.Monto / max * 100))%"><span class="pos" style="flex:1"></span></div>
+                                    <span class="label">@m.Mes.ToString("MMM", Fmt.Culture)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <EmptyState Icon="star" Title="Aún no hay ventas ganadas" Text="Cuando ganes oportunidades verás aquí cómo evolucionan." />
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Actividad de tus clientes</h3>
+                        <div class="sub">Lo último que informaron el POS, el ERP y el WMS</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (_actividad.Count == 0)
+                    {
+                        <div class="list-row"><span class="muted">Sin actividad todavía.</span></div>
+                    }
+                    <div class="timeline">
+                        @foreach (var a in _actividad)
+                        {
+                            <a class="ev" href="@($"clientes/{a.ClienteId}")" @key="a.Id">
+                                <div class="stat-icon"><Icon Name="@Fmt.Activity(a.Tipo)" Size="16" /></div>
+                                <div class="two-line" style="flex:1"><span class="t1">@a.Titulo</span><span class="t2">@(_nombres.GetValueOrDefault(a.ClienteId) ?? "Cliente") · @Fmt.Ago(a.OcurridoEn)</span></div>
+                                @if (a.Monto is { } monto)
+                                {
+                                    <strong>@Fmt.Money(monto, a.Moneda ?? "PEN")</strong>
+                                }
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Para hoy</h3>
+                    <div class="sub">Tus tareas de hoy y las atrasadas</div>
+                </div>
+                <a class="btn btn-sm" href="tareas">Ver agenda</a>
+            </div>
+            <div class="card-body">
+                @if (_hoy.Count == 0)
+                {
+                    <EmptyState Icon="package-check" Title="Todo al día" Text="No tienes tareas para hoy." />
+                }
+                @foreach (var v in _hoy)
+                {
+                    var t = v.Tarea;
+                    <div class="task" @key="t.Id">
+                        <input type="checkbox" @onchange="() => CompletarAsync(t)" aria-label="Hecha" />
+                        <div class="two-line" style="flex:1"><span class="t1">@t.Titulo</span><span class="t2">@t.Tipo.Nombre()@(v.Cliente is null ? "" : $" · {v.Cliente}")</span></div>
+                        <span class="when @(t.EstaVencida(Fmt.Today) ? "warn-text" : "muted")">@Fmt.Relative(t.Fecha)@(t.Hora is { } h ? $" · {FormatoPeru.Hora(h)}" : "")</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private PanelCrm? _panel;
+    private IReadOnlyList<TareaVista> _hoy = [];
+    private IReadOnlyList<ActividadRow> _actividad = [];
+    private Dictionary<Guid, string> _nombres = [];
+
+    private string FirstName => Session.UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+
+    protected override async Task LoadAsync()
+    {
+        _panel = await Crm.Clientes.PanelAsync();
+        var hoy = Fmt.Today;
+        _hoy = (await Crm.Tareas.ListarAsync(soloMias: true)).Where(t => !t.Tarea.Completada && t.Tarea.Fecha <= hoy).ToList();
+        _actividad = await Crm.Clientes.ActividadAsync(null, 8);
+        _nombres = (await Crm.Master.GetPartyOptionsAsync(suppliers: false)).ToDictionary(o => o.Id, o => o.Label);
+    }
+
+    private Task CompletarAsync(Tarea t) => RunAsync(() => Crm.Tareas.CompletarAsync(t.Id), "¡Tarea hecha!");
+}

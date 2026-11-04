@@ -1,0 +1,173 @@
+@page "/pipeline"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">Pipeline</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>Pipeline de ventas</h2>
+            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, "oportunidad", "oportunidades")} en curso por {Fmt.Soles(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? $" · cierras el {tasa:P0}" : "")</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="input-icon" style="width:220px">
+                <Icon Name="search" Size="16" />
+                <input class="control" placeholder="Buscar oportunidad o cliente" value="@_busqueda" @oninput="BuscarAsync" />
+            </div>
+            <button class="btn btn-dark" @onclick="Nueva"><Icon Name="plus" Size="18" />Nueva oportunidad</button>
+        </div>
+    </div>
+
+    <div class="board">
+        @foreach (var etapa in Etapas.Todas)
+        {
+            var columna = _oportunidades.Where(o => o.Oportunidad.Etapa == etapa).ToList();
+            var (_, tone) = StatusPill.ForEtapa(etapa);
+            <section class="board-col" @key="etapa">
+                <header>
+                    <span class="pill @tone">@etapa.Nombre()</span>
+                    <span class="muted">@columna.Count · @Fmt.Soles(columna.Sum(o => o.Oportunidad.Monto))</span>
+                </header>
+                @foreach (var v in columna)
+                {
+                    var o = v.Oportunidad;
+                    <article class="deal @(o.EstaVencida(Fmt.Today) ? "late" : "")" @key="o.Id" @onclick="() => Editar(o)">
+                        <strong>@o.Titulo</strong>
+                        <span class="muted">@(v.Cliente ?? "Sin cliente")@(v.Contacto is { Length: > 0 } k ? $" · {k}" : "")</span>
+                        <div class="deal-foot">
+                            <b>@Fmt.Soles(o.Monto)</b>
+                            @if (o.FechaCierreEstimada is { } cierre && etapa.EstaAbierta())
+                            {
+                                <span class="@(o.EstaVencida(Fmt.Today) ? "warn-text" : "muted")" title="Cierre estimado"><Icon Name="calendar" Size="13" /> @Fmt.Relative(cierre)</span>
+                            }
+                        </div>
+                        <div class="deal-actions" @onclick:stopPropagation>
+                            @if (etapa.EstaAbierta())
+                            {
+                                <a class="btn btn-sm btn-ghost" href="@($"cotizaciones/nueva?oportunidad={o.Id}")" title="Cotizar"><Icon Name="file" Size="15" /></a>
+                                <KebabMenu>
+                                    @foreach (var siguiente in Etapas.Todas.Where(e => e != etapa))
+                                    {
+                                        <button @onclick="() => MoverAsync(o, siguiente)">Mover a @siguiente.Nombre()</button>
+                                    }
+                                </KebabMenu>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-ghost" @onclick="() => MoverAsync(o, EtapaOportunidad.Negociacion)">Reabrir</button>
+                            }
+                        </div>
+                    </article>
+                }
+                @if (columna.Count == 0)
+                {
+                    <div class="board-empty">Sin oportunidades</div>
+                }
+            </section>
+        }
+    </div>
+</div>
+
+@if (_editando is { } e)
+{
+    <OportunidadModal Valor="e" Nueva="_nueva" OnClose="() => _editando = null" OnSaved="GuardadoAsync" />
+}
+
+@if (_perdiendo is { } p)
+{
+    <Modal Title="Marcar como perdida" Subtitle="@p.Titulo" Size="sm" OnClose="() => _perdiendo = null">
+        <ChildContent>
+            <div class="field">
+                <label>¿Por qué se perdió?</label>
+                <input class="control" placeholder="Precio, eligió a la competencia…" @bind="_motivo" />
+            </div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _perdiendo = null">Cancelar</button>
+            <button class="btn btn-danger" @onclick="PerderAsync">Marcar como perdida</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "nueva")] public int? NuevaQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "cliente")] public Guid? ClienteQuery { get; set; }
+
+    private IReadOnlyList<OportunidadVista> _oportunidades = [];
+    private ResumenPipeline? _resumen;
+    private string _busqueda = "";
+    private Oportunidad? _editando, _perdiendo;
+    private bool _nueva;
+    private string? _motivo;
+    private CancellationTokenSource? _debounce;
+
+    protected override async Task LoadAsync()
+    {
+        _oportunidades = await Crm.Oportunidades.ListarAsync(_busqueda);
+        _resumen = ResumenPipeline.Calcular(_oportunidades.Select(o => o.Oportunidad));
+        if (NuevaQuery == 1 && _editando is null)
+        {
+            NuevaQuery = null;
+            Nueva();
+        }
+    }
+
+    private async Task BuscarAsync(ChangeEventArgs e)
+    {
+        _busqueda = e.Value?.ToString() ?? "";
+        _debounce?.Cancel();
+        _debounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(220, _debounce.Token);
+            await ReloadAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private void Nueva()
+    {
+        _nueva = true;
+        _editando = new Oportunidad { ClienteId = ClienteQuery, CreadoEn = DateTimeOffset.UtcNow };
+    }
+
+    private void Editar(Oportunidad o)
+    {
+        _nueva = false;
+        _editando = o.Clonar();
+    }
+
+    private async Task GuardadoAsync()
+    {
+        _editando = null;
+        await ReloadAsync();
+    }
+
+    private async Task MoverAsync(Oportunidad o, EtapaOportunidad etapa)
+    {
+        if (etapa == EtapaOportunidad.Perdido)
+        {
+            _motivo = null;
+            _perdiendo = o;
+            return;
+        }
+        await RunAsync(() => Crm.Oportunidades.CambiarEtapaAsync(o.Id, etapa),
+            etapa == EtapaOportunidad.Ganado ? $"¡{o.Titulo} ganada!" : $"{o.Titulo} pasó a {etapa.Nombre()}.");
+    }
+
+    private async Task PerderAsync()
+    {
+        if (_perdiendo is not { } o)
+            return;
+        await RunAsync(() => Crm.Oportunidades.CambiarEtapaAsync(o.Id, EtapaOportunidad.Perdido, _motivo));
+        _perdiendo = null;
+    }
+
+    public override void Dispose()
+    {
+        _debounce?.Cancel();
+        base.Dispose();
+    }
+}

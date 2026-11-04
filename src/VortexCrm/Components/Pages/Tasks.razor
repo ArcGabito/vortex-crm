@@ -1,0 +1,93 @@
+@page "/tareas"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">Tareas</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>Tareas</h2>
+            <p>Llamadas, visitas y seguimientos. Los avisos suenan en los equipos del responsable.</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <div class="segmented">
+                <button class="@(_soloMias ? "on" : "")" @onclick="async () => { _soloMias = true; await ReloadAsync(); }">Mías</button>
+                <button class="@(!_soloMias ? "on" : "")" @onclick="async () => { _soloMias = false; await ReloadAsync(); }">De todo el equipo</button>
+            </div>
+            <button class="btn btn-dark" @onclick="Nueva"><Icon Name="plus" Size="18" />Nueva tarea</button>
+        </div>
+    </div>
+
+    @if (_agenda is { EstaVacia: true } && !Loading)
+    {
+        <EmptyState Icon="calendar" Title="Nada pendiente" Text="Agenda una llamada o una visita para no perder el seguimiento." />
+    }
+    else if (_agenda is { } a)
+    {
+        <div class="card">
+            <div class="card-body">
+                @Grupo("Vencidas", a.Vencidas, late: true)
+                @Grupo("Hoy", a.Hoy)
+                @Grupo("Próximas", a.Proximas)
+                @Grupo("Hechas", a.Completadas.Take(15).ToList())
+            </div>
+        </div>
+    }
+</div>
+
+@if (_editando is { } e)
+{
+    <TareaModal Valor="e" Nueva="_nueva" OnClose="() => _editando = null" OnSaved="GuardadoAsync" />
+}
+
+@code {
+    private Dictionary<Guid, TareaVista> _vistas = [];
+    private AgendaTareas? _agenda;
+    private bool _soloMias = true;
+    private Tarea? _editando;
+    private bool _nueva;
+
+    protected override async Task LoadAsync()
+    {
+        var tareas = await Crm.Tareas.ListarAsync(_soloMias);
+        _vistas = tareas.ToDictionary(t => t.Tarea.Id);
+        _agenda = AgendaTareas.Organizar(tareas.Select(t => t.Tarea), Fmt.Today);
+    }
+
+    private RenderFragment Grupo(string titulo, IReadOnlyList<Tarea> tareas, bool late = false) => __builder =>
+    {
+        if (tareas.Count == 0)
+            return;
+        <div class="agenda-group @(late ? "late" : "")">@titulo · @tareas.Count</div>
+        @foreach (var t in tareas)
+        {
+            var v = _vistas[t.Id];
+            <div class="task @(t.Completada ? "done" : "")" @key="t.Id">
+                <input type="checkbox" checked="@t.Completada" @onchange="() => AlternarAsync(t)" aria-label="Hecha" />
+                <div class="stat-icon" style="width:32px;height:32px;border-radius:10px"><Icon Name="@Fmt.TaskIcon(t.Tipo)" Size="15" /></div>
+                <div class="two-line" style="cursor:pointer;flex:1" @onclick="() => Editar(t)">
+                    <span class="t1">@t.Titulo</span>
+                    <span class="t2">@(string.Join(" · ", new[] { v.Cliente, v.Oportunidad, _soloMias ? null : t.ResponsableNombre }.Where(x => !string.IsNullOrWhiteSpace(x))))</span>
+                </div>
+                <span class="when @(t.EstaVencida(Fmt.Today) ? "warn-text" : "muted")">
+                    @Fmt.Relative(t.Fecha)@(t.Hora is { } h ? $" · {FormatoPeru.Hora(h)}" : "")
+                    @if (t.AvisarMinutosAntes is not null && !t.Completada)
+                    {
+                        <Icon Name="bell" Size="13" />
+                    }
+                </span>
+            </div>
+        }
+    };
+
+    private void Nueva() { _nueva = true; _editando = Crm.Tareas.Nueva(); }
+    private void Editar(Tarea t) { _nueva = false; _editando = t.Clonar(); }
+
+    private async Task GuardadoAsync()
+    {
+        _editando = null;
+        await ReloadAsync();
+    }
+
+    private Task AlternarAsync(Tarea t) => RunAsync(() => t.Completada ? Crm.Tareas.ReabrirAsync(t.Id) : Crm.Tareas.CompletarAsync(t.Id));
+}

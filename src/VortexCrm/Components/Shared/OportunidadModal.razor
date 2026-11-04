@@ -1,0 +1,130 @@
+@inject AppSession Session
+@* Alta y edición de una oportunidad del pipeline. *@
+<Modal Title="@(Nueva ? "Nueva oportunidad" : "Editar oportunidad")" Subtitle="Se comparte con los demás equipos del CRM." Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        <div class="field">
+            <label>Título</label>
+            <input class="control" placeholder="Uniformes para 2027" @bind="Valor.Titulo" />
+        </div>
+        <div class="form-row">
+            <div class="field">
+                <label>Cliente</label>
+                <select class="select" value="@Valor.ClienteId" @onchange="ElegirClienteAsync">
+                    <option value="">Elige un cliente</option>
+                    @foreach (var c in _clientes)
+                    {
+                        <option value="@c.Id">@c.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Contacto (opcional)</label>
+                <select class="select" @bind="Valor.ContactoId">
+                    <option value="">Sin contacto</option>
+                    @foreach (var c in _contactos)
+                    {
+                        <option value="@c.Id">@c.Label</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="form-row three">
+            <div class="field">
+                <label>Monto estimado (S/, con IGV)</label>
+                <input class="control" type="number" min="0" step="0.01" @bind="Valor.Monto" />
+            </div>
+            <div class="field">
+                <label>Etapa</label>
+                <select class="select" @bind="_etapa">
+                    @foreach (var e in Etapas.Todas)
+                    {
+                        <option value="@e">@e.Nombre()</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Cierre estimado</label>
+                <input class="control" type="date" @bind="Valor.FechaCierreEstimada" />
+            </div>
+        </div>
+        @if (_etapa == EtapaOportunidad.Perdido)
+        {
+            <div class="field">
+                <label>¿Por qué se perdió?</label>
+                <input class="control" placeholder="Precio, eligió a la competencia…" @bind="Valor.MotivoPerdida" />
+            </div>
+        }
+        <div class="field">
+            <label>Notas</label>
+            <textarea class="control" rows="3" @bind="Valor.Notas"></textarea>
+        </div>
+    </ChildContent>
+    <Footer>
+        @if (!Nueva)
+        {
+            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
+        }
+        <button class="btn" @onclick="OnClose">Cancelar</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Oportunidad Valor { get; set; } = null!;
+    [Parameter] public bool Nueva { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private IReadOnlyList<Option> _clientes = [], _contactos = [];
+    private EtapaOportunidad _etapa;
+    private string? _error;
+    private bool _busy;
+
+    private CrmWorkspace Crm => Session.Workspace!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _etapa = Valor.Etapa;
+        _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
+        await CargarContactosAsync();
+    }
+
+    private async Task ElegirClienteAsync(ChangeEventArgs e)
+    {
+        Valor.ClienteId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null;
+        Valor.ContactoId = null;
+        await CargarContactosAsync();
+    }
+
+    private async Task CargarContactosAsync() =>
+        _contactos = Valor.ClienteId is null ? [] : await Crm.Contactos.OpcionesAsync(Valor.ClienteId);
+
+    private async Task GuardarAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            if (_etapa != Valor.Etapa)
+                Valor.CambiarEtapa(_etapa, DateTimeOffset.UtcNow);
+            await Crm.Oportunidades.GuardarAsync(Valor);
+            Session.NotifyLocalChange();
+            await OnSaved.InvokeAsync();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task EliminarAsync()
+    {
+        await Crm.Oportunidades.EliminarAsync(Valor.Id);
+        Session.NotifyLocalChange();
+        await OnSaved.InvokeAsync();
+    }
+}

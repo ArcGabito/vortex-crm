@@ -1,0 +1,229 @@
+@page "/clientes/{Id:guid}"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">Cliente</SectionContent>
+
+@if (_ficha is { } f)
+{
+    var c = f.Cliente;
+    <div class="page">
+        <div class="page-head">
+            <div class="cell-main">
+                <Avatar Text="@c.Name" Size="52" Class="square" />
+                <div>
+                    <h2>@c.DisplayName</h2>
+                    <p>@(c.DocumentNumber is null ? "" : $"{c.DocumentType} {c.DocumentNumber} · ")@(c.FullAddress ?? "Sin dirección")</p>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                @if (TelefonoPeru.ParaWhatsApp(c.Phone) is not null)
+                {
+                    <button class="btn btn-outline" @onclick="() => WhatsAppAsync(c.Phone)"><Icon Name="message" Size="18" />WhatsApp</button>
+                }
+                <button class="btn btn-outline" @onclick="NuevaTarea"><Icon Name="calendar" Size="18" />Tarea</button>
+                <button class="btn btn-outline" @onclick="NuevaOportunidad"><Icon Name="target" Size="18" />Oportunidad</button>
+                <a class="btn btn-dark" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="file" Size="18" />Cotizar</a>
+            </div>
+        </div>
+
+        <div class="stat-strip boxed">
+            <StatTile Icon="target" Label="En curso" Value="@Fmt.Soles(f.Oportunidades.Where(o => o.Oportunidad.Etapa.EstaAbierta()).Sum(o => o.Oportunidad.Monto))" Hint="@Fmt.Count(f.Oportunidades.Count(o => o.Oportunidad.Etapa.EstaAbierta()), "oportunidad", "oportunidades")" />
+            <StatTile Icon="star" Label="Ganado" Value="@Fmt.Soles(f.Oportunidades.Where(o => o.Oportunidad.Etapa == EtapaOportunidad.Ganado).Sum(o => o.Oportunidad.Monto))" />
+            <StatTile Icon="receipt" Label="Facturado" Value="@Fmt.Soles(f.Actividad.Where(a => a.Tipo == TiposActividad.Comprobante).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
+            <StatTile Icon="wallet" Label="Pagado" Value="@Fmt.Soles(f.Actividad.Where(a => a.Tipo == TiposActividad.Cobro).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
+        </div>
+
+        <div class="grid-2">
+            <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+                <div class="card">
+                    <div class="card-head"><h3>Oportunidades</h3><button class="btn btn-sm" @onclick="NuevaOportunidad"><Icon Name="plus" Size="16" />Nueva</button></div>
+                    <div class="card-body">
+                        @if (f.Oportunidades.Count == 0)
+                        {
+                            <div class="list-row"><span class="muted">Sin oportunidades.</span></div>
+                        }
+                        @foreach (var v in f.Oportunidades)
+                        {
+                            var (text, tone) = StatusPill.ForEtapa(v.Oportunidad.Etapa);
+                            <div class="list-row" style="cursor:pointer" @onclick="() => EditarOportunidad(v.Oportunidad)">
+                                <div class="two-line" style="flex:1"><span class="t1">@v.Oportunidad.Titulo</span><span class="t2">@(v.Contacto is { Length: > 0 } k ? k : "Sin contacto")</span></div>
+                                <StatusPill Text="@text" Tone="@tone" />
+                                <strong class="end">@Fmt.Soles(v.Oportunidad.Monto)</strong>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h3>Cotizaciones</h3><a class="btn btn-sm" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="plus" Size="16" />Nueva</a></div>
+                    <div class="card-body">
+                        @if (f.Cotizaciones.Count == 0)
+                        {
+                            <div class="list-row"><span class="muted">Sin cotizaciones.</span></div>
+                        }
+                        @foreach (var q in f.Cotizaciones)
+                        {
+                            var (text, tone) = StatusPill.ForCotizacion(q, Fmt.Today);
+                            <a class="list-row" href="@($"cotizaciones/{q.Id}")">
+                                <div class="two-line" style="flex:1"><span class="t1">@q.Codigo</span><span class="t2">@Fmt.Date(q.FechaEmision)</span></div>
+                                <StatusPill Text="@text" Tone="@tone" />
+                                <strong class="end">@Fmt.Soles(q.Total)</strong>
+                            </a>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head">
+                        <div>
+                            <h3>Actividad en la suite</h3>
+                            <div class="sub">Compras en caja, comprobantes, pagos y despachos que informan el POS, el ERP y el WMS</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (f.Actividad.Count == 0)
+                        {
+                            <div class="list-row"><span class="muted">Aún no hay actividad de otros sistemas.</span></div>
+                        }
+                        <div class="timeline">
+                            @foreach (var a in f.Actividad)
+                            {
+                                <div class="ev" @key="a.Id">
+                                    <div class="stat-icon"><Icon Name="@Fmt.Activity(a.Tipo)" Size="16" /></div>
+                                    <div class="two-line" style="flex:1">
+                                        <span class="t1">@a.Titulo</span>
+                                        <span class="t2">@Fmt.DateTime(a.OcurridoEn) · @a.Origen@(a.Detalle is null ? "" : $" · {a.Detalle}")</span>
+                                    </div>
+                                    @if (a.Monto is { } monto)
+                                    {
+                                        <strong>@Fmt.Money(monto, a.Moneda ?? "PEN")</strong>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+                <div class="card">
+                    <div class="card-head"><h3>Datos</h3></div>
+                    <div class="card-body">
+                        <dl class="kv">
+                            <dt>Razón social</dt><dd>@c.Name</dd>
+                            <dt>Teléfono</dt><dd>@(c.Phone ?? "—")</dd>
+                            <dt>Correo</dt><dd>@(c.Email ?? "—")</dd>
+                            <dt>Dirección</dt><dd>@(c.FullAddress ?? "—")</dd>
+                            @if (c.Notes is not null)
+                            {
+                                <dt>Notas</dt><dd>@c.Notes</dd>
+                            }
+                        </dl>
+                        @if (c.Pending)
+                        {
+                            <div class="alert info" style="margin-top:12px"><Icon Name="sync" Size="18" /><span>Registrado en este equipo; se enviará al hub al sincronizar.</span></div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h3>Contactos</h3><button class="btn btn-sm" @onclick="NuevoContacto"><Icon Name="plus" Size="16" />Nuevo</button></div>
+                    <div class="card-body">
+                        @if (f.Contactos.Count == 0)
+                        {
+                            <div class="list-row"><span class="muted">Sin contactos.</span></div>
+                        }
+                        @foreach (var k in f.Contactos)
+                        {
+                            <div class="list-row" style="cursor:pointer" @onclick="() => EditarContacto(k)">
+                                <Avatar Text="@k.NombreCompleto" Size="34" />
+                                <div class="two-line" style="flex:1"><span class="t1">@k.NombreCompleto</span><span class="t2">@(k.Cargo ?? "")@(k.Telefono is null ? "" : $" · {k.Telefono}")</span></div>
+                                @if (TelefonoPeru.ParaWhatsApp(k.Telefono) is not null)
+                                {
+                                    <button class="btn btn-ghost icon-btn sm" @onclick:stopPropagation @onclick="() => WhatsAppAsync(k.Telefono)" title="WhatsApp"><Icon Name="message" Size="16" /></button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h3>Tareas</h3><button class="btn btn-sm" @onclick="NuevaTarea"><Icon Name="plus" Size="16" />Nueva</button></div>
+                    <div class="card-body">
+                        @if (f.Tareas.Count == 0)
+                        {
+                            <div class="list-row"><span class="muted">Sin tareas.</span></div>
+                        }
+                        @foreach (var v in f.Tareas.OrderBy(t => t.Tarea.Completada).ThenBy(t => t.Tarea.Fecha))
+                        {
+                            var t = v.Tarea;
+                            <div class="task @(t.Completada ? "done" : "")">
+                                <input type="checkbox" checked="@t.Completada" @onchange="() => AlternarAsync(t)" aria-label="Hecha" />
+                                <div class="two-line" style="cursor:pointer" @onclick="() => EditarTarea(t)"><span class="t1">@t.Titulo</span><span class="t2">@t.Tipo.Nombre()@(t.ResponsableNombre is null ? "" : $" · {t.ResponsableNombre}")</span></div>
+                                <span class="when @(t.EstaVencida(Fmt.Today) ? "warn-text" : "muted")">@Fmt.Relative(t.Fecha)@(t.Hora is { } h ? $" {FormatoPeru.Hora(h)}" : "")</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else if (!Loading)
+{
+    <div class="page"><EmptyState Icon="alert" Title="Cliente no encontrado" Text="Puede que aún no haya llegado desde el hub."><a class="btn btn-dark" href="clientes">Ver clientes</a></EmptyState></div>
+}
+
+@if (_oportunidad is { } o)
+{
+    <OportunidadModal Valor="o" Nueva="_nuevo" OnClose="() => _oportunidad = null" OnSaved="CerradoAsync" />
+}
+@if (_tarea is { } t2)
+{
+    <TareaModal Valor="t2" Nueva="_nuevo" OnClose="() => _tarea = null" OnSaved="CerradoAsync" />
+}
+@if (_contacto is { } k2)
+{
+    <ContactoModal Valor="k2" Nuevo="_nuevo" OnClose="() => _contacto = null" OnSaved="CerradoAsync" />
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private FichaCliente? _ficha;
+    private Oportunidad? _oportunidad;
+    private Tarea? _tarea;
+    private Contacto? _contacto;
+    private bool _nuevo;
+
+    protected override async Task LoadAsync() => _ficha = await Crm.Clientes.FichaAsync(Id);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_ficha is not null && _ficha.Cliente.Id != Id)
+            await ReloadAsync();
+    }
+
+    private void NuevaOportunidad() { _nuevo = true; _oportunidad = new Oportunidad { ClienteId = Id, CreadoEn = DateTimeOffset.UtcNow }; }
+    private void EditarOportunidad(Oportunidad o) { _nuevo = false; _oportunidad = o.Clonar(); }
+    private void NuevaTarea() { _nuevo = true; _tarea = Crm.Tareas.Nueva(Id); }
+    private void EditarTarea(Tarea t) { _nuevo = false; _tarea = t.Clonar(); }
+    private void NuevoContacto() { _nuevo = true; _contacto = new Contacto { ClienteId = Id, CreadoEn = DateTimeOffset.UtcNow }; }
+    private void EditarContacto(Contacto k) { _nuevo = false; _contacto = k.Clonar(); }
+
+    private async Task CerradoAsync()
+    {
+        _oportunidad = null;
+        _tarea = null;
+        _contacto = null;
+        await ReloadAsync();
+    }
+
+    private Task AlternarAsync(Tarea t) => RunAsync(() => t.Completada ? Crm.Tareas.ReabrirAsync(t.Id) : Crm.Tareas.CompletarAsync(t.Id));
+
+    private static async Task WhatsAppAsync(string? telefono)
+    {
+        if (TelefonoPeru.ParaWhatsApp(telefono) is { } numero)
+            await Launcher.Default.OpenAsync(new Uri($"https://wa.me/{numero}"));
+    }
+}
