@@ -65,8 +65,8 @@ como ignorados y no traban el feed.
 
 ## Cambios respecto de la versión anterior del CRM
 
-- El "modo servidor" (API propia con SQL Server para varias sucursales) se reemplaza por el hub: los equipos se
-  sincronizan entre sí a través de él. El trabajo en curso de ese modo quedó en la rama `respaldo/modo-servidor`.
+- No hay "modo servidor" ni API propia: como los cuatro sistemas de la suite, el CRM usa solamente el hub, y los
+  equipos se sincronizan entre sí a través de él.
 - Las empresas y las personas cliente son *parties* del hub; los contactos son personas dentro de un cliente.
 - El catálogo de productos, las sucursales y los datos del negocio vienen del hub. Los ajustes de ventas (IGV y
   condiciones por defecto) siguen siendo del CRM.
