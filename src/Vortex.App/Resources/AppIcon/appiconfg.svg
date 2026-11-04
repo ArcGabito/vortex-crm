@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- "V" de Vortex dentro de la zona segura de los íconos adaptativos de Android -->
-<svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <g fill="none" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="228" y1="292" x2="292" y2="156" stroke="#FFD3BD" />
-        <line x1="164" y1="156" x2="228" y2="292" stroke="#FFFFFF" />
-    </g>
-</svg>

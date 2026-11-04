@@ -1,13 +1,13 @@
 <Project>
-
-  <!-- Configuración común para todos los proyectos de la solución -->
+  <!-- Versión y metadatos comunes de la solución. Al publicar una versión, actualizar aquí y en CHANGELOG.md. -->
   <PropertyGroup>
-    <Nullable>enable</Nullable>
+    <Version>0.1.0</Version>
+    <Authors>ArcGabito</Authors>
+    <Product>Vortex CRM</Product>
+    <Copyright>Copyright © 2026 ArcGabito y colaboradores de Vortex CRM</Copyright>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/ArcGabito/vortex-crm</RepositoryUrl>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <Authors>Vortex CRM</Authors>
-    <Copyright>Copyright (C) 2026 Vortex CRM</Copyright>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
-
 </Project>

@@ -1,0 +1,123 @@
+@inject AppSession Session
+@* Alta y edición de una tarea de seguimiento. *@
+<Modal Title="@(Nueva ? "Nueva tarea" : "Editar tarea")" Subtitle="@($"Responsable: {Valor.ResponsableNombre ?? Session.UserName}")" Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        <div class="field">
+            <label>¿Qué hay que hacer?</label>
+            <input class="control" placeholder="Llamar para confirmar el pedido" @bind="Valor.Titulo" />
+        </div>
+        <div class="segmented" style="flex-wrap:wrap">
+            @foreach (var t in TiposTarea.Todos)
+            {
+                <button class="@(Valor.Tipo == t ? "on" : "")" @onclick="() => Valor.Tipo = t"><Icon Name="@Fmt.TaskIcon(t)" Size="15" />@t.Nombre()</button>
+            }
+        </div>
+        <div class="form-row three">
+            <div class="field">
+                <label>Fecha</label>
+                <input class="control" type="date" @bind="Valor.Fecha" />
+            </div>
+            <div class="field">
+                <label>Hora (opcional)</label>
+                <input class="control" type="time" @bind="Valor.Hora" />
+            </div>
+            <div class="field">
+                <label>Aviso</label>
+                <select class="select" value="@(Valor.AvisarMinutosAntes?.ToString() ?? "")" @onchange="e => Valor.AvisarMinutosAntes = int.TryParse(e.Value?.ToString(), out var m) ? m : null">
+                    <option value="">Sin aviso</option>
+                    @foreach (var a in Avisos.Para(Valor.Hora))
+                    {
+                        <option value="@a.MinutosAntes">@a.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="field">
+                <label>Cliente (opcional)</label>
+                <select class="select" @bind="Valor.ClienteId">
+                    <option value="">Sin cliente</option>
+                    @foreach (var c in _clientes)
+                    {
+                        <option value="@c.Id">@c.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Oportunidad (opcional)</label>
+                <select class="select" @bind="Valor.OportunidadId">
+                    <option value="">Sin oportunidad</option>
+                    @foreach (var o in _oportunidades)
+                    {
+                        <option value="@o.Id">@o.Label</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label>Notas</label>
+            <textarea class="control" rows="2" @bind="Valor.Notas"></textarea>
+        </div>
+        @if (_sinPermiso)
+        {
+            <div class="alert warn"><Icon Name="bell" Size="18" /><span>Sin permiso para notificaciones: el aviso no sonará en este equipo.</span></div>
+        }
+    </ChildContent>
+    <Footer>
+        @if (!Nueva)
+        {
+            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
+        }
+        <button class="btn" @onclick="OnClose">Cancelar</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Tarea Valor { get; set; } = null!;
+    [Parameter] public bool Nueva { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Inject] private IServicioRecordatorios Recordatorios { get; set; } = null!;
+
+    private IReadOnlyList<Option> _clientes = [], _oportunidades = [];
+    private string? _error;
+    private bool _busy, _sinPermiso;
+
+    private CrmWorkspace Crm => Session.Workspace!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
+        _oportunidades = await Crm.Oportunidades.OpcionesAsync(null);
+    }
+
+    private async Task GuardarAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            if (Valor.AvisarMinutosAntes is not null && Recordatorios.Disponible)
+                _sinPermiso = !await Recordatorios.SolicitarPermisoAsync();
+            await Crm.Tareas.GuardarAsync(Valor);
+            Session.NotifyLocalChange();
+            await OnSaved.InvokeAsync();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task EliminarAsync()
+    {
+        await Crm.Tareas.EliminarAsync(Valor.Id);
+        Session.NotifyLocalChange();
+        await OnSaved.InvokeAsync();
+    }
+}

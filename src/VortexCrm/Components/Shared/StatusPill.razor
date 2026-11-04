@@ -1,0 +1,30 @@
+@* Estado con punto + texto (el color nunca va solo). Tonos: good, info, warn, bad, neutral, accent. *@
+<span class="pill @Tone @(Plain ? "plain" : "")">@Text</span>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter] public string Tone { get; set; } = "neutral";
+    [Parameter] public bool Plain { get; set; }
+
+    public static (string Text, string Tone) ForEtapa(EtapaOportunidad etapa) => (etapa.Nombre(), etapa switch
+    {
+        EtapaOportunidad.Prospecto => "neutral",
+        EtapaOportunidad.Cotizado => "info",
+        EtapaOportunidad.Negociacion => "warn",
+        EtapaOportunidad.Ganado => "good",
+        _ => "bad",
+    });
+
+    public static (string Text, string Tone) ForCotizacion(CotizacionVista q, DateOnly hoy) =>
+        q.PedidoId is not null ? ("Con pedido", "good")
+        : q.Vencida(hoy) ? ("Vencida", "bad")
+        : ForEstado(q.Estado);
+
+    public static (string Text, string Tone) ForEstado(EstadoCotizacion estado) => estado switch
+    {
+        EstadoCotizacion.Borrador => ("Borrador", "neutral"),
+        EstadoCotizacion.Enviada => ("Enviada", "info"),
+        EstadoCotizacion.Aceptada => ("Aceptada", "good"),
+        _ => ("Rechazada", "bad"),
+    };
+}

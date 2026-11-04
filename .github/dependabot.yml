@@ -1,0 +1,26 @@
+# Actualizaciones de versiones (las de seguridad se activan aparte en la configuración del repo).
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    ignore:
+      # Viene del feed local packages/vortex-sdk (scripts/pack-sdk.*), no de nuget.org.
+      - dependency-name: "VortexApi.Client"
+      # Desde 6.5 PDFsharp exige una licencia cargada en tiempo de ejecución; se queda en 6.2.x (MIT) hasta revisarlo.
+      - dependency-name: "PDFsharp-MigraDoc"
+        versions: [">= 6.5.0"]
+    groups:
+      microsoft:
+        patterns: ["Microsoft.*", "System.*"]
+      testing:
+        patterns: ["xunit*", "coverlet*", "Microsoft.NET.Test.Sdk"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

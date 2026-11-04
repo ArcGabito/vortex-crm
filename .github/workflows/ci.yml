@@ -2,51 +2,69 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # El SDK del hub se empaqueta desde su repo en cada ejecución (feed local packages/vortex-sdk).
+  HUB_REPO: https://github.com/ArcGabito/vortex-api
+  HUB_REF: main
 
 jobs:
-  web-y-tests:
-    name: Web + tests
+  test:
+    name: Pruebas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
-      - name: Compilar web
-        run: dotnet build src/Vortex.Web/Vortex.Web.csproj -c Release
-      - name: Tests de dominio
-        run: dotnet test tests/Vortex.Domain.Tests/Vortex.Domain.Tests.csproj -c Release
-      - name: Tests de componentes
-        run: dotnet test tests/Vortex.Shared.Tests/Vortex.Shared.Tests.csproj -c Release
 
-  android:
-    name: App Android
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/setup-java@v4
-        with:
-          distribution: microsoft
-          java-version: 17
-      - name: Instalar workload de MAUI para Android
-        run: dotnet workload install maui-android
-      - name: Compilar Android
-        run: dotnet build src/Vortex.App/Vortex.App.csproj -f net10.0-android -c Release
+      - name: SDK del hub
+        run: |
+          git clone --depth 1 --branch "$HUB_REF" "$HUB_REPO" "$RUNNER_TEMP/vortex-api"
+          VORTEX_API_DIR="$RUNNER_TEMP/vortex-api" scripts/pack-sdk.sh
 
-  windows:
-    name: App Windows
+      - name: Test
+        run: dotnet test tests/VortexCrm.Core.Tests --configuration Release --logger "trx;LogFileName=results.trx"
+
+      - name: Publicar resultados de pruebas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: "**/TestResults/*.trx"
+
+  app:
+    name: App (Windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
-      - name: Instalar workload de MAUI para Windows
-        run: dotnet workload install maui-windows
-      - name: Compilar Windows
-        run: dotnet build src/Vortex.App/Vortex.App.csproj -f net10.0-windows10.0.19041.0 -c Release
+
+      - name: SDK del hub
+        shell: bash
+        run: |
+          git -c core.autocrlf=false clone --depth 1 --branch "$HUB_REF" "$HUB_REPO" "$RUNNER_TEMP/vortex-api"
+          VORTEX_API_DIR="$RUNNER_TEMP/vortex-api" scripts/pack-sdk.sh
+
+      - name: Workloads de MAUI
+        run: dotnet workload restore src/VortexCrm/VortexCrm.csproj
+
+      - name: Build
+        run: dotnet build src/VortexCrm/VortexCrm.csproj --configuration Release -f net10.0-windows10.0.19041.0 -warnaserror
