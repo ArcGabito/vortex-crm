@@ -38,35 +38,55 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
 
     public Task GuardarAsync(Oportunidad oportunidad, CancellationToken ct = default)
     {
+        RequirePermission(CrmPermissions.Sell);
         var errores = oportunidad.Validar();
         Require(errores.Count == 0, string.Join(" ", errores));
         return InTransactionAsync(async (c, tx, now) =>
         {
             var anterior = await ObtenerAsync(c, tx, oportunidad.Id);
+            if (anterior is not null)
+                RequireOwner(anterior.ResponsableId, anterior.ResponsableNombre);
+            oportunidad.ResponsableId ??= Context.UserId;
+            oportunidad.ResponsableNombre ??= Context.UserName;
             await GuardarAsync(c, tx, now, oportunidad, anterior?.Etapa);
+            if (anterior is not null && anterior.Etapa != oportunidad.Etapa)
+                await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.StageChanged, "deal", oportunidad.Id, oportunidad.Titulo,
+                    $"{anterior.Etapa.Nombre()} → {oportunidad.Etapa.Nombre()}");
             return 0;
         }, ct);
     }
 
-    public Task CambiarEtapaAsync(Guid id, EtapaOportunidad etapa, string? motivoPerdida = null, CancellationToken ct = default) =>
-        InTransactionAsync(async (c, tx, now) =>
+    public Task CambiarEtapaAsync(Guid id, EtapaOportunidad etapa, string? motivoPerdida = null, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.Sell);
+        return InTransactionAsync(async (c, tx, now) =>
         {
             var oportunidad = await ObtenerAsync(c, tx, id);
             Require(oportunidad is not null, "La oportunidad no existe.");
-            var anterior = oportunidad!.Etapa;
+            RequireOwner(oportunidad!.ResponsableId, oportunidad.ResponsableNombre);
+            var anterior = oportunidad.Etapa;
             oportunidad.CambiarEtapa(etapa, now);
             if (etapa == EtapaOportunidad.Perdido)
                 oportunidad.MotivoPerdida = Clean(motivoPerdida);
             await GuardarAsync(c, tx, now, oportunidad, anterior);
+            if (anterior != etapa)
+                await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.StageChanged, "deal", id, oportunidad.Titulo,
+                    $"{anterior.Nombre()} → {etapa.Nombre()}{(oportunidad.MotivoPerdida is { } m && etapa == EtapaOportunidad.Perdido ? $": {m}" : "")}");
             return 0;
         }, ct);
+    }
 
-    public Task EliminarAsync(Guid id, CancellationToken ct = default) =>
-        InTransactionAsync(async (c, tx, now) =>
+    public Task EliminarAsync(Guid id, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.Delete);
+        return InTransactionAsync(async (c, tx, now) =>
         {
+            var oportunidad = await ObtenerAsync(c, tx, id);
             await Registros.EliminarAsync(c, tx, now, CrmRecordKinds.Oportunidad, id);
+            await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.Deleted, "deal", id, oportunidad?.Titulo, null);
             return 0;
         }, ct);
+    }
 
     // ---------- Internos (los usa también el servicio de cotizaciones) ----------
 

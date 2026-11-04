@@ -43,10 +43,13 @@ public sealed class ServicioTareas(CrmDatabase db, ICrmContext context, TimeProv
 
     public async Task GuardarAsync(Tarea tarea, CancellationToken ct = default)
     {
+        RequirePermission(CrmPermissions.Sell);
         var errores = tarea.Validar();
         Require(errores.Count == 0, string.Join(" ", errores));
         await InTransactionAsync(async (c, tx, now) =>
         {
+            if (await ObtenerAsync(c, tx, tarea.Id) is { } guardada)
+                RequireOwner(guardada.ResponsableId, guardada.ResponsableNombre);
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Tarea, tarea.Id, Registros.Datos(tarea));
             return 0;
         }, ct);
@@ -61,6 +64,10 @@ public sealed class ServicioTareas(CrmDatabase db, ICrmContext context, TimeProv
     {
         await InTransactionAsync(async (c, tx, now) =>
         {
+            // Cada uno borra sus tareas; las de otros, solo quien puede eliminar (gerente o administrador).
+            var tarea = await ObtenerAsync(c, tx, id);
+            if (tarea?.ResponsableId is { } duenio && duenio != Context.UserId)
+                RequirePermission(CrmPermissions.Delete);
             await Registros.EliminarAsync(c, tx, now, CrmRecordKinds.Tarea, id);
             return 0;
         }, ct);
@@ -88,7 +95,8 @@ public sealed class ServicioTareas(CrmDatabase db, ICrmContext context, TimeProv
         {
             var t = await ObtenerAsync(c, tx, id);
             Require(t is not null, "La tarea no existe.");
-            cambio(t!, now);
+            RequireOwner(t!.ResponsableId, t.ResponsableNombre);
+            cambio(t, now);
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Tarea, t!.Id, Registros.Datos(t));
             return t;
         }, ct);

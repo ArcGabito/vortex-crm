@@ -1,3 +1,5 @@
+using VortexApi.Suite.Money;
+using VortexApi.Suite.Taxes;
 using VortexCrm.Core.Domain.Comun;
 
 namespace VortexCrm.Core.Domain.Ventas;
@@ -39,21 +41,24 @@ public sealed class LineaCotizacion
     public LineaCotizacion Clonar() => (LineaCotizacion)MemberwiseClone();
 }
 
-/// <summary>Totales de la cotización. Sin IGV, el subtotal es igual al total.</summary>
+/// <summary>Totales de la cotización. Sin impuesto, el subtotal es igual al total.</summary>
 public sealed record TotalesCotizacion(decimal Subtotal, decimal Igv, decimal Total)
 {
-    public static TotalesCotizacion Calcular(IEnumerable<LineaCotizacion> lineas, ModoIgv modo)
+    /// <param name="tasa">Tasa general del país (0.18 en Perú, 0.16 en México…).</param>
+    /// <param name="decimales">Decimales de la moneda (0 en pesos chilenos).</param>
+    public static TotalesCotizacion Calcular(IEnumerable<LineaCotizacion> lineas, ModoIgv modo, decimal tasa = Impuestos.TasaIgv, int decimales = 2)
     {
-        var suma = lineas.Sum(l => l.Importe);
+        decimal Redondear(decimal monto) => Math.Round(monto, decimales, MidpointRounding.AwayFromZero);
+        var suma = Redondear(lineas.Sum(l => l.Importe));
 
         switch (modo)
         {
             case ModoIgv.Incluido:
-                var valorVenta = Redondear(suma / (1 + Impuestos.TasaIgv));
+                var valorVenta = Redondear(suma / (1 + tasa));
                 return new TotalesCotizacion(valorVenta, suma - valorVenta, suma);
 
             case ModoIgv.Adicional:
-                var igv = Redondear(suma * Impuestos.TasaIgv);
+                var igv = Redondear(suma * tasa);
                 return new TotalesCotizacion(suma, igv, suma + igv);
 
             default:
@@ -61,7 +66,6 @@ public sealed record TotalesCotizacion(decimal Subtotal, decimal Igv, decimal To
         }
     }
 
-    private static decimal Redondear(decimal monto) => Math.Round(monto, 2, MidpointRounding.AwayFromZero);
 }
 
 public sealed class Cotizacion
@@ -104,7 +108,25 @@ public sealed class Cotizacion
 
     public DateTimeOffset CreadoEn { get; init; } = DateTimeOffset.UtcNow;
 
-    public TotalesCotizacion Totales => TotalesCotizacion.Calcular(Lineas, ModoIgv);
+    /// <summary>Moneda de la cotización (ISO 4217); por defecto la de la empresa.</summary>
+    public string Moneda { get; set; } = "PEN";
+
+    /// <summary>
+    /// Impuesto del país de la empresa (nombre y tasa). No se guarda: lo pone el servicio al cargar la cotización, así una
+    /// empresa de México cotiza con IVA 16 % y una de Perú con IGV 18 %.
+    /// </summary>
+    public TaxRegime Regimen { get; set; } = TaxCatalog.For("PE");
+
+    public decimal TasaImpuesto => Regimen.StandardRate;
+
+    public string NombreImpuesto => Regimen.TaxName;
+
+    /// <summary>Vendedor responsable (usuario del hub): un vendedor solo edita las suyas.</summary>
+    public Guid? ResponsableId { get; set; }
+
+    public string? ResponsableNombre { get; set; }
+
+    public TotalesCotizacion Totales => TotalesCotizacion.Calcular(Lineas, ModoIgv, TasaImpuesto, Currencies.Get(Moneda).Decimals);
 
     /// <summary>Agrega la línea; si hay una línea vacía (como la que trae una cotización nueva), la reemplaza.</summary>
     public void AgregarLinea(LineaCotizacion linea)

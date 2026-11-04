@@ -30,6 +30,30 @@ public static class MontoEnLetras
         return $"{Numero(entero)} CON {centimos:00}/100 SOLES";
     }
 
+    /// <summary>
+    /// Monto en letras en la moneda indicada: <c>MIL CON 50/100 PESOS MEXICANOS</c>, <c>CIEN CON 00/100 DÓLARES
+    /// AMERICANOS</c>. Las monedas sin decimales (peso chileno) no llevan la fracción.
+    /// </summary>
+    public static string Monto(decimal monto, string moneda)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(monto);
+        var codigo = moneda.ToUpperInvariant();
+        var nombre = NombresDeMoneda.GetValueOrDefault(codigo, codigo);
+        if (VortexApi.Suite.Money.Currencies.Get(codigo).Decimals == 0)
+            return $"{Numero((long)Math.Round(monto, 0, MidpointRounding.AwayFromZero))} {nombre}";
+        var redondeado = Math.Round(monto, 2, MidpointRounding.AwayFromZero);
+        var entero = (long)Math.Truncate(redondeado);
+        return $"{Numero(entero)} CON {(int)((redondeado - entero) * 100):00}/100 {nombre}";
+    }
+
+    private static readonly Dictionary<string, string> NombresDeMoneda = new()
+    {
+        ["PEN"] = "SOLES", ["USD"] = "DÓLARES AMERICANOS", ["EUR"] = "EUROS", ["MXN"] = "PESOS MEXICANOS",
+        ["COP"] = "PESOS COLOMBIANOS", ["CLP"] = "PESOS CHILENOS", ["ARS"] = "PESOS ARGENTINOS", ["BOB"] = "BOLIVIANOS",
+        ["UYU"] = "PESOS URUGUAYOS", ["PYG"] = "GUARANÍES", ["CRC"] = "COLONES", ["GTQ"] = "QUETZALES", ["DOP"] = "PESOS DOMINICANOS",
+        ["HNL"] = "LEMPIRAS", ["NIO"] = "CÓRDOBAS", ["PAB"] = "BALBOAS", ["BRL"] = "REALES", ["GBP"] = "LIBRAS ESTERLINAS",
+    };
+
     public static string Numero(long numero)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(numero);

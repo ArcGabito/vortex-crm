@@ -7,7 +7,7 @@
     <div class="page-head">
         <div>
             <h2>Pipeline de ventas</h2>
-            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, "oportunidad", "oportunidades")} en curso por {Fmt.Soles(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? $" · cierras el {tasa:P0}" : "")</p>
+            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, "oportunidad", "oportunidades")} en curso por {Fmt.Amount(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? $" · cierras el {tasa:P0}" : "")</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
             <div class="input-icon" style="width:220px">
@@ -26,7 +26,7 @@
             <section class="board-col" @key="etapa">
                 <header>
                     <span class="pill @tone">@etapa.Nombre()</span>
-                    <span class="muted">@columna.Count · @Fmt.Soles(columna.Sum(o => o.Oportunidad.Monto))</span>
+                    <span class="muted">@columna.Count · @Fmt.Amount(columna.Sum(o => o.Oportunidad.Monto))</span>
                 </header>
                 @foreach (var v in columna)
                 {
@@ -35,7 +35,7 @@
                         <strong>@o.Titulo</strong>
                         <span class="muted">@(v.Cliente ?? "Sin cliente")@(v.Contacto is { Length: > 0 } k ? $" · {k}" : "")</span>
                         <div class="deal-foot">
-                            <b>@Fmt.Soles(o.Monto)</b>
+                            <b>@Fmt.Amount(o.Monto)</b>
                             @if (o.FechaCierreEstimada is { } cierre && etapa.EstaAbierta())
                             {
                                 <span class="@(o.EstaVencida(Fmt.Today) ? "warn-text" : "muted")" title="Cierre estimado"><Icon Name="calendar" Size="13" /> @Fmt.Relative(cierre)</span>

@@ -67,6 +67,11 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
 
     // ---------- ICrmContext ----------
 
+    /// <summary>Rol efectivo en el CRM: el que asignó el OrgAdmin en el hub, o <c>vendedor</c> si no tiene.</summary>
+    public string Role => CrmPermissions.Matrix.EffectiveRole(Session?.Access.Role, Session?.User.Role);
+
+    public bool Can(string permission) => CrmPermissions.Matrix.Can(Session?.Access.Role, Session?.User.Role, permission);
+
     public Guid? UserId => Session?.User.Id;
     public string UserName => Session?.User.FullName ?? "";
     public string DeviceTag => DeviceIdentity.Tag(_deviceId);
@@ -178,6 +183,7 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
         Workspace = await CrmWorkspace.OpenAsync(path, this, recordatorios: recordatorios);
         _ = Workspace.Tareas.ReprogramarAvisosAsync();
         _sync = Workspace.SyncHandlers.Register(new VortexSync(_client!, _sessions!, Workspace.SyncStore, CrmSyncHandlers.SyncOptions));
+        await ApplyRegionAsync();
         _pending = await Workspace.SyncStore.CountPendingAsync();
         _failed = (await Workspace.SyncStore.GetFailedAsync()).Count;
         _lastError = null;
@@ -332,6 +338,8 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
 
         await RefreshCountersAsync();
         if (hadData)
+            await ApplyRegionAsync();
+        if (hadData)
             DataChanged?.Invoke();
         Changed?.Invoke();
     }
@@ -348,6 +356,20 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Contadores de sincronización");
+        }
+    }
+
+    /// <summary>Formatos de fecha, número y moneda según el país de la empresa (el idioma llega en la fase de idiomas).</summary>
+    private async Task ApplyRegionAsync()
+    {
+        try
+        {
+            if (Workspace is not null && await Workspace.Master.GetCompanyAsync() is { } company)
+                Fmt.SetRegion(Fmt.Language, company.CountryCode, company.TimeZone, company.CurrencyCode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Región de la empresa");
         }
     }
 

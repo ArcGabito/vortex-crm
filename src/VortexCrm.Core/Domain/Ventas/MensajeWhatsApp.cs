@@ -19,7 +19,7 @@ public static class MensajeWhatsApp
         foreach (var linea in cotizacion.Lineas.Take(MaximoLineas))
         {
             var cantidad = linea.Cantidad.ToString("0.##", FormatoPeru.Cultura);
-            texto.AppendLine($"• {cantidad} × {linea.Descripcion}: {FormatoPeru.Soles(linea.Importe)}");
+            texto.AppendLine($"• {cantidad} × {linea.Descripcion}: {Dinero(cotizacion, linea.Importe)}");
         }
 
         if (cotizacion.Lineas.Count > MaximoLineas)
@@ -28,12 +28,16 @@ public static class MensajeWhatsApp
         }
 
         texto.AppendLine();
-        var nota = cotizacion.ModoIgv == ModoIgv.NoAplica ? "" : " (incluye IGV)";
-        texto.AppendLine($"*Total: {FormatoPeru.Soles(cotizacion.Totales.Total)}*{nota}");
+        var nota = cotizacion.ModoIgv == ModoIgv.NoAplica ? "" : $" (incluye {cotizacion.NombreImpuesto})";
+        texto.AppendLine($"*Total: {Dinero(cotizacion, cotizacion.Totales.Total)}*{nota}");
         texto.Append($"Válida hasta el {cotizacion.ValidaHasta.ToString("dd/MM/yyyy", FormatoPeru.Cultura)}.");
 
         return texto.ToString();
     }
+
+    /// <summary>Importe en la moneda de la cotización (<c>S/ 1,500.00</c>, <c>$ 1,500.00</c>…).</summary>
+    private static string Dinero(Cotizacion cotizacion, decimal monto) =>
+        VortexApi.Suite.Money.Currencies.Get(cotizacion.Moneda).Format(monto, FormatoPeru.Cultura);
 
     /// <summary>Enlace wa.me que abre el chat con el mensaje escrito; <c>null</c> si el teléfono no es un celular.</summary>
     public static string? Enlace(string? telefono, string mensaje) =>

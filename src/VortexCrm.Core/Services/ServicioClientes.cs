@@ -58,13 +58,18 @@ public sealed class ServicioClientes(CrmDatabase db, ICrmContext context, TimePr
         return await AjustesAsync(c);
     }
 
-    public Task GuardarAjustesAsync(Ajustes ajustes, CancellationToken ct = default) =>
-        InTransactionAsync(async (c, tx, now) =>
+    public Task GuardarAjustesAsync(Ajustes ajustes, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.EditSettings);
+        return InTransactionAsync(async (c, tx, now) =>
         {
+            await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.SettingsChanged, "settings", null, null,
+                $"{ajustes.ModoIgvPredeterminado}; condiciones: {Clean(ajustes.CondicionesPredeterminadas) ?? "(ninguna)"}");
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Ajustes, Guid.Empty,
                 new Registros.AjustesDatos(ajustes.ModoIgvPredeterminado.ToString(), Clean(ajustes.CondicionesPredeterminadas)));
             return 0;
         }, ct);
+    }
 
     internal static async Task<Ajustes> AjustesAsync(SqliteConnection c) =>
         await c.FirstOrDefaultAsync("SELECT * FROM ajustes WHERE id = 1",

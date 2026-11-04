@@ -35,6 +35,17 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 - Las tareas tienen responsable: sus avisos solo se programan en los equipos de esa persona (también cuando la tarea
   llega de otro equipo, y de nuevo al abrir la app, porque Android borra las alarmas al reiniciar).
 
+## Impuestos, monedas y permisos (base común de la suite)
+
+- La cotización usa el impuesto del país de la empresa (`TaxCatalog.For(country, defaultTaxRate)`): su nombre y tasa
+  aparecen en pantalla, en el PDF y en WhatsApp. Tiene moneda propia (por defecto la de la empresa) y se redondea con
+  sus decimales. `quote.accepted` y `order.created` viajan en esa moneda.
+- `crm.record.upserted` agrega `moneda`, `responsableId` y `responsableNombre` en cotizaciones y oportunidades (los
+  eventos anteriores, sin esos campos, se aplican igual).
+- Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
+  todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos
+  y sedes). OrgAdmin y PlatformAdmin del hub son administradores.
+
 ## Eventos de la suite (versión 1)
 
 ### Qué publica el CRM

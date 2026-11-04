@@ -7,7 +7,8 @@ using VortexCrm.Core.Domain;
 namespace VortexCrm.Core.Tests;
 
 /// <summary>Workspace sobre una base SQLite temporal, con una tienda, un cliente y artículos ya sincronizados desde el "hub".</summary>
-public sealed class TestWorkspace(string deviceTag = "TEST", Guid? userId = null) : IAsyncLifetime
+public sealed class TestWorkspace(string deviceTag = "TEST", Guid? userId = null, string role = "administrador", string country = "PE",
+    string currency = "PEN") : IAsyncLifetime
 {
     private readonly string _path = Path.Combine(Path.GetTempPath(), $"vortex-crm-test-{Guid.NewGuid():N}.db");
 
@@ -20,10 +21,12 @@ public sealed class TestWorkspace(string deviceTag = "TEST", Guid? userId = null
     public Guid Bread { get; } = Guid.Parse("22222222-0000-0000-0000-000000000004");    // S/ 0.50, exonerado
     public Guid Customer { get; } = Guid.Parse("33333333-0000-0000-0000-000000000001");
     public FakeRecordatorios Avisos { get; } = new();
+    public TestContext Context { get; } = new(deviceTag, Guid.Parse("11111111-0000-0000-0000-000000000002"), userId, role);
 
     public async Task InitializeAsync()
     {
-        Crm = await CrmWorkspace.OpenAsync(_path, new Context(deviceTag, Store, userId), Clock, Avisos);
+        Crm = await CrmWorkspace.OpenAsync(_path, Context, Clock, Avisos);
+        await Crm.Master.ApplyCompanyAsync(Company(country, currency));
         await Crm.Master.ApplySiteAsync(Site(Central, "ALM-01", "Almacén central", "Warehouse"));
         await Crm.Master.ApplySiteAsync(Site(Store, "TDA-01", "Tienda Miraflores", "Store"));
         await Crm.Master.ApplyItemAsync(Item(Coffee, "CAFE-250", "Café tostado 250 g", 18.50m));
@@ -67,12 +70,21 @@ public sealed class TestWorkspace(string deviceTag = "TEST", Guid? userId = null
         new(entry.Id, 1, entry.EventType!, source, 1, entry.SubjectType, entry.SubjectId, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             null, entry.Payload!.Value);
 
-    private sealed class Context(string deviceTag, Guid store, Guid? userId) : ICrmContext
+    public static VortexMasterChange<VortexCompany> Company(string country, string currency) =>
+        new(1, Guid.Empty, VortexChangeOperation.Created, 1, DateTimeOffset.UtcNow, "HUB",
+            new VortexCompany(Guid.NewGuid(), "Comercial Demo SAC", null, "20123456789", country, currency, "America/Lima",
+                VortexApi.Suite.Taxes.TaxCatalog.For(country).StandardRate * 100, "ventas@demo.pe", "014445555", null,
+                new VortexMasterMeta(1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null)));
+
+    /// <summary>Usuario de prueba; el rol se puede cambiar a mitad de una prueba.</summary>
+    public sealed class TestContext(string deviceTag, Guid store, Guid? userId, string role) : ICrmContext
     {
-        public Guid? UserId => userId ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
-        public string UserName => "Luis";
+        public Guid? UserId { get; set; } = userId ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+        public string UserName { get; set; } = "Luis";
         public string DeviceTag => deviceTag;
         public Guid? DefaultSiteId => store;
+        public string Role { get; set; } = role;
+        public bool Can(string permission) => CrmPermissions.Matrix.Can(Role, "User", permission);
     }
 }
 

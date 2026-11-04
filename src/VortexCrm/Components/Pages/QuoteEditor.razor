@@ -57,7 +57,7 @@
                                 <input class="control" type="number" min="0" step="any" disabled="@(!editable)" @bind="linea.Cantidad" @bind:event="oninput" />
                                 <input class="control" disabled="@(!editable)" @bind="linea.Unidad" />
                                 <input class="control" type="number" min="0" step="0.01" disabled="@(!editable)" @bind="linea.PrecioUnitario" @bind:event="oninput" />
-                                <span class="amount">@Fmt.Soles(linea.Importe)</span>
+                                <span class="amount">@Fmt.Money(linea.Importe, q.Moneda)</span>
                                 @if (editable)
                                 {
                                     <button class="btn btn-ghost icon-btn sm" @onclick="() => q.Lineas.Remove(linea)" aria-label="Quitar"><Icon Name="x" Size="16" /></button>
@@ -76,12 +76,12 @@
                     <dl class="totals" style="max-width:340px;margin-left:auto;width:100%">
                         @if (q.ModoIgv != ModoIgv.NoAplica)
                         {
-                            <dt>Subtotal</dt><dd>@Fmt.Soles(totales.Subtotal)</dd>
-                            <dt>IGV (18 %)</dt><dd>@Fmt.Soles(totales.Igv)</dd>
+                            <dt>Subtotal</dt><dd>@Fmt.Money(totales.Subtotal, q.Moneda)</dd>
+                            <dt>@q.NombreImpuesto (@((q.TasaImpuesto * 100).ToString("0.##", Fmt.Culture)) %)</dt><dd>@Fmt.Money(totales.Igv, q.Moneda)</dd>
                         }
-                        <dt class="grand">Total</dt><dd class="grand">@Fmt.Soles(totales.Total)</dd>
+                        <dt class="grand">Total</dt><dd class="grand">@Fmt.Money(totales.Total, q.Moneda)</dd>
                     </dl>
-                    <p class="muted" style="font-size:12px;text-align:right">@MontoEnLetras.Soles(totales.Total)</p>
+                    <p class="muted" style="font-size:12px;text-align:right">@MontoEnLetras.Monto(totales.Total, q.Moneda)</p>
                 </div>
             </div>
 
@@ -133,11 +133,20 @@
                         </div>
                         <div class="form-row">
                             <div class="field">
-                                <label>IGV</label>
+                                <label>@q.NombreImpuesto</label>
                                 <select class="select" disabled="@(!editable)" @bind="q.ModoIgv">
                                     @foreach (var m in Enum.GetValues<ModoIgv>())
                                     {
-                                        <option value="@m">@m.Nombre()</option>
+                                        <option value="@m">@m.Nombre(q.NombreImpuesto, q.TasaImpuesto)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Moneda</label>
+                                <select class="select" disabled="@(!editable)" @bind="q.Moneda">
+                                    @foreach (var currency in VortexApi.Suite.Money.Currencies.List)
+                                    {
+                                        <option value="@currency.Code">@currency.Code · @currency.Name</option>
                                     }
                                 </select>
                             </div>
@@ -242,7 +251,7 @@
         await CargarRelacionadosAsync();
     }
 
-    private void AgregarArticulo(ItemRow item) => _cotizacion!.AgregarLinea(item.CrearLinea(_cotizacion.ModoIgv));
+    private void AgregarArticulo(ItemRow item) => _cotizacion!.AgregarLinea(item.CrearLinea(_cotizacion));
 
     private async Task<bool> GuardarAsync()
     {

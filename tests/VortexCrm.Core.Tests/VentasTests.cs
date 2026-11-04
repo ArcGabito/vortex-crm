@@ -18,7 +18,7 @@ public sealed class VentasTests : IAsyncLifetime
         var cotizacion = await _t.Crm.Cotizaciones.NuevaAsync(_t.Customer, oportunidadId);
         cotizacion.ModoIgv = modo;
         var cafe = (await _t.Crm.Master.GetItemAsync(_t.Coffee))!;
-        cotizacion.AgregarLinea(cafe.CrearLinea(modo, 10));
+        cotizacion.AgregarLinea(cafe.CrearLinea(cotizacion, 10));
         if (lineaLibre)
             cotizacion.AgregarLinea(new LineaCotizacion { Descripcion = "Instalación", Unidad = "SERV", Cantidad = 1, PrecioUnitario = 50 });
         await _t.Crm.Cotizaciones.GuardarAsync(cotizacion);

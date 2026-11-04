@@ -8,6 +8,13 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Base común de la suite** (`VortexApi.Suite`): las cotizaciones usan el impuesto del país de la empresa (IGV, IVA,
+  VAT…) con su tasa y nombre en pantalla, PDF y WhatsApp, y tienen moneda propia (redondeo según la moneda y monto en
+  letras en esa moneda). Formatos y hora según el país de la empresa.
+- **Roles del CRM** asignados en el hub: `vendedor` (por defecto), `gerente_ventas`, `consulta` y `administrador`.
+  Oportunidades y cotizaciones tienen **vendedor responsable**: cada vendedor cambia lo suyo y el gerente, todo.
+- **Auditoría** de cambios de etapa, estados de cotizaciones, pedidos, ajustes y eliminaciones (pantalla Auditoría).
+- `docs/ROADMAP.md`: hoja de ruta para competir con Salesforce, HubSpot, Pipedrive y Zoho CRM.
 - Integración con el hub `vortex-api`: login sin usuarios propios, clientes, productos, sedes y datos de la empresa
   compartidos con la suite, y sincronización sin conexión.
 - Varios equipos de la misma organización comparten contactos, oportunidades, cotizaciones, tareas y ajustes

@@ -30,6 +30,8 @@ scripts/pack-sdk.sh   |   ./scripts/pack-sdk.ps1                         # SDK d
   transacción). Lo que llega de otro equipo gana solo si es más nuevo (`actualizado_en`).
 - Numeración por equipo (`COT-3F0C-0012`). Pedido de una cotización: `ServicioCotizaciones.PedidoIdPara` (= ERP).
 - Las líneas que viajan a la suite (`quote.accepted`, `order.created`) son solo las del catálogo, con precio con IGV.
+- Impuestos, monedas, formatos y permisos vienen de `VortexApi.Suite`. Cada acción valida `RequirePermission` /
+  `RequireOwner` (`CrmPermissions`) y deja su `AuditAsync` en la misma transacción.
 - Errores para el usuario: `CrmValidationException` con el mensaje final en español.
 - En Razor, dentro de atributos usa `@(...)` cuando haya comillas y no nombres variables `code` ni `page`.
 
