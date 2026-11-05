@@ -1,27 +1,27 @@
 @page "/"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Panel</SectionContent>
+<SectionContent SectionName="page-title">@T("home.panel")</SectionContent>
 
 @if (_panel is { } p)
 {
     <div class="stat-strip">
-        <StatTile Icon="target" Label="En curso" Value="@Fmt.MoneyCompact(p.Pipeline.MontoEnCurso, "PEN")" Hint="@Fmt.Count(p.Pipeline.CantidadEnCurso, "oportunidad", "oportunidades")" />
-        <StatTile Icon="star" Label="Ganado este mes" Value="@Fmt.MoneyCompact(p.GanadoEsteMes, "PEN")" Hint="@(p.Pipeline.TasaDeCierre is { } t ? $"cierras el {t:P0}" : null)" />
-        <StatTile Icon="file" Label="Cotizaciones abiertas" Value="@Fmt.Compact(p.CotizacionesAbiertas)" Hint="@Fmt.MoneyCompact(p.MontoCotizado, "PEN")" />
-        <StatTile Icon="calendar" Label="Para hoy" Value="@Fmt.Compact(p.TareasParaHoy)" Hint="@(p.TareasVencidas > 0 ? $"{p.TareasVencidas} vencidas" : "nada vencido")" />
+        <StatTile Icon="target" Label="@(T("home.en_curso"))" Value="@Fmt.MoneyCompact(p.Pipeline.MontoEnCurso, "PEN")" Hint="@Fmt.Count(p.Pipeline.CantidadEnCurso, T("count.oportunidad"), T("count.oportunidades"))" />
+        <StatTile Icon="star" Label="@(T("home.ganado_este_mes"))" Value="@Fmt.MoneyCompact(p.GanadoEsteMes, "PEN")" Hint="@(p.Pipeline.TasaDeCierre is { } t ? T("home.cierras_el", t) : null)" />
+        <StatTile Icon="file" Label="@(T("home.cotizaciones_abiertas"))" Value="@Fmt.Compact(p.CotizacionesAbiertas)" Hint="@Fmt.MoneyCompact(p.MontoCotizado, "PEN")" />
+        <StatTile Icon="calendar" Label="@(T("home.para_hoy"))" Value="@Fmt.Compact(p.TareasParaHoy)" Hint="@(p.TareasVencidas > 0 ? T("home.vencidas", p.TareasVencidas) : "nada vencido")" />
     </div>
 }
 
 <div class="page">
     <div class="page-head">
         <div>
-            <h2>Hola, @FirstName</h2>
-            <p>@Session.Session?.Access.OrganizationName · Así van tus ventas.</p>
+            <h2>@T("home.hola", FirstName)</h2>
+            <p>@T("home.asi_van_tus_ventas", (Session.Session?.Access.OrganizationName))</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <a class="btn btn-outline" href="pipeline?nueva=1"><Icon Name="target" Size="18" />Nueva oportunidad</a>
-            <a class="btn btn-dark" href="cotizaciones/nueva"><Icon Name="file" Size="18" />Nueva cotización</a>
+            <a class="btn btn-outline" href="pipeline?nueva=1"><Icon Name="target" Size="18" />@T("home.nueva_oportunidad")</a>
+            <a class="btn btn-dark" href="cotizaciones/nueva"><Icon Name="file" Size="18" />@T("home.nueva_cotizacion")</a>
         </div>
     </div>
 
@@ -30,19 +30,19 @@
             <div class="card">
                 <div class="card-head">
                     <div>
-                        <h3>Ventas ganadas</h3>
-                        <div class="sub">Oportunidades ganadas en los últimos 6 meses</div>
+                        <h3>@T("home.ventas_ganadas")</h3>
+                        <div class="sub">@T("home.oportunidades_ganadas_en_los_ultimos")</div>
                     </div>
-                    <a class="btn btn-sm" href="pipeline">Ver pipeline</a>
+                    <a class="btn btn-sm" href="pipeline">@T("home.ver_pipeline")</a>
                 </div>
                 <div class="card-body">
                     @if (_panel is { } ventas && ventas.VentasPorMes.Any(m => m.Monto > 0))
                     {
                         var max = ventas.VentasPorMes.Max(m => m.Monto);
-                        <div class="chart-bars" role="img" aria-label="Ventas ganadas por mes">
+                        <div class="chart-bars" role="img" aria-label="@(T("home.ventas_ganadas_por_mes"))">
                             @foreach (var m in ventas.VentasPorMes)
                             {
-                                <div class="col" title="@($"{Fmt.Amount(m.Monto)} en {Fmt.Count(m.Cantidad, "venta", "ventas")}")">
+                                <div class="col" title="@($"{Fmt.Amount(m.Monto)} en {Fmt.Count(m.Cantidad, T("count.venta"), T("count.ventas"))}")">
                                     <span class="value">@Fmt.Compact(m.Monto)</span>
                                     <div class="stack" style="height:@(max == 0 ? 0 : (int)(m.Monto / max * 100))%"><span class="pos" style="flex:1"></span></div>
                                     <span class="label">@m.Mes.ToString("MMM", Fmt.Culture)</span>
@@ -52,7 +52,7 @@
                     }
                     else
                     {
-                        <EmptyState Icon="star" Title="Aún no hay ventas ganadas" Text="Cuando ganes oportunidades verás aquí cómo evolucionan." />
+                        <EmptyState Icon="star" Title="@(T("home.aun_no_hay_ventas_ganadas"))" Text="@(T("home.cuando_ganes_oportunidades_veras_aqui"))" />
                     }
                 </div>
             </div>
@@ -60,21 +60,21 @@
             <div class="card">
                 <div class="card-head">
                     <div>
-                        <h3>Actividad de tus clientes</h3>
-                        <div class="sub">Lo último que informaron el POS, el ERP y el WMS</div>
+                        <h3>@T("home.actividad_de_tus_clientes")</h3>
+                        <div class="sub">@T("home.lo_ultimo_que_informaron_el")</div>
                     </div>
                 </div>
                 <div class="card-body">
                     @if (_actividad.Count == 0)
                     {
-                        <div class="list-row"><span class="muted">Sin actividad todavía.</span></div>
+                        <div class="list-row"><span class="muted">@T("home.sin_actividad_todavia")</span></div>
                     }
                     <div class="timeline">
                         @foreach (var a in _actividad)
                         {
                             <a class="ev" href="@($"clientes/{a.ClienteId}")" @key="a.Id">
                                 <div class="stat-icon"><Icon Name="@Fmt.Activity(a.Tipo)" Size="16" /></div>
-                                <div class="two-line" style="flex:1"><span class="t1">@a.Titulo</span><span class="t2">@(_nombres.GetValueOrDefault(a.ClienteId) ?? "Cliente") · @Fmt.Ago(a.OcurridoEn)</span></div>
+                                <div class="two-line" style="flex:1"><span class="t1">@a.Titulo</span><span class="t2">@(_nombres.GetValueOrDefault(a.ClienteId) ?? T("home.cliente")) · @Fmt.Ago(a.OcurridoEn)</span></div>
                                 @if (a.Monto is { } monto)
                                 {
                                     <strong>@Fmt.Money(monto, a.Moneda ?? "PEN")</strong>
@@ -89,22 +89,22 @@
         <div class="card">
             <div class="card-head">
                 <div>
-                    <h3>Para hoy</h3>
-                    <div class="sub">Tus tareas de hoy y las atrasadas</div>
+                    <h3>@T("home.para_hoy")</h3>
+                    <div class="sub">@T("home.tus_tareas_de_hoy_las")</div>
                 </div>
-                <a class="btn btn-sm" href="tareas">Ver agenda</a>
+                <a class="btn btn-sm" href="tareas">@T("home.ver_agenda")</a>
             </div>
             <div class="card-body">
                 @if (_hoy.Count == 0)
                 {
-                    <EmptyState Icon="package-check" Title="Todo al día" Text="No tienes tareas para hoy." />
+                    <EmptyState Icon="package-check" Title="@(T("home.todo_al_dia"))" Text="@(T("home.no_tienes_tareas_para_hoy"))" />
                 }
                 @foreach (var v in _hoy)
                 {
                     var t = v.Tarea;
                     <div class="task" @key="t.Id">
-                        <input type="checkbox" @onchange="() => CompletarAsync(t)" aria-label="Hecha" />
-                        <div class="two-line" style="flex:1"><span class="t1">@t.Titulo</span><span class="t2">@t.Tipo.Nombre()@(v.Cliente is null ? "" : $" · {v.Cliente}")</span></div>
+                        <input type="checkbox" @onchange="() => CompletarAsync(t)" aria-label="@(T("home.hecha"))" />
+                        <div class="two-line" style="flex:1"><span class="t1">@t.Titulo</span><span class="t2">@Fmt.TaskType(t.Tipo)@(v.Cliente is null ? "" : $" · {v.Cliente}")</span></div>
                         <span class="when @(t.EstaVencida(Fmt.Today) ? "warn-text" : "muted")">@Fmt.Relative(t.Fecha)@(t.Hora is { } h ? $" · {FormatoPeru.Hora(h)}" : "")</span>
                     </div>
                 }
@@ -130,5 +130,5 @@
         _nombres = (await Crm.Master.GetPartyOptionsAsync(suppliers: false)).ToDictionary(o => o.Id, o => o.Label);
     }
 
-    private Task CompletarAsync(Tarea t) => RunAsync(() => Crm.Tareas.CompletarAsync(t.Id), "¡Tarea hecha!");
+    private Task CompletarAsync(Tarea t) => RunAsync(() => Crm.Tareas.CompletarAsync(t.Id), T("home.tarea_hecha"));
 }

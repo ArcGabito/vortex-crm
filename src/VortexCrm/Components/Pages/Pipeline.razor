@@ -1,20 +1,20 @@
 @page "/pipeline"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Pipeline</SectionContent>
+<SectionContent SectionName="page-title">@T("pipeline.pipeline")</SectionContent>
 
 <div class="page">
     <div class="page-head">
         <div>
-            <h2>Pipeline de ventas</h2>
-            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, "oportunidad", "oportunidades")} en curso por {Fmt.Amount(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? $" · cierras el {tasa:P0}" : "")</p>
+            <h2>@T("pipeline.pipeline_de_ventas")</h2>
+            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, T("count.oportunidad"), T("count.oportunidades"))} en curso por {Fmt.Amount(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? T("pipeline.cierras_el", tasa) : "")</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
             <div class="input-icon" style="width:220px">
                 <Icon Name="search" Size="16" />
-                <input class="control" placeholder="Buscar oportunidad o cliente" value="@_busqueda" @oninput="BuscarAsync" />
+                <input class="control" placeholder="@(T("pipeline.buscar_oportunidad_cliente"))" value="@_busqueda" @oninput="BuscarAsync" />
             </div>
-            <button class="btn btn-dark" @onclick="Nueva"><Icon Name="plus" Size="18" />Nueva oportunidad</button>
+            <button class="btn btn-dark" @onclick="Nueva"><Icon Name="plus" Size="18" />@T("pipeline.nueva_oportunidad")</button>
         </div>
     </div>
 
@@ -25,7 +25,7 @@
             var (_, tone) = StatusPill.ForEtapa(etapa);
             <section class="board-col" @key="etapa">
                 <header>
-                    <span class="pill @tone">@etapa.Nombre()</span>
+                    <span class="pill @tone">@Fmt.Stage(etapa)</span>
                     <span class="muted">@columna.Count · @Fmt.Amount(columna.Sum(o => o.Oportunidad.Monto))</span>
                 </header>
                 @foreach (var v in columna)
@@ -33,35 +33,35 @@
                     var o = v.Oportunidad;
                     <article class="deal @(o.EstaVencida(Fmt.Today) ? "late" : "")" @key="o.Id" @onclick="() => Editar(o)">
                         <strong>@o.Titulo</strong>
-                        <span class="muted">@(v.Cliente ?? "Sin cliente")@(v.Contacto is { Length: > 0 } k ? $" · {k}" : "")</span>
+                        <span class="muted">@(v.Cliente ?? T("pipeline.sin_cliente"))@(v.Contacto is { Length: > 0 } k ? $" · {k}" : "")</span>
                         <div class="deal-foot">
                             <b>@Fmt.Amount(o.Monto)</b>
                             @if (o.FechaCierreEstimada is { } cierre && etapa.EstaAbierta())
                             {
-                                <span class="@(o.EstaVencida(Fmt.Today) ? "warn-text" : "muted")" title="Cierre estimado"><Icon Name="calendar" Size="13" /> @Fmt.Relative(cierre)</span>
+                                <span class="@(o.EstaVencida(Fmt.Today) ? "warn-text" : "muted")" title="@(T("pipeline.cierre_estimado"))"><Icon Name="calendar" Size="13" /> @Fmt.Relative(cierre)</span>
                             }
                         </div>
                         <div class="deal-actions" @onclick:stopPropagation>
                             @if (etapa.EstaAbierta())
                             {
-                                <a class="btn btn-sm btn-ghost" href="@($"cotizaciones/nueva?oportunidad={o.Id}")" title="Cotizar"><Icon Name="file" Size="15" /></a>
+                                <a class="btn btn-sm btn-ghost" href="@($"cotizaciones/nueva?oportunidad={o.Id}")" title="@(T("pipeline.cotizar"))"><Icon Name="file" Size="15" /></a>
                                 <KebabMenu>
                                     @foreach (var siguiente in Etapas.Todas.Where(e => e != etapa))
                                     {
-                                        <button @onclick="() => MoverAsync(o, siguiente)">Mover a @siguiente.Nombre()</button>
+                                        <button @onclick="() => MoverAsync(o, siguiente)">@T("pipeline.mover", Fmt.Stage(siguiente))</button>
                                     }
                                 </KebabMenu>
                             }
                             else
                             {
-                                <button class="btn btn-sm btn-ghost" @onclick="() => MoverAsync(o, EtapaOportunidad.Negociacion)">Reabrir</button>
+                                <button class="btn btn-sm btn-ghost" @onclick="() => MoverAsync(o, EtapaOportunidad.Negociacion)">@T("pipeline.reabrir")</button>
                             }
                         </div>
                     </article>
                 }
                 @if (columna.Count == 0)
                 {
-                    <div class="board-empty">Sin oportunidades</div>
+                    <div class="board-empty">@T("pipeline.sin_oportunidades")</div>
                 }
             </section>
         }
@@ -75,16 +75,16 @@
 
 @if (_perdiendo is { } p)
 {
-    <Modal Title="Marcar como perdida" Subtitle="@p.Titulo" Size="sm" OnClose="() => _perdiendo = null">
+    <Modal Title="@(T("pipeline.marcar_como_perdida"))" Subtitle="@p.Titulo" Size="sm" OnClose="() => _perdiendo = null">
         <ChildContent>
             <div class="field">
-                <label>¿Por qué se perdió?</label>
-                <input class="control" placeholder="Precio, eligió a la competencia…" @bind="_motivo" />
+                <label>@T("pipeline.por_que_se_perdio")</label>
+                <input class="control" placeholder="@(T("pipeline.precio_eligio_la_competencia"))" @bind="_motivo" />
             </div>
         </ChildContent>
         <Footer>
-            <button class="btn" @onclick="() => _perdiendo = null">Cancelar</button>
-            <button class="btn btn-danger" @onclick="PerderAsync">Marcar como perdida</button>
+            <button class="btn" @onclick="() => _perdiendo = null">@T("pipeline.cancelar")</button>
+            <button class="btn btn-danger" @onclick="PerderAsync">@T("pipeline.marcar_como_perdida")</button>
         </Footer>
     </Modal>
 }
@@ -154,7 +154,7 @@
             return;
         }
         await RunAsync(() => Crm.Oportunidades.CambiarEtapaAsync(o.Id, etapa),
-            etapa == EtapaOportunidad.Ganado ? $"¡{o.Titulo} ganada!" : $"{o.Titulo} pasó a {etapa.Nombre()}.");
+            etapa == EtapaOportunidad.Ganado ? T("pipeline.ganada", o.Titulo) : T("pipeline.paso_a", o.Titulo, Fmt.Stage(etapa)));
     }
 
     private async Task PerderAsync()

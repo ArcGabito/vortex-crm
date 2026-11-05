@@ -1,35 +1,35 @@
 @page "/tareas"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Tareas</SectionContent>
+<SectionContent SectionName="page-title">@T("tasks.tareas")</SectionContent>
 
 <div class="page">
     <div class="page-head">
         <div>
-            <h2>Tareas</h2>
-            <p>Llamadas, visitas y seguimientos. Los avisos suenan en los equipos del responsable.</p>
+            <h2>@T("tasks.tareas")</h2>
+            <p>@T("tasks.llamadas_visitas_seguimientos_los_avisos")</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <div class="segmented">
-                <button class="@(_soloMias ? "on" : "")" @onclick="async () => { _soloMias = true; await ReloadAsync(); }">Mías</button>
-                <button class="@(!_soloMias ? "on" : "")" @onclick="async () => { _soloMias = false; await ReloadAsync(); }">De todo el equipo</button>
+                <button class="@(_soloMias ? "on" : "")" @onclick="async () => { _soloMias = true; await ReloadAsync(); }">@T("tasks.mias")</button>
+                <button class="@(!_soloMias ? "on" : "")" @onclick="async () => { _soloMias = false; await ReloadAsync(); }">@T("tasks.de_todo_el_equipo")</button>
             </div>
-            <button class="btn btn-dark" @onclick="Nueva"><Icon Name="plus" Size="18" />Nueva tarea</button>
+            <button class="btn btn-dark" @onclick="Nueva"><Icon Name="plus" Size="18" />@T("tasks.nueva_tarea")</button>
         </div>
     </div>
 
     @if (_agenda is { EstaVacia: true } && !Loading)
     {
-        <EmptyState Icon="calendar" Title="Nada pendiente" Text="Agenda una llamada o una visita para no perder el seguimiento." />
+        <EmptyState Icon="calendar" Title="@(T("tasks.nada_pendiente"))" Text="@(T("tasks.agenda_una_llamada_una_visita"))" />
     }
     else if (_agenda is { } a)
     {
         <div class="card">
             <div class="card-body">
-                @Grupo("Vencidas", a.Vencidas, late: true)
-                @Grupo("Hoy", a.Hoy)
-                @Grupo("Próximas", a.Proximas)
-                @Grupo("Hechas", a.Completadas.Take(15).ToList())
+                @Grupo(T("tasks.grupo_vencidas"), a.Vencidas, late: true)
+                @Grupo(T("tasks.grupo_hoy"), a.Hoy)
+                @Grupo(T("tasks.grupo_proximas"), a.Proximas)
+                @Grupo(T("tasks.grupo_hechas"), a.Completadas.Take(15).ToList())
             </div>
         </div>
     }

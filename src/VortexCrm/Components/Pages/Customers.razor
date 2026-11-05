@@ -1,26 +1,26 @@
 @page "/clientes"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Clientes</SectionContent>
+<SectionContent SectionName="page-title">@T("customers.clientes_2")</SectionContent>
 
 <div class="page">
     <div class="page-head">
         <div>
-            <h2>Clientes</h2>
-            <p>Un solo directorio para la suite: el ERP, el POS y el WMS ven los mismos clientes.</p>
+            <h2>@T("customers.clientes_2")</h2>
+            <p>@T("customers.un_solo_directorio_para_la")</p>
         </div>
         @if (Session.Can(CrmPermissions.CreateCustomer))
         {
-            <button class="btn btn-dark" @onclick="Abrir"><Icon Name="plus" Size="18" />Nuevo cliente</button>
+            <button class="btn btn-dark" @onclick="Abrir"><Icon Name="plus" Size="18" />@T("customers.nuevo_cliente")</button>
         }
     </div>
 
     <div class="filters">
         <div class="field search">
-            <label>Buscar</label>
+            <label>@T("customers.buscar")</label>
             <div class="input-icon">
                 <Icon Name="search" Size="16" />
-                <input class="control" placeholder="Nombre, RUC/DNI o correo" value="@_busqueda" @oninput="BuscarAsync" />
+                <input class="control" placeholder="@(T("customers.nombre_ruc_dni_correo"))" value="@_busqueda" @oninput="BuscarAsync" />
             </div>
         </div>
     </div>
@@ -29,13 +29,13 @@
     {
         @if (page.Total == 0 && !Loading)
         {
-            <EmptyState Icon="briefcase" Title="No hay clientes" Text="Registra tu primer cliente: queda en el hub para toda la suite." />
+            <EmptyState Icon="briefcase" Title="@(T("customers.no_hay_clientes"))" Text="@(T("customers.registra_tu_primer_cliente_queda"))" />
         }
         else
         {
             <div class="table-wrap">
                 <table class="data">
-                    <thead><tr><th>Cliente</th><th>Documento</th><th>Contacto</th><th>Ciudad</th><th></th></tr></thead>
+                    <thead><tr><th>@T("customers.cliente")</th><th>@T("customers.documento")</th><th>@T("customers.contacto")</th><th>@T("customers.ciudad")</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var p in page.Items)
                         {
@@ -43,7 +43,7 @@
                                 <td>
                                     <div class="cell-main">
                                         <Avatar Text="@p.Name" Size="34" />
-                                        <div class="two-line"><span class="t1">@p.DisplayName</span><span class="t2">@(p.TradeName is null ? (p.Kind == "Person" ? "Persona" : "Empresa") : p.Name)</span></div>
+                                        <div class="two-line"><span class="t1">@p.DisplayName</span><span class="t2">@(p.TradeName is null ? (p.Kind == "Person" ? T("customers.persona") : T("customers.empresa")) : p.Name)</span></div>
                                     </div>
                                 </td>
                                 <td><div class="two-line"><span class="t1">@(p.DocumentNumber ?? "—")</span><span class="t2">@p.DocumentType</span></div></td>
@@ -52,7 +52,7 @@
                                 <td>
                                     @if (p.Pending)
                                     {
-                                        <span class="tag" title="Guardado en este equipo; se enviará al hub al sincronizar">POR ENVIAR</span>
+                                        <span class="tag" title="@(T("customers.guardado_en_este_equipo_se"))">@T("customers.por_enviar")</span>
                                     }
                                 </td>
                             </tr>
@@ -60,81 +60,81 @@
                     </tbody>
                 </table>
             </div>
-            <Pager Page="page.Page" PageSize="page.PageSize" Total="page.Total" Noun="clientes" OnPage="async p => { _pagina = p; await ReloadAsync(); }" />
+            <Pager Page="page.Page" PageSize="page.PageSize" Total="page.Total" Noun="@(T("customers.clientes"))" OnPage="async p => { _pagina = p; await ReloadAsync(); }" />
         }
     }
 </div>
 
 @if (_form is { } f)
 {
-    <Modal Title="Nuevo cliente" Subtitle="Se registra en el hub y lo verán el ERP, el POS y el WMS." Size="lg" Error="@_error" OnClose="Cerrar">
+    <Modal Title="@(T("customers.nuevo_cliente"))" Subtitle="@(T("customers.se_registra_en_el_hub"))" Size="lg" Error="@_error" OnClose="Cerrar">
         <ChildContent>
             <div class="segmented">
-                <button class="@(f.Kind == "Company" ? "on" : "")" @onclick="@(() => { f.Kind = "Company"; f.DocumentType = "RUC"; })">Empresa</button>
-                <button class="@(f.Kind == "Person" ? "on" : "")" @onclick="@(() => { f.Kind = "Person"; f.DocumentType = "DNI"; })">Persona</button>
+                <button class="@(f.Kind == "Company" ? "on" : "")" @onclick="@(() => { f.Kind = "Company"; f.DocumentType = "RUC"; })">@T("customers.empresa")</button>
+                <button class="@(f.Kind == "Person" ? "on" : "")" @onclick="@(() => { f.Kind = "Person"; f.DocumentType = "DNI"; })">@T("customers.persona")</button>
             </div>
             <div class="form-row">
                 <div class="field">
-                    <label>@(f.Kind == "Company" ? "Razón social" : "Nombre completo")</label>
+                    <label>@(f.Kind == "Company" ? T("customers.razon_social") : T("customers.nombre_completo"))</label>
                     <input class="control" @bind="f.Name" />
                 </div>
                 @if (f.Kind == "Company")
                 {
                     <div class="field">
-                        <label>Nombre comercial (opcional)</label>
+                        <label>@T("customers.nombre_comercial_opcional")</label>
                         <input class="control" @bind="f.TradeName" />
                     </div>
                 }
             </div>
             <div class="form-row three">
                 <div class="field">
-                    <label>Documento</label>
+                    <label>@T("customers.documento")</label>
                     <select class="select" @bind="f.DocumentType">
-                        <option value="">Sin documento</option>
-                        <option value="RUC">RUC</option>
-                        <option value="DNI">DNI</option>
-                        <option value="CE">Carné de extranjería</option>
-                        <option value="PAS">Pasaporte</option>
+                        <option value="">@T("customers.sin_documento")</option>
+                        <option value="RUC">@T("customers.ruc")</option>
+                        <option value="DNI">@T("customers.dni")</option>
+                        <option value="CE">@T("customers.carne_de_extranjeria")</option>
+                        <option value="PAS">@T("customers.pasaporte")</option>
                     </select>
                 </div>
                 <div class="field">
-                    <label>Número</label>
+                    <label>@T("customers.numero")</label>
                     <input class="control" disabled="@(f.DocumentType == "")" inputmode="numeric" @bind="f.DocumentNumber"
-                           placeholder="@(f.DocumentType switch { "RUC" => "11 dígitos", "DNI" => "8 dígitos", _ => "" })" />
+                           placeholder="@(f.DocumentType switch { "RUC" => T("customers.11_digitos"), "DNI" => T("customers.8_digitos"), _ => "" })" />
                 </div>
                 <div class="field">
-                    <label>Celular o teléfono</label>
+                    <label>@T("customers.celular_telefono")</label>
                     <input class="control" type="tel" @bind="f.Phone" />
                 </div>
             </div>
             <div class="form-row three">
                 <div class="field">
-                    <label>Correo</label>
+                    <label>@T("customers.correo")</label>
                     <input class="control" type="email" @bind="f.Email" />
                 </div>
                 <div class="field">
-                    <label>Dirección</label>
-                    <input class="control" placeholder="Av. Larco 123" @bind="f.Address" />
+                    <label>@T("customers.direccion")</label>
+                    <input class="control" placeholder="@(T("customers.av_larco_123"))" @bind="f.Address" />
                 </div>
                 <div class="field">
-                    <label>Distrito</label>
-                    <input class="control" placeholder="Miraflores" @bind="f.District" />
+                    <label>@T("customers.distrito")</label>
+                    <input class="control" placeholder="@(T("customers.miraflores"))" @bind="f.District" />
                 </div>
             </div>
             <div class="form-row">
                 <div class="field">
-                    <label>Ciudad</label>
-                    <input class="control" placeholder="Lima" @bind="f.City" />
+                    <label>@T("customers.ciudad")</label>
+                    <input class="control" placeholder="@(T("customers.lima"))" @bind="f.City" />
                 </div>
                 <div class="field">
-                    <label>Notas (opcional)</label>
+                    <label>@T("customers.notas_opcional")</label>
                     <input class="control" @bind="f.Notes" />
                 </div>
             </div>
         </ChildContent>
         <Footer>
-            <button class="btn" @onclick="Cerrar">Cancelar</button>
-            <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar cliente</button>
+            <button class="btn" @onclick="Cerrar">@T("customers.cancelar")</button>
+            <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("customers.guardar_cliente")</button>
         </Footer>
     </Modal>
 }
@@ -211,7 +211,7 @@
             AddressLine: f.Address, District: f.District, TradeName: f.Kind == "Company" ? f.TradeName : null, Notes: f.Notes);
         _busy = true;
         Guid id = default;
-        _error = await TryAsync(async () => id = await Crm.Master.CreatePartyAsync(draft), $"{f.Name.Trim()} registrado.");
+        _error = await TryAsync(async () => id = await Crm.Master.CreatePartyAsync(draft), T("customers.registrado", f.Name.Trim()));
         _busy = false;
         if (_error is null)
         {

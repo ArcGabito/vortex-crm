@@ -3,7 +3,7 @@
 @inherits CrmPage
 @inject FileExporter Exporter
 
-<SectionContent SectionName="page-title">Cotización</SectionContent>
+<SectionContent SectionName="page-title">@T("quoteeditor.cotizacion")</SectionContent>
 
 @if (_cotizacion is { } q)
 {
@@ -12,25 +12,25 @@
     <div class="page">
         <div class="page-head">
             <div>
-                <h2>Cotización @q.Codigo</h2>
+                <h2>@T("quoteeditor.cotizacion_2", q.Codigo)</h2>
                 <p>
                     @{ var (text, tone) = StatusPill.ForEstado(q.Estado); }
                     <StatusPill Text="@text" Tone="@tone" />
                     @if (q.PedidoId is not null)
                     {
-                        <StatusPill Text="Pedido generado" Tone="good" />
+                        <StatusPill Text="@(T("quoteeditor.pedido_generado"))" Tone="good" />
                     }
                 </p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
                 @if (Id is not null)
                 {
-                    <button class="btn btn-outline" @onclick="WhatsAppAsync"><Icon Name="message" Size="18" />WhatsApp</button>
-                    <button class="btn btn-outline" @onclick="PdfAsync"><Icon Name="download" Size="18" />PDF</button>
+                    <button class="btn btn-outline" @onclick="WhatsAppAsync"><Icon Name="message" Size="18" />@T("quoteeditor.whatsapp")</button>
+                    <button class="btn btn-outline" @onclick="PdfAsync"><Icon Name="download" Size="18" />@T("quoteeditor.pdf")</button>
                 }
                 @if (editable)
                 {
-                    <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync"><Icon Name="check" Size="18" />Guardar</button>
+                    <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync"><Icon Name="check" Size="18" />@T("quoteeditor.guardar")</button>
                 }
             </div>
         </div>
@@ -42,25 +42,25 @@
 
         <div class="grid-2">
             <div class="card">
-                <div class="card-head"><h3>Productos y servicios</h3></div>
+                <div class="card-head"><h3>@T("quoteeditor.productos_servicios")</h3></div>
                 <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
                     @if (editable)
                     {
-                        <ItemPicker Placeholder="Agrega del catálogo por nombre o código" OnSelected="AgregarArticulo" />
+                        <ItemPicker Placeholder="@(T("quoteeditor.agrega_del_catalogo_por_nombre"))" OnSelected="AgregarArticulo" />
                     }
                     <div class="quote-lines">
-                        <div class="quote-line head"><span>Descripción</span><span>Cantidad</span><span>Unidad</span><span>P. unitario</span><span style="text-align:right">Importe</span><span></span></div>
+                        <div class="quote-line head"><span>@T("quoteeditor.descripcion")</span><span>@T("quoteeditor.cantidad")</span><span>@T("quoteeditor.unidad")</span><span>@T("quoteeditor.unitario")</span><span style="text-align:right">@T("quoteeditor.importe")</span><span></span></div>
                         @foreach (var linea in q.Lineas)
                         {
                             <div class="quote-line" @key="linea">
-                                <input class="control" placeholder="Descripción" disabled="@(!editable)" @bind="linea.Descripcion" />
+                                <input class="control" placeholder="@(T("quoteeditor.descripcion"))" disabled="@(!editable)" @bind="linea.Descripcion" />
                                 <input class="control" type="number" min="0" step="any" disabled="@(!editable)" @bind="linea.Cantidad" @bind:event="oninput" />
                                 <input class="control" disabled="@(!editable)" @bind="linea.Unidad" />
                                 <input class="control" type="number" min="0" step="0.01" disabled="@(!editable)" @bind="linea.PrecioUnitario" @bind:event="oninput" />
                                 <span class="amount">@Fmt.Money(linea.Importe, q.Moneda)</span>
                                 @if (editable)
                                 {
-                                    <button class="btn btn-ghost icon-btn sm" @onclick="() => q.Lineas.Remove(linea)" aria-label="Quitar"><Icon Name="x" Size="16" /></button>
+                                    <button class="btn btn-ghost icon-btn sm" @onclick="() => q.Lineas.Remove(linea)" aria-label="@(T("quoteeditor.quitar"))"><Icon Name="x" Size="16" /></button>
                                 }
                                 else
                                 {
@@ -71,15 +71,15 @@
                     </div>
                     @if (editable)
                     {
-                        <button class="btn btn-sm btn-ghost" style="align-self:flex-start" @onclick="() => q.Lineas.Add(new LineaCotizacion())"><Icon Name="plus" Size="16" />Línea libre</button>
+                        <button class="btn btn-sm btn-ghost" style="align-self:flex-start" @onclick="() => q.Lineas.Add(new LineaCotizacion())"><Icon Name="plus" Size="16" />@T("quoteeditor.linea_libre")</button>
                     }
                     <dl class="totals" style="max-width:340px;margin-left:auto;width:100%">
                         @if (q.ModoIgv != ModoIgv.NoAplica)
                         {
-                            <dt>Subtotal</dt><dd>@Fmt.Money(totales.Subtotal, q.Moneda)</dd>
+                            <dt>@T("quoteeditor.subtotal")</dt><dd>@Fmt.Money(totales.Subtotal, q.Moneda)</dd>
                             <dt>@q.NombreImpuesto (@((q.TasaImpuesto * 100).ToString("0.##", Fmt.Culture)) %)</dt><dd>@Fmt.Money(totales.Igv, q.Moneda)</dd>
                         }
-                        <dt class="grand">Total</dt><dd class="grand">@Fmt.Money(totales.Total, q.Moneda)</dd>
+                        <dt class="grand">@T("quoteeditor.total")</dt><dd class="grand">@Fmt.Money(totales.Total, q.Moneda)</dd>
                     </dl>
                     <p class="muted" style="font-size:12px;text-align:right">@MontoEnLetras.Monto(totales.Total, q.Moneda)</p>
                 </div>
@@ -87,12 +87,12 @@
 
             <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
                 <div class="card">
-                    <div class="card-head"><h3>Datos</h3></div>
+                    <div class="card-head"><h3>@T("quoteeditor.datos")</h3></div>
                     <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
                         <div class="field">
-                            <label>Cliente</label>
+                            <label>@T("quoteeditor.cliente")</label>
                             <select class="select" disabled="@(!editable)" value="@q.ClienteId" @onchange="ElegirClienteAsync">
-                                <option value="">Elige un cliente</option>
+                                <option value="">@T("quoteeditor.elige_un_cliente")</option>
                                 @foreach (var c in _clientes)
                                 {
                                     <option value="@c.Id">@c.Label@(c.Detail is null ? "" : $" · {c.Detail}")</option>
@@ -101,9 +101,9 @@
                         </div>
                         <div class="form-row">
                             <div class="field">
-                                <label>A la atención de</label>
+                                <label>@T("quoteeditor.la_atencion_de")</label>
                                 <select class="select" disabled="@(!editable)" @bind="q.ContactoId">
-                                    <option value="">Nadie en particular</option>
+                                    <option value="">@T("quoteeditor.nadie_en_particular")</option>
                                     @foreach (var c in _contactos)
                                     {
                                         <option value="@c.Id">@c.Label</option>
@@ -111,9 +111,9 @@
                                 </select>
                             </div>
                             <div class="field">
-                                <label>Oportunidad</label>
+                                <label>@T("quoteeditor.oportunidad")</label>
                                 <select class="select" disabled="@(!editable)" @bind="q.OportunidadId">
-                                    <option value="">Sin oportunidad</option>
+                                    <option value="">@T("quoteeditor.sin_oportunidad")</option>
                                     @foreach (var o in _oportunidades)
                                     {
                                         <option value="@o.Id">@o.Label</option>
@@ -123,11 +123,11 @@
                         </div>
                         <div class="form-row">
                             <div class="field">
-                                <label>Emisión</label>
+                                <label>@T("quoteeditor.emision")</label>
                                 <input class="control" type="date" disabled="@(!editable)" @bind="q.FechaEmision" />
                             </div>
                             <div class="field">
-                                <label>Válida hasta</label>
+                                <label>@T("quoteeditor.valida_hasta")</label>
                                 <input class="control" type="date" disabled="@(!editable)" @bind="q.ValidaHasta" />
                             </div>
                         </div>
@@ -137,12 +137,12 @@
                                 <select class="select" disabled="@(!editable)" @bind="q.ModoIgv">
                                     @foreach (var m in Enum.GetValues<ModoIgv>())
                                     {
-                                        <option value="@m">@m.Nombre(q.NombreImpuesto, q.TasaImpuesto)</option>
+                                        <option value="@m">@Fmt.TaxMode(m, q.NombreImpuesto, q.TasaImpuesto)</option>
                                     }
                                 </select>
                             </div>
                             <div class="field">
-                                <label>Moneda</label>
+                                <label>@T("quoteeditor.moneda")</label>
                                 <select class="select" disabled="@(!editable)" @bind="q.Moneda">
                                     @foreach (var currency in VortexApi.Suite.Money.Currencies.List)
                                     {
@@ -151,9 +151,9 @@
                                 </select>
                             </div>
                             <div class="field">
-                                <label>Sede que emite</label>
+                                <label>@T("quoteeditor.sede_que_emite")</label>
                                 <select class="select" disabled="@(!editable)" @bind="q.SedeId">
-                                    <option value="">Domicilio fiscal</option>
+                                    <option value="">@T("quoteeditor.domicilio_fiscal")</option>
                                     @foreach (var s in _sedes)
                                     {
                                         <option value="@s.Id">@s.Name</option>
@@ -162,8 +162,8 @@
                             </div>
                         </div>
                         <div class="field">
-                            <label>Condiciones</label>
-                            <textarea class="control" rows="3" disabled="@(!editable)" placeholder="Forma de pago, tiempo de entrega, garantía…" @bind="q.Condiciones"></textarea>
+                            <label>@T("quoteeditor.condiciones")</label>
+                            <textarea class="control" rows="3" disabled="@(!editable)" placeholder="@(T("quoteeditor.forma_de_pago_tiempo_de"))" @bind="q.Condiciones"></textarea>
                         </div>
                     </div>
                 </div>
@@ -171,32 +171,32 @@
                 @if (Id is not null)
                 {
                     <div class="card">
-                        <div class="card-head"><h3>Siguiente paso</h3></div>
+                        <div class="card-head"><h3>@T("quoteeditor.siguiente_paso")</h3></div>
                         <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
                             @switch (q.Estado)
                             {
                                 case EstadoCotizacion.Borrador:
-                                    <button class="btn btn-block" @onclick="() => CambiarAsync(EstadoCotizacion.Enviada)"><Icon Name="send" Size="18" />Marcar como enviada</button>
-                                    <button class="btn btn-block btn-ghost" @onclick="EliminarAsync"><Icon Name="trash" Size="18" />Eliminar borrador</button>
+                                    <button class="btn btn-block" @onclick="() => CambiarAsync(EstadoCotizacion.Enviada)"><Icon Name="send" Size="18" />@T("quoteeditor.marcar_como_enviada")</button>
+                                    <button class="btn btn-block btn-ghost" @onclick="EliminarAsync"><Icon Name="trash" Size="18" />@T("quoteeditor.eliminar_borrador")</button>
                                     break;
                                 case EstadoCotizacion.Enviada:
-                                    <button class="btn btn-block btn-dark" @onclick="() => CambiarAsync(EstadoCotizacion.Aceptada)"><Icon Name="check" Size="18" />El cliente aceptó</button>
-                                    <button class="btn btn-block btn-danger" @onclick="() => CambiarAsync(EstadoCotizacion.Rechazada)"><Icon Name="x" Size="18" />El cliente rechazó</button>
+                                    <button class="btn btn-block btn-dark" @onclick="() => CambiarAsync(EstadoCotizacion.Aceptada)"><Icon Name="check" Size="18" />@T("quoteeditor.el_cliente_acepto")</button>
+                                    <button class="btn btn-block btn-danger" @onclick="() => CambiarAsync(EstadoCotizacion.Rechazada)"><Icon Name="x" Size="18" />@T("quoteeditor.el_cliente_rechazo")</button>
                                     break;
                                 case EstadoCotizacion.Aceptada when q.PedidoId is null:
-                                    <p class="muted" style="font-size:13px">El ERP ya la ve como cotización por convertir. También puedes generar el pedido desde aquí: el WMS lo prepara y el ERP lo factura.</p>
-                                    <button class="btn btn-block btn-dark" @onclick="PedidoAsync"><Icon Name="truck" Size="18" />Generar pedido</button>
+                                    <p class="muted" style="font-size:13px">@T("quoteeditor.el_erp_ya_la_ve")</p>
+                                    <button class="btn btn-block btn-dark" @onclick="PedidoAsync"><Icon Name="truck" Size="18" />@T("quoteeditor.generar_pedido")</button>
                                     break;
                                 case EstadoCotizacion.Aceptada:
-                                    <p class="muted" style="font-size:13px">Pedido generado. Su avance (despacho, comprobante y cobro) aparece en la ficha del cliente.</p>
+                                    <p class="muted" style="font-size:13px">@T("quoteeditor.pedido_generado_su_avance_despacho")</p>
                                     break;
                                 default:
-                                    <p class="muted" style="font-size:13px">Cotización rechazada. Puedes crear una nueva para el mismo cliente.</p>
+                                    <p class="muted" style="font-size:13px">@T("quoteeditor.cotizacion_rechazada_puedes_crear_una")</p>
                                     break;
                             }
                             @if (q.ClienteId is { } cliente)
                             {
-                                <a class="btn btn-block btn-ghost" href="@($"clientes/{cliente}")"><Icon Name="briefcase" Size="18" />Ver ficha del cliente</a>
+                                <a class="btn btn-block btn-ghost" href="@($"clientes/{cliente}")"><Icon Name="briefcase" Size="18" />@T("quoteeditor.ver_ficha_del_cliente")</a>
                             }
                         </div>
                     </div>
@@ -261,7 +261,7 @@
         _busy = false;
         if (_error is not null)
             return false;
-        Toasts.Success($"Cotización {codigo} guardada.");
+        Toasts.Success(T("quoteeditor.cotizacion_guardada", codigo));
         if (Id is null)
             Nav.NavigateTo($"cotizaciones/{_cotizacion!.Id}", replace: true);
         return true;
@@ -273,9 +273,9 @@
             return;
         _error = await TryAsync(() => Crm.Cotizaciones.CambiarEstadoAsync(_cotizacion.Id, estado), estado switch
         {
-            EstadoCotizacion.Aceptada => "¡Cotización aceptada! El ERP ya puede convertirla en pedido.",
-            EstadoCotizacion.Enviada => "Cotización marcada como enviada.",
-            _ => "Cotización marcada como rechazada.",
+            EstadoCotizacion.Aceptada => T("quoteeditor.cotizacion_aceptada_el_erp_ya"),
+            EstadoCotizacion.Enviada => T("quoteeditor.cotizacion_marcada_como_enviada"),
+            _ => T("quoteeditor.cotizacion_marcada_como_rechazada"),
         });
         _cotizacion = await Crm.Cotizaciones.ObtenerAsync(_cotizacion.Id);
     }
@@ -286,14 +286,14 @@
         _error = await TryAsync(async () => numero = await Crm.Cotizaciones.GenerarPedidoAsync(_cotizacion!.Id));
         if (_error is null)
         {
-            Toasts.Success($"Pedido {numero} enviado a la suite.");
+            Toasts.Success(T("quoteeditor.pedido_enviado_la_suite", numero));
             _cotizacion = await Crm.Cotizaciones.ObtenerAsync(_cotizacion!.Id);
         }
     }
 
     private async Task EliminarAsync()
     {
-        _error = await TryAsync(() => Crm.Cotizaciones.EliminarAsync(_cotizacion!.Id), "Borrador eliminado.");
+        _error = await TryAsync(() => Crm.Cotizaciones.EliminarAsync(_cotizacion!.Id), T("quoteeditor.borrador_eliminado"));
         if (_error is null)
             Nav.NavigateTo("cotizaciones", replace: true);
     }
@@ -304,7 +304,7 @@
             return;
         var (_, enlace) = await Crm.Cotizaciones.WhatsAppAsync(_cotizacion.Id);
         if (enlace is null)
-            Toasts.Error("El cliente o el contacto no tiene un celular registrado.");
+            Toasts.Error(T("quoteeditor.el_cliente_el_contacto_no"));
         else
             await Launcher.Default.OpenAsync(new Uri(enlace));
     }
