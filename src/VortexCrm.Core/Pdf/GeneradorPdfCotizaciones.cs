@@ -3,6 +3,8 @@ using MigraDoc.DocumentObjectModel.Tables;
 using MigraDoc.Rendering;
 using VortexCrm.Core.Domain.Comun;
 using VortexCrm.Core.Domain.Ventas;
+using VortexCrm.Core.Texts;
+using static VortexCrm.Core.Texts.CoreText;
 
 namespace VortexCrm.Core.Pdf;
 
@@ -22,7 +24,7 @@ public static class GeneradorPdfCotizaciones
         ResolvedorFuentes.Registrar();
 
         var documento = new Document();
-        documento.Info.Title = $"Cotización {cotizacion.Codigo}";
+        documento.Info.Title = T("pdf.cotizacion_n", cotizacion.Codigo);
         documento.Info.Author = negocio.Nombre;
 
         var normal = documento.Styles[StyleNames.Normal]!;
@@ -43,7 +45,7 @@ public static class GeneradorPdfCotizaciones
         AgregarTotales(seccion, cotizacion);
         AgregarCondiciones(seccion, cotizacion);
 
-        var pie = seccion.Footers.Primary.AddParagraph("Cotización generada con Vortex CRM · vortex-crm es software libre (AGPL-3.0)");
+        var pie = seccion.Footers.Primary.AddParagraph(T("pdf.pie"));
         pie.Format.Alignment = ParagraphAlignment.Center;
         pie.Format.Font.Size = 7;
         pie.Format.Font.Color = GrisTexto;
@@ -76,7 +78,7 @@ public static class GeneradorPdfCotizaciones
             emisor.AddParagraph(negocio.RazonSocial);
         }
 
-        AgregarSiHay(emisor, string.IsNullOrWhiteSpace(negocio.Ruc) ? null : $"RUC {negocio.Ruc}");
+        AgregarSiHay(emisor, string.IsNullOrWhiteSpace(negocio.Ruc) ? null : T("pdf.ruc", negocio.Ruc));
         AgregarSiHay(emisor, negocio.Direccion);
         AgregarSiHay(emisor, Unir(" · ", negocio.Telefono, negocio.Email));
 
@@ -87,22 +89,22 @@ public static class GeneradorPdfCotizaciones
         fila.TopPadding = Unit.FromCentimeter(0.3);
         fila.BottomPadding = Unit.FromCentimeter(0.3);
 
-        var titulo = recuadro.AddParagraph("COTIZACIÓN");
+        var titulo = recuadro.AddParagraph(T("pdf.titulo"));
         titulo.Format.Font.Bold = true;
         titulo.Format.Font.Size = 13;
         titulo.Format.Font.Color = Colors.White;
 
-        var numero = recuadro.AddParagraph($"N° {cotizacion.Codigo}");
+        var numero = recuadro.AddParagraph(T("pdf.numero", cotizacion.Codigo));
         numero.Format.Font.Size = 11;
         numero.Format.Font.Color = Colors.White;
 
         var fechas = seccion.AddParagraph();
         fechas.Format.Alignment = ParagraphAlignment.Right;
         fechas.Format.SpaceBefore = Unit.FromCentimeter(0.3);
-        fechas.AddFormattedText("Fecha: ", TextFormat.Bold);
+        fechas.AddFormattedText(T("pdf.fecha"), TextFormat.Bold);
         fechas.AddText(cotizacion.FechaEmision.ToString("dd/MM/yyyy", FormatoPeru.Cultura));
         fechas.AddText("     ");
-        fechas.AddFormattedText("Válida hasta: ", TextFormat.Bold);
+        fechas.AddFormattedText(T("pdf.valida_hasta"), TextFormat.Bold);
         fechas.AddText(cotizacion.ValidaHasta.ToString("dd/MM/yyyy", FormatoPeru.Cultura));
     }
 
@@ -118,14 +120,14 @@ public static class GeneradorPdfCotizaciones
         celda.Format.LeftIndent = Unit.FromCentimeter(0.2);
 
         var nombre = celda.AddParagraph();
-        nombre.AddFormattedText("Cliente: ", TextFormat.Bold);
+        nombre.AddFormattedText(T("pdf.cliente"), TextFormat.Bold);
         nombre.AddText(cliente.Nombre);
         AgregarSiHay(celda, Unir(" · ", cliente.Documento, cliente.Direccion));
 
         if (cliente.Atencion is not null)
         {
             var atencion = celda.AddParagraph();
-            atencion.AddFormattedText("Atención: ", TextFormat.Bold);
+            atencion.AddFormattedText(T("pdf.atencion"), TextFormat.Bold);
             atencion.AddText(cliente.Atencion);
         }
 
@@ -151,7 +153,7 @@ public static class GeneradorPdfCotizaciones
         encabezado.Shading.Color = Marca;
         encabezado.Format.Font.Bold = true;
         encabezado.Format.Font.Color = Colors.White;
-        string[] titulos = ["N°", "Descripción", "Cant.", "Unid.", "P. unit.", "Importe"];
+        string[] titulos = ["N°", T("pdf.descripcion"), T("pdf.cant"), T("pdf.unid"), T("pdf.p_unit"), T("pdf.importe")];
         for (var i = 0; i < titulos.Length; i++)
         {
             encabezado.Cells[i].AddParagraph(titulos[i]);
@@ -178,9 +180,9 @@ public static class GeneradorPdfCotizaciones
 
         var nota = cotizacion.ModoIgv switch
         {
-            ModoIgv.Incluido => $"Los precios unitarios incluyen {cotizacion.NombreImpuesto}.",
-            ModoIgv.Adicional => $"Los precios unitarios no incluyen {cotizacion.NombreImpuesto}.",
-            _ => $"Operación no afecta al {cotizacion.NombreImpuesto}.",
+            ModoIgv.Incluido => T("pdf.precios_incluyen", cotizacion.NombreImpuesto),
+            ModoIgv.Adicional => T("pdf.precios_no_incluyen", cotizacion.NombreImpuesto),
+            _ => T("pdf.no_afecta", cotizacion.NombreImpuesto),
         };
         var parrafo = seccion.AddParagraph(nota);
         parrafo.Format.Font.Size = 7.5;
@@ -200,16 +202,20 @@ public static class GeneradorPdfCotizaciones
 
         if (cotizacion.ModoIgv != ModoIgv.NoAplica)
         {
-            AgregarFilaTotal(tabla, "Subtotal", totales.Subtotal, cotizacion, destacada: false);
+            AgregarFilaTotal(tabla, T("pdf.subtotal"), totales.Subtotal, cotizacion, destacada: false);
             AgregarFilaTotal(tabla, $"{cotizacion.NombreImpuesto} ({cotizacion.TasaImpuesto * 100:0.##} %)", totales.Igv, cotizacion, destacada: false);
         }
 
-        AgregarFilaTotal(tabla, "TOTAL", totales.Total, cotizacion, destacada: true);
+        AgregarFilaTotal(tabla, T("pdf.total"), totales.Total, cotizacion, destacada: true);
 
-        var letras = seccion.AddParagraph();
-        letras.Format.SpaceBefore = Unit.FromCentimeter(0.4);
-        letras.AddFormattedText("SON: ", TextFormat.Bold);
-        letras.AddText(MontoEnLetras.Monto(totales.Total, cotizacion.Moneda));
+        // El monto en letras (costumbre de los comprobantes de LATAM) solo existe en español.
+        if (CoreText.Language == VortexApi.Suite.Regional.Languages.Spanish)
+        {
+            var letras = seccion.AddParagraph();
+            letras.Format.SpaceBefore = Unit.FromCentimeter(0.4);
+            letras.AddFormattedText("SON: ", TextFormat.Bold);
+            letras.AddText(MontoEnLetras.Monto(totales.Total, cotizacion.Moneda));
+        }
     }
 
     private static void AgregarFilaTotal(Table tabla, string concepto, decimal monto, Cotizacion cotizacion, bool destacada)
@@ -236,7 +242,7 @@ public static class GeneradorPdfCotizaciones
             return;
         }
 
-        var titulo = seccion.AddParagraph("Condiciones");
+        var titulo = seccion.AddParagraph(T("pdf.condiciones"));
         titulo.Format.Font.Bold = true;
         titulo.Format.SpaceBefore = Unit.FromCentimeter(0.6);
 

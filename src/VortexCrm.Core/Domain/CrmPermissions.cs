@@ -1,5 +1,7 @@
 using VortexApi.Suite.Security;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain;
 
 /// <summary>
@@ -39,13 +41,13 @@ public static class CrmPermissions
 
     public static string Describe(string permission) => permission switch
     {
-        Sell => "registrar ventas",
-        EditAny => "editar lo que es de otro vendedor",
-        Delete => "eliminar registros",
-        CreateCustomer => "registrar clientes",
-        EditCatalog => "editar productos y sedes",
-        EditSettings => "cambiar los ajustes de ventas",
-        ViewAudit => "ver la auditoría",
+        Sell => T("permiso.sell"),
+        EditAny => T("permiso.editany"),
+        Delete => T("permiso.delete"),
+        CreateCustomer => T("permiso.createcustomer"),
+        EditCatalog => T("permiso.editcatalog"),
+        EditSettings => T("permiso.editsettings"),
+        ViewAudit => T("permiso.viewaudit"),
         _ => permission,
     };
 }

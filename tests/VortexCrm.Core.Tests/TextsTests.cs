@@ -3,6 +3,10 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using VortexApi.Suite.Regional;
 using VortexApi.Suite.Text;
+using VortexCrm.Core.Domain;
+using VortexCrm.Core.Domain.Tareas;
+using VortexCrm.Core.Domain.Ventas;
+using VortexCrm.Core.Texts;
 
 namespace VortexCrm.Core.Tests;
 
@@ -36,8 +40,8 @@ public sealed partial class TextsTests
     public void Cada_clave_usada_en_la_interfaz_existe()
     {
         var catalog = new TextCatalog().AddResources(Core, "VortexCrm.Core.Texts");
-        var app = Path.Combine(RepoRoot(), "src", "VortexCrm");
-        var used = Directory.EnumerateFiles(app, "*.*", SearchOption.AllDirectories)
+        var used = new[] { "VortexCrm", "VortexCrm.Core" }
+            .SelectMany(project => Directory.EnumerateFiles(Path.Combine(RepoRoot(), "src", project), "*.*", SearchOption.AllDirectories))
             .Where(f => (f.EndsWith(".razor") || f.EndsWith(".cs")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
             .SelectMany(f => KeyUse().Matches(File.ReadAllText(f)).Select(m => m.Groups[1].Value))
             .Where(k => !k.EndsWith('.'))
@@ -59,6 +63,18 @@ public sealed partial class TextsTests
         Assert.Equal(Languages.Portuguese, Languages.DefaultFor("BR"));
         Assert.Equal(Languages.English, Languages.DefaultFor("US"));
         Assert.Equal(Languages.Spanish, Languages.DefaultFor("PE"));
+    }
+
+    [Fact]
+    public void Los_nombres_y_mensajes_de_la_logica_salen_en_el_idioma_elegido()
+    {
+        using (CoreText.Use(Languages.English))
+        {
+            Assert.Equal("Negotiation", VortexCrm.Core.Domain.Ventas.EtapaOportunidad.Negociacion.Nombre());
+            Assert.Equal("Meeting", VortexCrm.Core.Domain.Tareas.TipoTarea.Reunion.Nombre());
+            Assert.Equal("Prices include VAT", VortexCrm.Core.Domain.Ventas.ModoIgv.Incluido.Nombre("VAT"));
+        }
+        Assert.Equal("Negociación", VortexCrm.Core.Domain.Ventas.EtapaOportunidad.Negociacion.Nombre());
     }
 
     private static string Markers(string text) =>

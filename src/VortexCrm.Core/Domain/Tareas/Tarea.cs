@@ -1,5 +1,7 @@
 using VortexCrm.Core.Domain.Comun;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Tareas;
 
 public enum TipoTarea
@@ -16,11 +18,7 @@ public static class TiposTarea
 {
     public static IReadOnlyList<TipoTarea> Todos { get; } = Enum.GetValues<TipoTarea>();
 
-    public static string Nombre(this TipoTarea tipo) => tipo switch
-    {
-        TipoTarea.Reunion => "Reunión",
-        _ => tipo.ToString(),
-    };
+    public static string Nombre(this TipoTarea tipo) => T("enum.tarea." + tipo.ToString().ToLowerInvariant());
 }
 
 /// <summary>Algo que hay que hacer en una fecha: llamar a un cliente, mandarle la cotización, visitarlo.</summary>
@@ -98,12 +96,12 @@ public sealed class Tarea
 
         if (string.IsNullOrWhiteSpace(Titulo))
         {
-            errores.Add("Escribe qué hay que hacer.");
+            errores.Add(T("error.escribe_que_hay_que_hacer"));
         }
 
         if (AvisarMinutosAntes < 0)
         {
-            errores.Add("El aviso no puede ser después de la tarea.");
+            errores.Add(T("error.el_aviso_no_puede_ser"));
         }
 
         return errores;
@@ -143,15 +141,15 @@ public static class Avisos
         return hora is null
             ?
             [
-                new(0, $"El mismo día ({horaDeAviso})"),
-                new(24 * 60, $"Un día antes ({horaDeAviso})"),
+                new(0, T("aviso.mismo_dia", horaDeAviso)),
+                new(24 * 60, T("aviso.dia_antes_hora", horaDeAviso)),
             ]
             :
             [
-                new(0, "A la hora"),
-                new(15, "15 minutos antes"),
-                new(60, "1 hora antes"),
-                new(24 * 60, "1 día antes"),
+                new(0, T("aviso.a_la_hora")),
+                new(15, T("aviso.15_minutos_antes")),
+                new(60, T("aviso.1_hora_antes")),
+                new(24 * 60, T("aviso.1_dia_antes")),
             ];
     }
 }

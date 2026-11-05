@@ -8,6 +8,8 @@ using VortexCrm.Core.Integration;
 using VortexCrm.Core.Pdf;
 using VortexCrm.Core.Sync;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Services;
 
 /// <summary>
@@ -88,7 +90,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         {
             var guardada = await ObtenerAsync(c, tx, cotizacion.Id);
             Require(guardada is null || guardada.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada,
-                "La cotización ya fue aceptada o rechazada: crea una nueva.");
+                T("error.la_cotizacion_ya_fue_aceptada"));
             if (guardada is not null)
                 RequireOwner(guardada.ResponsableId, guardada.ResponsableNombre);
             cotizacion.ResponsableId ??= Context.UserId;
@@ -109,10 +111,10 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         return InTransactionAsync(async (c, tx, now) =>
         {
             var cotizacion = await ObtenerAsync(c, tx, id);
-            Require(cotizacion is not null, "Guarda la cotización antes de cambiar su estado.");
+            Require(cotizacion is not null, T("error.guarda_la_cotizacion_antes_de"));
             RequireOwner(cotizacion!.ResponsableId, cotizacion.ResponsableNombre);
-            Require(cotizacion!.Estado != estado, "La cotización ya está en ese estado.");
-            Require(cotizacion.PedidoId is null, "La cotización ya tiene pedido: no puede cambiar de estado.");
+            Require(cotizacion!.Estado != estado, T("error.la_cotizacion_ya_esta_en"));
+            Require(cotizacion.PedidoId is null, T("error.la_cotizacion_ya_tiene_pedido"));
 
             var oportunidad = cotizacion.OportunidadId is { } op ? await ServicioOportunidades.ObtenerAsync(c, tx, op) : null;
             var etapaAnterior = oportunidad?.Etapa;
@@ -140,12 +142,12 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         return InTransactionAsync(async (c, tx, now) =>
         {
             var cotizacion = await ObtenerAsync(c, tx, id);
-            Require(cotizacion is not null, "La cotización no existe.");
+            Require(cotizacion is not null, T("error.la_cotizacion_no_existe"));
             RequireOwner(cotizacion!.ResponsableId, cotizacion.ResponsableNombre);
-            Require(cotizacion!.Estado == EstadoCotizacion.Aceptada, "Solo se genera el pedido de una cotización aceptada.");
-            Require(cotizacion.PedidoId is null, "La cotización ya tiene pedido.");
+            Require(cotizacion!.Estado == EstadoCotizacion.Aceptada, T("error.solo_se_genera_el_pedido"));
+            Require(cotizacion.PedidoId is null, T("error.la_cotizacion_ya_tiene_pedido_2"));
             Require(cotizacion.Lineas.All(l => l.ItemId is not null),
-                "Para generar el pedido, todas las líneas deben ser artículos del catálogo (las de texto libre no se pueden despachar).");
+                T("error.para_generar_el_pedido_todas"));
 
             var pedidoId = PedidoIdPara(cotizacion.Id);
             var numero = "PED-" + cotizacion.Codigo.Replace("COT-", "", StringComparison.Ordinal);
@@ -164,7 +166,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         InTransactionAsync(async (c, tx, now) =>
         {
             var cotizacion = await ObtenerAsync(c, tx, id);
-            Require(cotizacion is null || cotizacion.Estado == EstadoCotizacion.Borrador, "Solo se elimina una cotización en borrador.");
+            Require(cotizacion is null || cotizacion.Estado == EstadoCotizacion.Borrador, T("error.solo_se_elimina_una_cotizacion"));
             if (cotizacion is not null)
                 RequireOwner(cotizacion.ResponsableId, cotizacion.ResponsableNombre);
             await Registros.EliminarAsync(c, tx, now, CrmRecordKinds.Cotizacion, id);
@@ -194,7 +196,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             : null;
         var direccion = string.Join(", ", new[] { sede?.Linea ?? empresa?.AddressLine, sede?.Ciudad ?? empresa?.City }
             .Where(p => !string.IsNullOrWhiteSpace(p)));
-        var emisor = new EmisorPdf(empresa?.DisplayName ?? "Mi empresa", empresa?.LegalName, empresa?.TaxId,
+        var emisor = new EmisorPdf(empresa?.DisplayName ?? T("pdf.mi_empresa"), empresa?.LegalName, empresa?.TaxId,
             direccion.Length == 0 ? null : direccion, sede?.Telefono ?? empresa?.Phone, empresa?.Email);
         return GeneradorPdfCotizaciones.Generar(cotizacion, emisor, ClienteCotizacion.Crear(cliente, contacto));
     }
@@ -215,11 +217,11 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     private async Task<(Cotizacion, PartyRow, Contacto?, CompanyInfo?)> DatosDeEnvioAsync(SqliteConnection c, Guid id)
     {
         var cotizacion = await ObtenerAsync(c, null, id);
-        Require(cotizacion is not null, "Guarda la cotización primero.");
+        Require(cotizacion is not null, T("error.guarda_la_cotizacion_primero"));
         var cliente = cotizacion!.ClienteId is { } cl
             ? await c.FirstOrDefaultAsync("SELECT * FROM parties WHERE id = $id", MasterDataService.ReadParty, null, ("$id", cl))
             : null;
-        Require(cliente is not null, "La cotización no tiene cliente.");
+        Require(cliente is not null, T("error.la_cotizacion_no_tiene_cliente"));
         var contacto = cotizacion.ContactoId is { } k
             ? await c.FirstOrDefaultAsync("SELECT * FROM contactos WHERE id = $id", Registros.LeerContacto, null, ("$id", k))
             : null;

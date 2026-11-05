@@ -2,6 +2,8 @@ using VortexApi.Suite.Money;
 using VortexApi.Suite.Taxes;
 using VortexCrm.Core.Domain.Comun;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Ventas;
 
 public enum EstadoCotizacion
@@ -187,12 +189,12 @@ public sealed class Cotizacion
 
         if (ClienteId is null)
         {
-            errores.Add("Elige el cliente.");
+            errores.Add(T("error.elige_el_cliente"));
         }
 
         if (Lineas.Count == 0)
         {
-            errores.Add("Agrega al menos un producto o servicio.");
+            errores.Add(T("error.agrega_al_menos_un_producto"));
         }
 
         for (var i = 0; i < Lineas.Count; i++)
@@ -200,23 +202,23 @@ public sealed class Cotizacion
             var linea = Lineas[i];
             if (string.IsNullOrWhiteSpace(linea.Descripcion))
             {
-                errores.Add($"Línea {i + 1}: falta la descripción.");
+                errores.Add(T("error.linea_falta_la_descripcion", (i + 1)));
             }
 
             if (linea.Cantidad <= 0)
             {
-                errores.Add($"Línea {i + 1}: la cantidad debe ser mayor que cero.");
+                errores.Add(T("error.linea_la_cantidad_debe_ser", (i + 1)));
             }
 
             if (linea.PrecioUnitario < 0)
             {
-                errores.Add($"Línea {i + 1}: el precio no puede ser negativo.");
+                errores.Add(T("error.linea_el_precio_no_puede", (i + 1)));
             }
         }
 
         if (ValidaHasta < FechaEmision)
         {
-            errores.Add("La fecha de validez no puede ser anterior a la de emisión.");
+            errores.Add(T("error.la_fecha_de_validez_no"));
         }
 
         return errores;

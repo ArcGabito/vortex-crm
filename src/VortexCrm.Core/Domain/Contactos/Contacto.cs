@@ -1,3 +1,5 @@
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Contactos;
 
 /// <summary>
@@ -34,12 +36,12 @@ public sealed class Contacto
 
         if (!string.IsNullOrWhiteSpace(Dni) && !DocumentoIdentidad.EsDniValido(Dni))
         {
-            errores.Add("El DNI debe tener 8 dígitos.");
+            errores.Add(T("error.el_dni_debe_tener_8"));
         }
 
         if (string.IsNullOrWhiteSpace(Nombres))
         {
-            errores.Add("Los nombres son obligatorios.");
+            errores.Add(T("error.los_nombres_son_obligatorios"));
         }
 
         return errores;
