@@ -5,6 +5,8 @@ using VortexCrm.Core.Domain.Ventas;
 using VortexCrm.Core.Integration;
 using VortexCrm.Core.Sync;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Services;
 
 /// <summary>
@@ -62,7 +64,7 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
         return InTransactionAsync(async (c, tx, now) =>
         {
             var oportunidad = await ObtenerAsync(c, tx, id);
-            Require(oportunidad is not null, "La oportunidad no existe.");
+            Require(oportunidad is not null, T("error.la_oportunidad_no_existe"));
             RequireOwner(oportunidad!.ResponsableId, oportunidad.ResponsableNombre);
             var anterior = oportunidad.Etapa;
             oportunidad.CambiarEtapa(etapa, now);

@@ -4,6 +4,8 @@ using VortexCrm.Core.Domain;
 using VortexCrm.Core.Domain.Tareas;
 using VortexCrm.Core.Integration;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Services;
 
 /// <summary>
@@ -94,7 +96,7 @@ public sealed class ServicioTareas(CrmDatabase db, ICrmContext context, TimeProv
         var tarea = await InTransactionAsync(async (c, tx, now) =>
         {
             var t = await ObtenerAsync(c, tx, id);
-            Require(t is not null, "La tarea no existe.");
+            Require(t is not null, T("error.la_tarea_no_existe"));
             RequireOwner(t!.ResponsableId, t.ResponsableNombre);
             cambio(t, now);
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Tarea, t!.Id, Registros.Datos(t));

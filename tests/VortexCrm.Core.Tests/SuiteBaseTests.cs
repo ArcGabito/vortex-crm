@@ -42,6 +42,13 @@ public sealed class SuiteBaseTests
 
             var (mensaje, _) = await t.Crm.Cotizaciones.WhatsAppAsync(cotizacion.Id);
             Assert.Contains("*Total: $ 1,160.00* (incluye IVA)", mensaje);
+            using (VortexCrm.Core.Texts.CoreText.Use("en"))
+            {
+                var (enIngles, _) = await t.Crm.Cotizaciones.WhatsAppAsync(cotizacion.Id);
+                Assert.Contains("*Total: $ 1,160.00* (includes IVA)", enIngles);
+                Assert.Contains("here's quote", enIngles);
+                Assert.NotEmpty(await t.Crm.Cotizaciones.GenerarPdfAsync(cotizacion.Id));
+            }
             Assert.Equal("MIL CIENTO SESENTA CON 00/100 PESOS MEXICANOS", MontoEnLetras.Monto(1160m, "MXN"));
             Assert.Equal("NUEVE MIL NOVECIENTOS NOVENTA PESOS CHILENOS", MontoEnLetras.Monto(9990m, "CLP"));
 

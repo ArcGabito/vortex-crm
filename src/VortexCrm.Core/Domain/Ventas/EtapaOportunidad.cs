@@ -1,3 +1,5 @@
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Ventas;
 
 /// <summary>Etapas del pipeline de ventas, en el orden en que avanza una oportunidad.</summary>
@@ -14,11 +16,7 @@ public static class Etapas
 {
     public static IReadOnlyList<EtapaOportunidad> Todas { get; } = Enum.GetValues<EtapaOportunidad>();
 
-    public static string Nombre(this EtapaOportunidad etapa) => etapa switch
-    {
-        EtapaOportunidad.Negociacion => "Negociación",
-        _ => etapa.ToString(),
-    };
+    public static string Nombre(this EtapaOportunidad etapa) => T("enum.etapa." + etapa.ToString().ToLowerInvariant());
 
     /// <summary>Una oportunidad abierta todavía puede ganarse o perderse.</summary>
     public static bool EstaAbierta(this EtapaOportunidad etapa) =>

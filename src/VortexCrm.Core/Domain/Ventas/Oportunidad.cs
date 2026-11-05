@@ -1,3 +1,5 @@
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Ventas;
 
 /// <summary>Una venta posible con un cliente, que avanza por las etapas del pipeline.</summary>
@@ -60,17 +62,17 @@ public sealed class Oportunidad
 
         if (string.IsNullOrWhiteSpace(Titulo))
         {
-            errores.Add("El título es obligatorio.");
+            errores.Add(T("error.el_titulo_es_obligatorio"));
         }
 
         if (ClienteId is null)
         {
-            errores.Add("Elige el cliente.");
+            errores.Add(T("error.elige_el_cliente"));
         }
 
         if (Monto < 0)
         {
-            errores.Add("El monto no puede ser negativo.");
+            errores.Add(T("error.el_monto_no_puede_ser"));
         }
 
         return errores;

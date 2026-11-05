@@ -8,6 +8,8 @@ using VortexCrm.Core.Domain.Comun;
 using VortexCrm.Core.Integration;
 using VortexCrm.Core.Services;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Sync;
 
 /// <summary>
@@ -78,7 +80,7 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
         {
             if (s.CustomerId is not { } cliente)
                 return "venta sin cliente";
-            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Venta, $"Compra en caja {s.Number}".Trim(),
+            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Venta, T("actividad.compra_en_caja", s.Number).Trim(),
                 null, s.Total, s.CurrencyCode, e.Source, e.OccurredAt);
             return null;
         }, ct);
@@ -88,7 +90,7 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
         {
             if (i.CustomerId is not { } cliente)
                 return "comprobante sin cliente";
-            var tipo = i.Kind == "boleta" ? "Boleta" : "Factura";
+            var tipo = i.Kind == "boleta" ? T("actividad.boleta") : T("actividad.factura");
             await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Comprobante, $"{tipo} {i.Number}".Trim(),
                 null, i.Total, i.CurrencyCode, e.Source, e.OccurredAt);
             return null;
@@ -99,7 +101,7 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
         {
             if (p.CustomerId is not { } cliente)
                 return "cobro sin cliente";
-            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Cobro, $"Pago recibido {p.Number}".Trim(),
+            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Cobro, T("actividad.pago_recibido", p.Number).Trim(),
                 e.SubjectId is null ? null : $"Comprobante {e.SubjectId}", p.Amount, p.CurrencyCode, e.Source, e.OccurredAt);
             return null;
         }, ct);
@@ -109,9 +111,9 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
         {
             if (d.CustomerId is not { } cliente || cliente == Guid.Empty)
                 return "despacho sin cliente";
-            var detalle = string.Join(" · ", new[] { d.Carrier, d.TrackingNumber is null ? null : $"guía {d.TrackingNumber}" }
+            var detalle = string.Join(" · ", new[] { d.Carrier, d.TrackingNumber is null ? null : T("actividad.guia", d.TrackingNumber) }
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
-            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Despacho, $"Pedido despachado {d.Number}".Trim(),
+            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Despacho, T("actividad.pedido_despachado", d.Number).Trim(),
                 detalle.Length == 0 ? null : detalle, null, null, e.Source, e.OccurredAt);
             return null;
         }, ct);

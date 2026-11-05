@@ -1,6 +1,8 @@
 using System.Text;
 using VortexCrm.Core.Domain.Comun;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Ventas;
 
 /// <summary>Arma el mensaje y el enlace de WhatsApp para enviar una cotización.</summary>
@@ -12,8 +14,8 @@ public static class MensajeWhatsApp
     public static string Cotizacion(Cotizacion cotizacion, string negocio, string? saludo)
     {
         var texto = new StringBuilder();
-        texto.AppendLine(string.IsNullOrWhiteSpace(saludo) ? "Hola," : $"Hola {saludo},");
-        texto.AppendLine($"te envío la cotización {cotizacion.Codigo} de {negocio}:");
+        texto.AppendLine(string.IsNullOrWhiteSpace(saludo) ? T("whatsapp.hola") : T("whatsapp.hola_nombre", saludo));
+        texto.AppendLine(T("whatsapp.te_envio", cotizacion.Codigo, negocio));
         texto.AppendLine();
 
         foreach (var linea in cotizacion.Lineas.Take(MaximoLineas))
@@ -24,13 +26,13 @@ public static class MensajeWhatsApp
 
         if (cotizacion.Lineas.Count > MaximoLineas)
         {
-            texto.AppendLine($"• … y {cotizacion.Lineas.Count - MaximoLineas} más");
+            texto.AppendLine(T("whatsapp.y_mas", cotizacion.Lineas.Count - MaximoLineas));
         }
 
         texto.AppendLine();
-        var nota = cotizacion.ModoIgv == ModoIgv.NoAplica ? "" : $" (incluye {cotizacion.NombreImpuesto})";
-        texto.AppendLine($"*Total: {Dinero(cotizacion, cotizacion.Totales.Total)}*{nota}");
-        texto.Append($"Válida hasta el {cotizacion.ValidaHasta.ToString("dd/MM/yyyy", FormatoPeru.Cultura)}.");
+        var nota = cotizacion.ModoIgv == ModoIgv.NoAplica ? "" : T("whatsapp.incluye", cotizacion.NombreImpuesto);
+        texto.AppendLine(T("whatsapp.total", Dinero(cotizacion, cotizacion.Totales.Total), nota));
+        texto.Append(T("whatsapp.valida_hasta", cotizacion.ValidaHasta.ToString("dd/MM/yyyy", FormatoPeru.Cultura)));
 
         return texto.ToString();
     }

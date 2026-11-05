@@ -4,6 +4,8 @@ using VortexApi.Suite.Taxes;
 using VortexCrm.Core.Data;
 using VortexCrm.Core.Domain;
 
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Services;
 
 /// <summary>Base de los servicios: base local, contexto del usuario y reloj.</summary>
@@ -41,14 +43,14 @@ public abstract class CrmService(CrmDatabase db, ICrmContext context, TimeProvid
     protected void RequirePermission(string permission)
     {
         if (!Context.Can(permission))
-            throw new CrmValidationException($"Tu rol ({Context.Role}) no permite {CrmPermissions.Describe(permission)}.");
+            throw new CrmValidationException(T("error.permiso", Context.Role, CrmPermissions.Describe(permission)));
     }
 
     /// <summary>Lo de otro vendedor solo lo toca quien puede editar todo (gerente o administrador).</summary>
     protected void RequireOwner(Guid? responsableId, string? responsableNombre)
     {
         if (responsableId is { } duenio && duenio != Context.UserId && !Context.Can(CrmPermissions.EditAny))
-            throw new CrmValidationException($"Es de {responsableNombre ?? "otro vendedor"}: solo su responsable o un gerente de ventas puede cambiarlo.");
+            throw new CrmValidationException(T("error.es_de_otro_vendedor", responsableNombre ?? T("error.otro_vendedor")));
     }
 
     /// <summary>Deja la acción en la bitácora, en la misma transacción que la acción.</summary>

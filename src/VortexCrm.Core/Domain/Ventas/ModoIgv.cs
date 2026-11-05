@@ -1,3 +1,5 @@
+using static VortexCrm.Core.Texts.CoreText;
+
 namespace VortexCrm.Core.Domain.Ventas;
 
 /// <summary>Cómo se aplica el impuesto al consumo (IGV, IVA, VAT…) a los precios de una cotización.</summary>
@@ -21,8 +23,8 @@ public static class Impuestos
     /// <summary>"Precios con IGV incluido", "Precios sin IVA (se suma 16 %)"… según el impuesto del país.</summary>
     public static string Nombre(this ModoIgv modo, string impuesto = "IGV", decimal tasa = TasaIgv) => modo switch
     {
-        ModoIgv.Incluido => $"Precios con {impuesto} incluido",
-        ModoIgv.Adicional => $"Precios sin {impuesto} (se suma {tasa * 100:0.##} %)",
-        _ => $"Sin {impuesto} (exonerado, inafecto o régimen simplificado)",
+        ModoIgv.Incluido => T("enum.modo.incluido", impuesto),
+        ModoIgv.Adicional => T("enum.modo.adicional", impuesto, (tasa * 100).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)),
+        _ => T("enum.modo.no_aplica", impuesto),
     };
 }
