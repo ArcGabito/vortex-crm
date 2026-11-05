@@ -31,7 +31,9 @@ Tamaños (S, M, L, XL) relativos entre fases.
 - **Roles del CRM**: `administrador`, `gerente_ventas`, `vendedor`, `consulta`. Un vendedor ve y edita lo suyo; el
   gerente ve todo el equipo.
 - **Auditoría** de cambios de etapa, aceptaciones, descuentos y borrados.
-- **Idiomas** español, inglés y portugués (1b).
+- **Idiomas** español, inglés y portugués (1b, hecho): la interfaz completa, con selector en Configuración → Este
+  equipo (por defecto, el idioma del país de la empresa). Falta traducir los mensajes de validación de la lógica,
+  el PDF y el mensaje de WhatsApp de la cotización.
 
 **Terminado cuando:** una cotización para Colombia sale con IVA 19 % en pesos colombianos y un `vendedor` no puede
 borrar la oportunidad de otro.

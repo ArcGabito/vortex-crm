@@ -3,6 +3,9 @@ using System.Text;
 using VortexCrm.Core.Domain;
 using VortexCrm.Core.Domain.Comun;
 using VortexCrm.Core.Domain.Tareas;
+using VortexCrm.Core.Domain.Ventas;
+
+using static VortexCrm.Services.Txt;
 
 namespace VortexCrm.Services;
 
@@ -97,7 +100,7 @@ public static class Fmt
     public static string Compact(decimal value) => Math.Abs(value) switch
     {
         >= 1_000_000 => (value / 1_000_000).ToString("0.#", Culture) + " M",
-        >= 10_000 => (value / 1_000).ToString("0.#", Culture) + " mil",
+        >= 10_000 => (value / 1_000).ToString("0.#", Culture) + T("fmt.mil"),
         _ => Qty(Math.Round(value, 2)),
     };
 
@@ -119,9 +122,9 @@ public static class Fmt
     public static string Ago(DateTimeOffset value)
     {
         var span = DateTimeOffset.Now - value;
-        return span.TotalSeconds < 60 ? "hace un momento"
-            : span.TotalMinutes < 60 ? $"hace {(int)span.TotalMinutes} min"
-            : span.TotalHours < 24 ? $"hace {(int)span.TotalHours} h"
+        return span.TotalSeconds < 60 ? T("fmt.hace_un_momento")
+            : span.TotalMinutes < 60 ? T("fmt.hace_min", (int)span.TotalMinutes)
+            : span.TotalHours < 24 ? T("fmt.hace", (int)span.TotalHours)
             : Date(value);
     }
 
@@ -142,7 +145,29 @@ public static class Fmt
     public static string Date(DateOnly value) => value.ToString("dd MMM yyyy", Culture);
 
     /// <summary>"Hoy", "Mañana", "lun. 5 oct."…</summary>
-    public static string Relative(DateOnly value) => FormatoPeru.FechaRelativa(value, Today);
+    public static string Relative(DateOnly value) => (value.DayNumber - Today.DayNumber) switch
+    {
+        0 => T("fmt.hoy"),
+        1 => T("fmt.manana"),
+        -1 => T("fmt.ayer"),
+        _ when value.Year == Today.Year => value.ToString("ddd d MMM", Culture),
+        _ => value.ToString("d MMM yyyy", Culture),
+    };
+
+    /// <summary>Nombre de la etapa en el idioma de la interfaz (el de Core, en español, queda para la auditoría).</summary>
+    public static string Stage(EtapaOportunidad etapa) => T("enum.etapa." + etapa.ToString().ToLowerInvariant());
+
+    public static string TaskType(TipoTarea tipo) => T("enum.tarea." + tipo.ToString().ToLowerInvariant());
+
+    public static string QuoteStatus(EstadoCotizacion estado) => T("enum.cotizacion." + estado.ToString().ToLowerInvariant());
+
+    /// <summary>"Precios con IGV incluido", "Prices exclude VAT (16 % added)"…</summary>
+    public static string TaxMode(ModoIgv modo, string impuesto = "IGV", decimal tasa = Impuestos.TasaIgv) => modo switch
+    {
+        ModoIgv.Incluido => T("enum.modo.incluido", impuesto),
+        ModoIgv.Adicional => T("enum.modo.adicional", impuesto, (tasa * 100).ToString("0.##", Culture)),
+        _ => T("enum.modo.no_aplica", impuesto),
+    };
 
     /// <summary>Hoy en Perú.</summary>
     public static DateOnly Today => VortexApi.Suite.Regional.RegionalSettings.Today(TimeZone ?? "America/Lima");
@@ -168,32 +193,32 @@ public static class Fmt
 
     public static string TaxCategory(string category) => category switch
     {
-        VortexApi.Suite.Taxes.TaxCategories.Standard => "Tasa general",
-        VortexApi.Suite.Taxes.TaxCategories.Reduced => "Tasa reducida",
-        VortexApi.Suite.Taxes.TaxCategories.SuperReduced => "Tasa superreducida",
-        VortexApi.Suite.Taxes.TaxCategories.Increased => "Tasa incrementada",
-        VortexApi.Suite.Taxes.TaxCategories.Zero => "Tasa cero (exportación)",
-        VortexApi.Suite.Taxes.TaxCategories.Exempt => "Exonerado o exento",
-        _ => "Inafecto o no sujeto",
+        VortexApi.Suite.Taxes.TaxCategories.Standard => T("fmt.tasa_general"),
+        VortexApi.Suite.Taxes.TaxCategories.Reduced => T("fmt.tasa_reducida"),
+        VortexApi.Suite.Taxes.TaxCategories.SuperReduced => T("fmt.tasa_superreducida"),
+        VortexApi.Suite.Taxes.TaxCategories.Increased => T("fmt.tasa_incrementada"),
+        VortexApi.Suite.Taxes.TaxCategories.Zero => T("fmt.tasa_cero_exportacion"),
+        VortexApi.Suite.Taxes.TaxCategories.Exempt => T("fmt.exonerado_exento"),
+        _ => T("fmt.inafecto_no_sujeto"),
     };
 
     public static string AuditAction(string action) => action switch
     {
-        "stage.changed" => "Cambio de etapa",
-        "quote.enviada" => "Cotización enviada",
-        "quote.aceptada" => "Cotización aceptada",
-        "quote.rechazada" => "Cotización rechazada",
-        "quote.order_created" => "Pedido generado",
-        "settings.changed" => "Ajustes de ventas",
-        "record.deleted" => "Eliminación",
+        "stage.changed" => T("fmt.cambio_de_etapa"),
+        "quote.enviada" => T("fmt.cotizacion_enviada"),
+        "quote.aceptada" => T("fmt.cotizacion_aceptada"),
+        "quote.rechazada" => T("fmt.cotizacion_rechazada"),
+        "quote.order_created" => T("fmt.pedido_generado"),
+        "settings.changed" => T("fmt.ajustes_de_ventas"),
+        "record.deleted" => T("fmt.eliminacion"),
         _ => action,
     };
 
     public static string SiteKind(string kind) => kind switch
     {
-        "Warehouse" => "Almacén",
-        "Store" => "Tienda",
-        "Office" => "Oficina",
-        _ => "Otro",
+        "Warehouse" => T("fmt.almacen"),
+        "Store" => T("fmt.tienda"),
+        "Office" => T("fmt.oficina"),
+        _ => T("fmt.otro"),
     };
 }

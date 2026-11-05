@@ -1,36 +1,36 @@
 @page "/contactos"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Contactos</SectionContent>
+<SectionContent SectionName="page-title">@T("contacts.contactos")</SectionContent>
 
 <div class="page">
     <div class="page-head">
         <div>
-            <h2>Contactos</h2>
-            <p>Las personas con las que tratas en cada cliente.</p>
+            <h2>@T("contacts.contactos")</h2>
+            <p>@T("contacts.las_personas_con_las_que")</p>
         </div>
-        <button class="btn btn-dark" @onclick="Nuevo"><Icon Name="plus" Size="18" />Nuevo contacto</button>
+        <button class="btn btn-dark" @onclick="Nuevo"><Icon Name="plus" Size="18" />@T("contacts.nuevo_contacto")</button>
     </div>
 
     <div class="filters">
         <div class="field search">
-            <label>Buscar</label>
+            <label>@T("contacts.buscar")</label>
             <div class="input-icon">
                 <Icon Name="search" Size="16" />
-                <input class="control" placeholder="Nombre, empresa, celular o correo" value="@_busqueda" @oninput="BuscarAsync" />
+                <input class="control" placeholder="@(T("contacts.nombre_empresa_celular_correo"))" value="@_busqueda" @oninput="BuscarAsync" />
             </div>
         </div>
     </div>
 
     @if (_contactos.Count == 0 && !Loading)
     {
-        <EmptyState Icon="users" Title="No hay contactos" Text="Agrega a las personas con las que tratas en tus clientes." />
+        <EmptyState Icon="users" Title="@(T("contacts.no_hay_contactos"))" Text="@(T("contacts.agrega_las_personas_con_las"))" />
     }
     else
     {
         <div class="table-wrap">
             <table class="data">
-                <thead><tr><th>Nombre</th><th>Cliente</th><th>Celular</th><th>Correo</th><th class="actions-col"></th></tr></thead>
+                <thead><tr><th>@T("contacts.nombre")</th><th>@T("contacts.cliente")</th><th>@T("contacts.celular")</th><th>@T("contacts.correo")</th><th class="actions-col"></th></tr></thead>
                 <tbody>
                     @foreach (var v in _contactos)
                     {
@@ -44,7 +44,7 @@
                                 }
                                 else
                                 {
-                                    <span class="faint">Sin empresa</span>
+                                    <span class="faint">@T("contacts.sin_empresa")</span>
                                 }
                             </td>
                             <td><span class="muted">@(k.Telefono ?? "—")</span></td>
@@ -52,7 +52,7 @@
                             <td class="actions-col" @onclick:stopPropagation>
                                 @if (TelefonoPeru.ParaWhatsApp(k.Telefono) is { } numero)
                                 {
-                                    <button class="btn btn-ghost icon-btn sm" title="WhatsApp" @onclick="@(() => Launcher.Default.OpenAsync(new Uri($"https://wa.me/{numero}")))"><Icon Name="message" Size="16" /></button>
+                                    <button class="btn btn-ghost icon-btn sm" title="@(T("contacts.whatsapp"))" @onclick="@(() => Launcher.Default.OpenAsync(new Uri($"https://wa.me/{numero}")))"><Icon Name="message" Size="16" /></button>
                                 }
                             </td>
                         </tr>

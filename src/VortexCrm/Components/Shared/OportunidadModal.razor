@@ -1,16 +1,16 @@
 @inject AppSession Session
 @* Alta y edición de una oportunidad del pipeline. *@
-<Modal Title="@(Nueva ? "Nueva oportunidad" : "Editar oportunidad")" Subtitle="Se comparte con los demás equipos del CRM." Error="@_error" OnClose="OnClose">
+<Modal Title="@(Nueva ? T("oportunidadmodal.nueva_oportunidad") : T("oportunidadmodal.editar_oportunidad"))" Subtitle="@(T("oportunidadmodal.se_comparte_con_los_demas"))" Error="@_error" OnClose="OnClose">
     <ChildContent>
         <div class="field">
-            <label>Título</label>
-            <input class="control" placeholder="Uniformes para 2027" @bind="Valor.Titulo" />
+            <label>@T("oportunidadmodal.titulo")</label>
+            <input class="control" placeholder="@(T("oportunidadmodal.uniformes_para_2027"))" @bind="Valor.Titulo" />
         </div>
         <div class="form-row">
             <div class="field">
-                <label>Cliente</label>
+                <label>@T("oportunidadmodal.cliente")</label>
                 <select class="select" value="@Valor.ClienteId" @onchange="ElegirClienteAsync">
-                    <option value="">Elige un cliente</option>
+                    <option value="">@T("oportunidadmodal.elige_un_cliente")</option>
                     @foreach (var c in _clientes)
                     {
                         <option value="@c.Id">@c.Label</option>
@@ -18,9 +18,9 @@
                 </select>
             </div>
             <div class="field">
-                <label>Contacto (opcional)</label>
+                <label>@T("oportunidadmodal.contacto_opcional")</label>
                 <select class="select" @bind="Valor.ContactoId">
-                    <option value="">Sin contacto</option>
+                    <option value="">@T("oportunidadmodal.sin_contacto")</option>
                     @foreach (var c in _contactos)
                     {
                         <option value="@c.Id">@c.Label</option>
@@ -30,42 +30,42 @@
         </div>
         <div class="form-row three">
             <div class="field">
-                <label>Monto estimado (@Fmt.Symbol(Fmt.Currency))</label>
+                <label>@T("oportunidadmodal.monto_estimado", Fmt.Symbol(Fmt.Currency))</label>
                 <input class="control" type="number" min="0" step="0.01" @bind="Valor.Monto" />
             </div>
             <div class="field">
-                <label>Etapa</label>
+                <label>@T("oportunidadmodal.etapa")</label>
                 <select class="select" @bind="_etapa">
                     @foreach (var e in Etapas.Todas)
                     {
-                        <option value="@e">@e.Nombre()</option>
+                        <option value="@e">@Fmt.Stage(e)</option>
                     }
                 </select>
             </div>
             <div class="field">
-                <label>Cierre estimado</label>
+                <label>@T("oportunidadmodal.cierre_estimado")</label>
                 <input class="control" type="date" @bind="Valor.FechaCierreEstimada" />
             </div>
         </div>
         @if (_etapa == EtapaOportunidad.Perdido)
         {
             <div class="field">
-                <label>¿Por qué se perdió?</label>
-                <input class="control" placeholder="Precio, eligió a la competencia…" @bind="Valor.MotivoPerdida" />
+                <label>@T("oportunidadmodal.por_que_se_perdio")</label>
+                <input class="control" placeholder="@(T("oportunidadmodal.precio_eligio_la_competencia"))" @bind="Valor.MotivoPerdida" />
             </div>
         }
         <div class="field">
-            <label>Notas</label>
+            <label>@T("oportunidadmodal.notas")</label>
             <textarea class="control" rows="3" @bind="Valor.Notas"></textarea>
         </div>
     </ChildContent>
     <Footer>
         @if (!Nueva && Session.Can(CrmPermissions.Delete))
         {
-            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
+            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />@T("oportunidadmodal.eliminar")</button>
         }
-        <button class="btn" @onclick="OnClose">Cancelar</button>
-        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar</button>
+        <button class="btn" @onclick="OnClose">@T("oportunidadmodal.cancelar")</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("oportunidadmodal.guardar")</button>
     </Footer>
 </Modal>
 

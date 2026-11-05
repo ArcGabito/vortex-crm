@@ -1,22 +1,22 @@
 @inject AppSession Session
 @* Alta y edición de una persona de contacto. *@
-<Modal Title="@(Nuevo ? "Nuevo contacto" : "Editar contacto")" Subtitle="Persona con la que tratas en el cliente." Error="@_error" OnClose="OnClose">
+<Modal Title="@(Nuevo ? T("contactomodal.nuevo_contacto") : T("contactomodal.editar_contacto"))" Subtitle="@(T("contactomodal.persona_con_la_que_tratas"))" Error="@_error" OnClose="OnClose">
     <ChildContent>
         <div class="form-row">
             <div class="field">
-                <label>Nombres</label>
+                <label>@T("contactomodal.nombres")</label>
                 <input class="control" @bind="Valor.Nombres" />
             </div>
             <div class="field">
-                <label>Apellidos</label>
+                <label>@T("contactomodal.apellidos")</label>
                 <input class="control" @bind="Valor.Apellidos" />
             </div>
         </div>
         <div class="form-row">
             <div class="field">
-                <label>Cliente (empresa)</label>
+                <label>@T("contactomodal.cliente_empresa")</label>
                 <select class="select" @bind="Valor.ClienteId">
-                    <option value="">Sin empresa</option>
+                    <option value="">@T("contactomodal.sin_empresa")</option>
                     @foreach (var c in _clientes)
                     {
                         <option value="@c.Id">@c.Label</option>
@@ -24,21 +24,21 @@
                 </select>
             </div>
             <div class="field">
-                <label>Cargo</label>
-                <input class="control" placeholder="Jefe de compras" @bind="Valor.Cargo" />
+                <label>@T("contactomodal.cargo")</label>
+                <input class="control" placeholder="@(T("contactomodal.jefe_de_compras"))" @bind="Valor.Cargo" />
             </div>
         </div>
         <div class="form-row three">
             <div class="field">
-                <label>Celular</label>
+                <label>@T("contactomodal.celular")</label>
                 <input class="control" type="tel" placeholder="987 654 321" @bind="Valor.Telefono" />
             </div>
             <div class="field">
-                <label>Correo</label>
+                <label>@T("contactomodal.correo")</label>
                 <input class="control" type="email" @bind="Valor.Email" />
             </div>
             <div class="field">
-                <label>DNI (opcional)</label>
+                <label>@T("contactomodal.dni_opcional")</label>
                 <input class="control" inputmode="numeric" maxlength="8" @bind="Valor.Dni" />
             </div>
         </div>
@@ -46,10 +46,10 @@
     <Footer>
         @if (!Nuevo && Session.Can(CrmPermissions.Delete))
         {
-            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
+            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />@T("contactomodal.eliminar")</button>
         }
-        <button class="btn" @onclick="OnClose">Cancelar</button>
-        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar</button>
+        <button class="btn" @onclick="OnClose">@T("contactomodal.cancelar")</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("contactomodal.guardar")</button>
     </Footer>
 </Modal>
 

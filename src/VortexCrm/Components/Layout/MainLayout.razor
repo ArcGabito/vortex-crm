@@ -10,38 +10,38 @@
         <aside class="sidebar @(_menuOpen ? "open" : "")">
             <div class="brand"><Logo /></div>
             <nav class="nav" @onclick="() => _menuOpen = false">
-                <NavLink class="nav-link" href="" Match="NavLinkMatch.All"><Icon Name="home" />Panel</NavLink>
-                <NavLink class="nav-link" href="pipeline"><Icon Name="layers" />Pipeline</NavLink>
-                <NavLink class="nav-link" href="cotizaciones"><Icon Name="file" />Cotizaciones</NavLink>
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All"><Icon Name="home" />@T("nav.panel")</NavLink>
+                <NavLink class="nav-link" href="pipeline"><Icon Name="layers" />@T("nav.pipeline")</NavLink>
+                <NavLink class="nav-link" href="cotizaciones"><Icon Name="file" />@T("nav.cotizaciones")</NavLink>
                 <NavLink class="nav-link" href="tareas">
-                    <Icon Name="calendar" />Tareas
+                    <Icon Name="calendar" />@T("nav.tareas")
                     @if (_pendientes > 0)
                     {
-                        <span class="count" title="Tareas para hoy y vencidas">@_pendientes</span>
+                        <span class="count" title="@(T("nav.tareas_para_hoy_vencidas"))">@_pendientes</span>
                     }
                 </NavLink>
 
-                <div class="nav-section">Clientes</div>
-                <NavLink class="nav-link" href="clientes"><Icon Name="briefcase" />Clientes</NavLink>
-                <NavLink class="nav-link" href="contactos"><Icon Name="users" />Contactos</NavLink>
+                <div class="nav-section">@T("nav.clientes")</div>
+                <NavLink class="nav-link" href="clientes"><Icon Name="briefcase" />@T("nav.clientes")</NavLink>
+                <NavLink class="nav-link" href="contactos"><Icon Name="users" />@T("nav.contactos")</NavLink>
 
-                <div class="nav-section">Catálogo</div>
-                <NavLink class="nav-link" href="articulos"><Icon Name="tag" />Productos y servicios</NavLink>
-                <NavLink class="nav-link" href="sedes"><Icon Name="store" />Sedes</NavLink>
+                <div class="nav-section">@T("nav.catalogo")</div>
+                <NavLink class="nav-link" href="articulos"><Icon Name="tag" />@T("nav.productos_servicios")</NavLink>
+                <NavLink class="nav-link" href="sedes"><Icon Name="store" />@T("nav.sedes")</NavLink>
 
-                <div class="nav-section">Sistema</div>
+                <div class="nav-section">@T("nav.sistema")</div>
                 @if (Session.Can(CrmPermissions.ViewAudit))
                 {
-                    <NavLink class="nav-link" href="auditoria"><Icon Name="list" />Auditoría</NavLink>
+                    <NavLink class="nav-link" href="auditoria"><Icon Name="list" />@T("nav.auditoria")</NavLink>
                 }
-                <NavLink class="nav-link" href="configuracion"><Icon Name="settings" />Configuración</NavLink>
+                <NavLink class="nav-link" href="configuracion"><Icon Name="settings" />@T("nav.configuracion")</NavLink>
             </nav>
 
             <div class="promo">
                 <Logo IconOnly Size="64" />
-                <h4 style="margin-top:8px">Libre y de código abierto</h4>
-                <p>Vortex CRM es AGPL-3.0. Hecho en Perú para LATAM y el mundo.</p>
-                <button class="btn btn-accent btn-sm" @onclick="OpenRepoAsync">Contribuir</button>
+                <h4 style="margin-top:8px">@T("nav.libre_de_codigo_abierto")</h4>
+                <p>@T("nav.vortex_crm_es_agpl_3")</p>
+                <button class="btn btn-accent btn-sm" @onclick="OpenRepoAsync">@T("nav.contribuir")</button>
             </div>
         </aside>
 

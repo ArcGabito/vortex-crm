@@ -1,30 +1,30 @@
 @inject AppSession Session
 @* Alta y edición de una tarea de seguimiento. *@
-<Modal Title="@(Nueva ? "Nueva tarea" : "Editar tarea")" Subtitle="@($"Responsable: {Valor.ResponsableNombre ?? Session.UserName}")" Error="@_error" OnClose="OnClose">
+<Modal Title="@(Nueva ? T("tareamodal.nueva_tarea") : T("tareamodal.editar_tarea"))" Subtitle="@(T("tareamodal.responsable", (Valor.ResponsableNombre ?? Session.UserName)))" Error="@_error" OnClose="OnClose">
     <ChildContent>
         <div class="field">
-            <label>¿Qué hay que hacer?</label>
-            <input class="control" placeholder="Llamar para confirmar el pedido" @bind="Valor.Titulo" />
+            <label>@T("tareamodal.que_hay_que_hacer")</label>
+            <input class="control" placeholder="@(T("tareamodal.llamar_para_confirmar_el_pedido"))" @bind="Valor.Titulo" />
         </div>
         <div class="segmented" style="flex-wrap:wrap">
             @foreach (var t in TiposTarea.Todos)
             {
-                <button class="@(Valor.Tipo == t ? "on" : "")" @onclick="() => Valor.Tipo = t"><Icon Name="@Fmt.TaskIcon(t)" Size="15" />@t.Nombre()</button>
+                <button class="@(Valor.Tipo == t ? "on" : "")" @onclick="() => Valor.Tipo = t"><Icon Name="@Fmt.TaskIcon(t)" Size="15" />@Fmt.TaskType(t)</button>
             }
         </div>
         <div class="form-row three">
             <div class="field">
-                <label>Fecha</label>
+                <label>@T("tareamodal.fecha")</label>
                 <input class="control" type="date" @bind="Valor.Fecha" />
             </div>
             <div class="field">
-                <label>Hora (opcional)</label>
+                <label>@T("tareamodal.hora_opcional")</label>
                 <input class="control" type="time" @bind="Valor.Hora" />
             </div>
             <div class="field">
-                <label>Aviso</label>
+                <label>@T("tareamodal.aviso")</label>
                 <select class="select" value="@(Valor.AvisarMinutosAntes?.ToString() ?? "")" @onchange="e => Valor.AvisarMinutosAntes = int.TryParse(e.Value?.ToString(), out var m) ? m : null">
-                    <option value="">Sin aviso</option>
+                    <option value="">@T("tareamodal.sin_aviso")</option>
                     @foreach (var a in Avisos.Para(Valor.Hora))
                     {
                         <option value="@a.MinutosAntes">@a.Nombre</option>
@@ -34,9 +34,9 @@
         </div>
         <div class="form-row">
             <div class="field">
-                <label>Cliente (opcional)</label>
+                <label>@T("tareamodal.cliente_opcional")</label>
                 <select class="select" @bind="Valor.ClienteId">
-                    <option value="">Sin cliente</option>
+                    <option value="">@T("tareamodal.sin_cliente")</option>
                     @foreach (var c in _clientes)
                     {
                         <option value="@c.Id">@c.Label</option>
@@ -44,9 +44,9 @@
                 </select>
             </div>
             <div class="field">
-                <label>Oportunidad (opcional)</label>
+                <label>@T("tareamodal.oportunidad_opcional")</label>
                 <select class="select" @bind="Valor.OportunidadId">
-                    <option value="">Sin oportunidad</option>
+                    <option value="">@T("tareamodal.sin_oportunidad")</option>
                     @foreach (var o in _oportunidades)
                     {
                         <option value="@o.Id">@o.Label</option>
@@ -55,21 +55,21 @@
             </div>
         </div>
         <div class="field">
-            <label>Notas</label>
+            <label>@T("tareamodal.notas")</label>
             <textarea class="control" rows="2" @bind="Valor.Notas"></textarea>
         </div>
         @if (_sinPermiso)
         {
-            <div class="alert warn"><Icon Name="bell" Size="18" /><span>Sin permiso para notificaciones: el aviso no sonará en este equipo.</span></div>
+            <div class="alert warn"><Icon Name="bell" Size="18" /><span>@T("tareamodal.sin_permiso_para_notificaciones_el")</span></div>
         }
     </ChildContent>
     <Footer>
         @if (!Nueva && (Valor.ResponsableId == Session.UserId || Session.Can(CrmPermissions.Delete)))
         {
-            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />Eliminar</button>
+            <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />@T("tareamodal.eliminar")</button>
         }
-        <button class="btn" @onclick="OnClose">Cancelar</button>
-        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">Guardar</button>
+        <button class="btn" @onclick="OnClose">@T("tareamodal.cancelar")</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("tareamodal.guardar")</button>
     </Footer>
 </Modal>
 

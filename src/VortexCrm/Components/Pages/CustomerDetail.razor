@@ -1,7 +1,7 @@
 @page "/clientes/{Id:guid}"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Cliente</SectionContent>
+<SectionContent SectionName="page-title">@T("customerdetail.cliente")</SectionContent>
 
 @if (_ficha is { } f)
 {
@@ -12,41 +12,41 @@
                 <Avatar Text="@c.Name" Size="52" Class="square" />
                 <div>
                     <h2>@c.DisplayName</h2>
-                    <p>@(c.DocumentNumber is null ? "" : $"{c.DocumentType} {c.DocumentNumber} · ")@(c.FullAddress ?? "Sin dirección")</p>
+                    <p>@(c.DocumentNumber is null ? "" : $"{c.DocumentType} {c.DocumentNumber} · ")@(c.FullAddress ?? T("customerdetail.sin_direccion"))</p>
                 </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
                 @if (TelefonoPeru.ParaWhatsApp(c.Phone) is not null)
                 {
-                    <button class="btn btn-outline" @onclick="() => WhatsAppAsync(c.Phone)"><Icon Name="message" Size="18" />WhatsApp</button>
+                    <button class="btn btn-outline" @onclick="() => WhatsAppAsync(c.Phone)"><Icon Name="message" Size="18" />@T("customerdetail.whatsapp")</button>
                 }
-                <button class="btn btn-outline" @onclick="NuevaTarea"><Icon Name="calendar" Size="18" />Tarea</button>
-                <button class="btn btn-outline" @onclick="NuevaOportunidad"><Icon Name="target" Size="18" />Oportunidad</button>
-                <a class="btn btn-dark" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="file" Size="18" />Cotizar</a>
+                <button class="btn btn-outline" @onclick="NuevaTarea"><Icon Name="calendar" Size="18" />@T("customerdetail.tarea")</button>
+                <button class="btn btn-outline" @onclick="NuevaOportunidad"><Icon Name="target" Size="18" />@T("customerdetail.oportunidad")</button>
+                <a class="btn btn-dark" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="file" Size="18" />@T("customerdetail.cotizar")</a>
             </div>
         </div>
 
         <div class="stat-strip boxed">
-            <StatTile Icon="target" Label="En curso" Value="@Fmt.Amount(f.Oportunidades.Where(o => o.Oportunidad.Etapa.EstaAbierta()).Sum(o => o.Oportunidad.Monto))" Hint="@Fmt.Count(f.Oportunidades.Count(o => o.Oportunidad.Etapa.EstaAbierta()), "oportunidad", "oportunidades")" />
-            <StatTile Icon="star" Label="Ganado" Value="@Fmt.Amount(f.Oportunidades.Where(o => o.Oportunidad.Etapa == EtapaOportunidad.Ganado).Sum(o => o.Oportunidad.Monto))" />
-            <StatTile Icon="receipt" Label="Facturado" Value="@Fmt.Amount(f.Actividad.Where(a => a.Tipo == TiposActividad.Comprobante).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
-            <StatTile Icon="wallet" Label="Pagado" Value="@Fmt.Amount(f.Actividad.Where(a => a.Tipo == TiposActividad.Cobro).Sum(a => a.Monto ?? 0))" Hint="según el ERP" />
+            <StatTile Icon="target" Label="@(T("customerdetail.en_curso"))" Value="@Fmt.Amount(f.Oportunidades.Where(o => o.Oportunidad.Etapa.EstaAbierta()).Sum(o => o.Oportunidad.Monto))" Hint="@Fmt.Count(f.Oportunidades.Count(o => o.Oportunidad.Etapa.EstaAbierta()), T("count.oportunidad"), T("count.oportunidades"))" />
+            <StatTile Icon="star" Label="@(T("customerdetail.ganado"))" Value="@Fmt.Amount(f.Oportunidades.Where(o => o.Oportunidad.Etapa == EtapaOportunidad.Ganado).Sum(o => o.Oportunidad.Monto))" />
+            <StatTile Icon="receipt" Label="@(T("customerdetail.facturado"))" Value="@Fmt.Amount(f.Actividad.Where(a => a.Tipo == TiposActividad.Comprobante).Sum(a => a.Monto ?? 0))" Hint="@(T("customerdetail.segun_el_erp"))" />
+            <StatTile Icon="wallet" Label="@(T("customerdetail.pagado"))" Value="@Fmt.Amount(f.Actividad.Where(a => a.Tipo == TiposActividad.Cobro).Sum(a => a.Monto ?? 0))" Hint="@(T("customerdetail.segun_el_erp"))" />
         </div>
 
         <div class="grid-2">
             <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
                 <div class="card">
-                    <div class="card-head"><h3>Oportunidades</h3><button class="btn btn-sm" @onclick="NuevaOportunidad"><Icon Name="plus" Size="16" />Nueva</button></div>
+                    <div class="card-head"><h3>@T("customerdetail.oportunidades")</h3><button class="btn btn-sm" @onclick="NuevaOportunidad"><Icon Name="plus" Size="16" />@T("customerdetail.nueva")</button></div>
                     <div class="card-body">
                         @if (f.Oportunidades.Count == 0)
                         {
-                            <div class="list-row"><span class="muted">Sin oportunidades.</span></div>
+                            <div class="list-row"><span class="muted">@T("customerdetail.sin_oportunidades")</span></div>
                         }
                         @foreach (var v in f.Oportunidades)
                         {
                             var (text, tone) = StatusPill.ForEtapa(v.Oportunidad.Etapa);
                             <div class="list-row" style="cursor:pointer" @onclick="() => EditarOportunidad(v.Oportunidad)">
-                                <div class="two-line" style="flex:1"><span class="t1">@v.Oportunidad.Titulo</span><span class="t2">@(v.Contacto is { Length: > 0 } k ? k : "Sin contacto")</span></div>
+                                <div class="two-line" style="flex:1"><span class="t1">@v.Oportunidad.Titulo</span><span class="t2">@(v.Contacto is { Length: > 0 } k ? k : T("customerdetail.sin_contacto"))</span></div>
                                 <StatusPill Text="@text" Tone="@tone" />
                                 <strong class="end">@Fmt.Amount(v.Oportunidad.Monto)</strong>
                             </div>
@@ -55,11 +55,11 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-head"><h3>Cotizaciones</h3><a class="btn btn-sm" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="plus" Size="16" />Nueva</a></div>
+                    <div class="card-head"><h3>@T("customerdetail.cotizaciones")</h3><a class="btn btn-sm" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="plus" Size="16" />@T("customerdetail.nueva")</a></div>
                     <div class="card-body">
                         @if (f.Cotizaciones.Count == 0)
                         {
-                            <div class="list-row"><span class="muted">Sin cotizaciones.</span></div>
+                            <div class="list-row"><span class="muted">@T("customerdetail.sin_cotizaciones")</span></div>
                         }
                         @foreach (var q in f.Cotizaciones)
                         {
@@ -76,14 +76,14 @@
                 <div class="card">
                     <div class="card-head">
                         <div>
-                            <h3>Actividad en la suite</h3>
-                            <div class="sub">Compras en caja, comprobantes, pagos y despachos que informan el POS, el ERP y el WMS</div>
+                            <h3>@T("customerdetail.actividad_en_la_suite")</h3>
+                            <div class="sub">@T("customerdetail.compras_en_caja_comprobantes_pagos")</div>
                         </div>
                     </div>
                     <div class="card-body">
                         @if (f.Actividad.Count == 0)
                         {
-                            <div class="list-row"><span class="muted">Aún no hay actividad de otros sistemas.</span></div>
+                            <div class="list-row"><span class="muted">@T("customerdetail.aun_no_hay_actividad_de")</span></div>
                         }
                         <div class="timeline">
                             @foreach (var a in f.Actividad)
@@ -107,31 +107,31 @@
 
             <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
                 <div class="card">
-                    <div class="card-head"><h3>Datos</h3></div>
+                    <div class="card-head"><h3>@T("customerdetail.datos")</h3></div>
                     <div class="card-body">
                         <dl class="kv">
-                            <dt>Razón social</dt><dd>@c.Name</dd>
-                            <dt>Teléfono</dt><dd>@(c.Phone ?? "—")</dd>
-                            <dt>Correo</dt><dd>@(c.Email ?? "—")</dd>
-                            <dt>Dirección</dt><dd>@(c.FullAddress ?? "—")</dd>
+                            <dt>@T("customerdetail.razon_social")</dt><dd>@c.Name</dd>
+                            <dt>@T("customerdetail.telefono")</dt><dd>@(c.Phone ?? "—")</dd>
+                            <dt>@T("customerdetail.correo")</dt><dd>@(c.Email ?? "—")</dd>
+                            <dt>@T("customerdetail.direccion")</dt><dd>@(c.FullAddress ?? "—")</dd>
                             @if (c.Notes is not null)
                             {
-                                <dt>Notas</dt><dd>@c.Notes</dd>
+                                <dt>@T("customerdetail.notas")</dt><dd>@c.Notes</dd>
                             }
                         </dl>
                         @if (c.Pending)
                         {
-                            <div class="alert info" style="margin-top:12px"><Icon Name="sync" Size="18" /><span>Registrado en este equipo; se enviará al hub al sincronizar.</span></div>
+                            <div class="alert info" style="margin-top:12px"><Icon Name="sync" Size="18" /><span>@T("customerdetail.registrado_en_este_equipo_se")</span></div>
                         }
                     </div>
                 </div>
 
                 <div class="card">
-                    <div class="card-head"><h3>Contactos</h3><button class="btn btn-sm" @onclick="NuevoContacto"><Icon Name="plus" Size="16" />Nuevo</button></div>
+                    <div class="card-head"><h3>@T("customerdetail.contactos")</h3><button class="btn btn-sm" @onclick="NuevoContacto"><Icon Name="plus" Size="16" />@T("customerdetail.nuevo")</button></div>
                     <div class="card-body">
                         @if (f.Contactos.Count == 0)
                         {
-                            <div class="list-row"><span class="muted">Sin contactos.</span></div>
+                            <div class="list-row"><span class="muted">@T("customerdetail.sin_contactos")</span></div>
                         }
                         @foreach (var k in f.Contactos)
                         {
@@ -140,7 +140,7 @@
                                 <div class="two-line" style="flex:1"><span class="t1">@k.NombreCompleto</span><span class="t2">@(k.Cargo ?? "")@(k.Telefono is null ? "" : $" · {k.Telefono}")</span></div>
                                 @if (TelefonoPeru.ParaWhatsApp(k.Telefono) is not null)
                                 {
-                                    <button class="btn btn-ghost icon-btn sm" @onclick:stopPropagation @onclick="() => WhatsAppAsync(k.Telefono)" title="WhatsApp"><Icon Name="message" Size="16" /></button>
+                                    <button class="btn btn-ghost icon-btn sm" @onclick:stopPropagation @onclick="() => WhatsAppAsync(k.Telefono)" title="@(T("customerdetail.whatsapp"))"><Icon Name="message" Size="16" /></button>
                                 }
                             </div>
                         }
@@ -148,18 +148,18 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-head"><h3>Tareas</h3><button class="btn btn-sm" @onclick="NuevaTarea"><Icon Name="plus" Size="16" />Nueva</button></div>
+                    <div class="card-head"><h3>@T("customerdetail.tareas")</h3><button class="btn btn-sm" @onclick="NuevaTarea"><Icon Name="plus" Size="16" />@T("customerdetail.nueva")</button></div>
                     <div class="card-body">
                         @if (f.Tareas.Count == 0)
                         {
-                            <div class="list-row"><span class="muted">Sin tareas.</span></div>
+                            <div class="list-row"><span class="muted">@T("customerdetail.sin_tareas")</span></div>
                         }
                         @foreach (var v in f.Tareas.OrderBy(t => t.Tarea.Completada).ThenBy(t => t.Tarea.Fecha))
                         {
                             var t = v.Tarea;
                             <div class="task @(t.Completada ? "done" : "")">
-                                <input type="checkbox" checked="@t.Completada" @onchange="() => AlternarAsync(t)" aria-label="Hecha" />
-                                <div class="two-line" style="cursor:pointer" @onclick="() => EditarTarea(t)"><span class="t1">@t.Titulo</span><span class="t2">@t.Tipo.Nombre()@(t.ResponsableNombre is null ? "" : $" · {t.ResponsableNombre}")</span></div>
+                                <input type="checkbox" checked="@t.Completada" @onchange="() => AlternarAsync(t)" aria-label="@(T("customerdetail.hecha"))" />
+                                <div class="two-line" style="cursor:pointer" @onclick="() => EditarTarea(t)"><span class="t1">@t.Titulo</span><span class="t2">@Fmt.TaskType(t.Tipo)@(t.ResponsableNombre is null ? "" : $" · {t.ResponsableNombre}")</span></div>
                                 <span class="when @(t.EstaVencida(Fmt.Today) ? "warn-text" : "muted")">@Fmt.Relative(t.Fecha)@(t.Hora is { } h ? $" {FormatoPeru.Hora(h)}" : "")</span>
                             </div>
                         }
@@ -171,7 +171,7 @@
 }
 else if (!Loading)
 {
-    <div class="page"><EmptyState Icon="alert" Title="Cliente no encontrado" Text="Puede que aún no haya llegado desde el hub."><a class="btn btn-dark" href="clientes">Ver clientes</a></EmptyState></div>
+    <div class="page"><EmptyState Icon="alert" Title="@(T("customerdetail.cliente_no_encontrado"))" Text="@(T("customerdetail.puede_que_aun_no_haya"))"><a class="btn btn-dark" href="clientes">@T("customerdetail.ver_clientes")</a></EmptyState></div>
 }
 
 @if (_oportunidad is { } o)

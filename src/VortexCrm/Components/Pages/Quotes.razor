@@ -1,29 +1,29 @@
 @page "/cotizaciones"
 @inherits CrmPage
 
-<SectionContent SectionName="page-title">Cotizaciones</SectionContent>
+<SectionContent SectionName="page-title">@T("quotes.cotizaciones")</SectionContent>
 
 <div class="page">
     <div class="page-head">
         <div>
-            <h2>Cotizaciones</h2>
-            <p>Con IGV, en PDF o por WhatsApp. Al aceptarse, el ERP las convierte en pedido y el WMS las despacha.</p>
+            <h2>@T("quotes.cotizaciones")</h2>
+            <p>@T("quotes.con_igv_en_pdf_por")</p>
         </div>
-        <a class="btn btn-dark" href="cotizaciones/nueva"><Icon Name="plus" Size="18" />Nueva cotización</a>
+        <a class="btn btn-dark" href="cotizaciones/nueva"><Icon Name="plus" Size="18" />@T("quotes.nueva_cotizacion")</a>
     </div>
 
     <div class="filters">
         <div class="field search">
-            <label>Buscar</label>
+            <label>@T("quotes.buscar")</label>
             <div class="input-icon">
                 <Icon Name="search" Size="16" />
-                <input class="control" placeholder="Número, cliente o RUC" value="@_busqueda" @oninput="BuscarAsync" />
+                <input class="control" placeholder="@(T("quotes.numero_cliente_ruc"))" value="@_busqueda" @oninput="BuscarAsync" />
             </div>
         </div>
         <div class="field" style="width:auto">
-            <label>Estado</label>
+            <label>@T("quotes.estado")</label>
             <div class="segmented">
-                <button class="@(_estado is null ? "on" : "")" @onclick="async () => { _estado = null; await ReloadAsync(); }">Todas</button>
+                <button class="@(_estado is null ? "on" : "")" @onclick="async () => { _estado = null; await ReloadAsync(); }">@T("quotes.todas")</button>
                 @foreach (var e in EstadosCotizacion.Todos)
                 {
                     <button class="@(_estado == e ? "on" : "")" @onclick="async () => { _estado = e; await ReloadAsync(); }">@StatusPill.ForEstado(e).Text</button>
@@ -34,13 +34,13 @@
 
     @if (_cotizaciones.Count == 0 && !Loading)
     {
-        <EmptyState Icon="file" Title="No hay cotizaciones" Text="Crea una desde aquí o desde una oportunidad del pipeline." />
+        <EmptyState Icon="file" Title="@(T("quotes.no_hay_cotizaciones"))" Text="@(T("quotes.crea_una_desde_aqui_desde"))" />
     }
     else
     {
         <div class="table-wrap">
             <table class="data">
-                <thead><tr><th>Cotización</th><th>Cliente</th><th>Válida hasta</th><th class="num">Total</th><th>Estado</th></tr></thead>
+                <thead><tr><th>@T("quotes.cotizacion")</th><th>@T("quotes.cliente")</th><th>@T("quotes.valida_hasta")</th><th class="num">@T("quotes.total")</th><th>@T("quotes.estado")</th></tr></thead>
                 <tbody>
                     @foreach (var q in _cotizaciones)
                     {
