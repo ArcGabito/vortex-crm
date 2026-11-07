@@ -4,25 +4,25 @@
 
 <header class="topbar">
     <button class="btn btn-ghost icon-btn menu-btn" @onclick="OnMenu" aria-label="@(T("topbar.menu"))"><Icon Name="menu" /></button>
-    <div class="page-title"><SectionOutlet SectionName="page-title" /></div>
-
     <form class="top-search" @onsubmit="Search" role="search">
         <Icon Name="search" Size="18" />
-        <input placeholder="@(T("topbar.buscar_cliente_ruc_contacto"))" @bind="_query" aria-label="@(T("topbar.buscar_clientes"))" />
+        <input placeholder="@(T("topbar.buscar"))" @bind="_query" aria-label="@(T("topbar.buscar_clientes"))" title="@(T("topbar.buscar_cliente_ruc_contacto"))" />
+        <kbd>Ctrl K</kbd>
     </form>
+    <div class="page-title"><SectionOutlet SectionName="page-title" /></div>
 
     <div class="spacer"></div>
 
-    <button class="sync-chip @ChipClass" @onclick="Session.SyncNow" title="@(T("topbar.sincronizar_ahora"))">
+    <button class="btn icon-btn round sync-btn @ChipClass" @onclick="Session.SyncNow" title="@ChipText" aria-label="@ChipText">
         @if (Session.Sync.IsSyncing)
         {
             <span class="spinner sm"></span>
         }
         else
         {
+            <Icon Name="sync" Size="18" />
             <span class="led"></span>
         }
-        <span class="label">@ChipText</span>
     </button>
 
     <div class="menu-anchor">
@@ -69,8 +69,13 @@
     </div>
 
     <div class="menu-anchor">
-        <button class="btn btn-ghost" style="padding:0;height:auto;border-radius:50%" @onclick="() => _panel = _panel == Panel.User ? Panel.None : Panel.User" aria-label="@(T("topbar.cuenta"))">
-            <Avatar Text="@Session.UserName" Size="44" Class="user" />
+        <button class="user-chip" @onclick="() => _panel = _panel == Panel.User ? Panel.None : Panel.User" aria-label="@(T("topbar.cuenta"))">
+            <Avatar Text="@Session.UserName" Size="40" Class="user" />
+            <span class="two-line">
+                <span class="t1">@Session.UserName</span>
+                <span class="t2">@Session.Session?.User.Email</span>
+            </span>
+            <Icon Name="chevron-down" Size="18" Class="faint" />
         </button>
         @if (_panel == Panel.User)
         {
