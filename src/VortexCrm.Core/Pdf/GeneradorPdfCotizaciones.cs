@@ -14,8 +14,8 @@ public sealed record EmisorPdf(string Nombre, string? RazonSocial, string? Ruc, 
 /// <summary>Genera el PDF de una cotización (A4) con PDFsharp/MigraDoc, sin dependencias nativas.</summary>
 public static class GeneradorPdfCotizaciones
 {
-    /// <summary>El naranja de la marca Vortex.</summary>
-    private static readonly Color Marca = new(0xFF, 0x5B, 0x14);
+    /// <summary>El morado de la marca Vortex (el de .NET).</summary>
+    private static readonly Color Marca = new(0x51, 0x2B, 0xD4);
     private static readonly Color GrisClaro = new(0xF3, 0xF4, 0xF6);
     private static readonly Color GrisTexto = new(0x6B, 0x72, 0x80);
 
