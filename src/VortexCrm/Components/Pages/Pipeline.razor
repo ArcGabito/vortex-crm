@@ -7,7 +7,7 @@
     <div class="page-head">
         <div>
             <h2>@T("pipeline.pipeline_de_ventas")</h2>
-            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, T("count.oportunidad"), T("count.oportunidades"))} en curso por {Fmt.Amount(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? T("pipeline.cierras_el", tasa) : "")</p>
+            <p>@(_resumen is { } r ? $"{Fmt.Count(r.CantidadEnCurso, T("count.oportunidad"), T("count.oportunidades"))} en curso por {Fmt.Amount(r.MontoEnCurso)}" : "")@(_resumen?.TasaDeCierre is { } tasa ? T("pipeline.cierras_el", tasa) : "")@(Ponderado > 0 ? T("pipeline.ponderado", Fmt.Amount(Ponderado)) : "")</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
             <div class="input-icon" style="width:220px">
@@ -18,46 +18,47 @@
         </div>
     </div>
 
+    @if (_embudos.Count > 1)
+    {
+        <div class="segmented" style="align-self:flex-start">
+            @foreach (var emb in _embudos)
+            {
+                <button class="@(emb.Id == _embudo.Id ? "on" : "")" @onclick="() => _embudo = emb">@(emb.EsPredeterminado ? T("pipeline.sin_embudo") : emb.Nombre)</button>
+            }
+        </div>
+    }
+
     <div class="board">
-        @foreach (var etapa in Etapas.Todas)
+        @foreach (var etapa in _embudo.Etapas)
         {
-            var columna = _oportunidades.Where(o => o.Oportunidad.Etapa == etapa).ToList();
-            var (_, tone) = StatusPill.ForEtapa(etapa);
-            <section class="board-col" @key="etapa">
+            var columna = Abiertas.Where(o => EtapaDe(o.Oportunidad)?.Id == etapa.Id).ToList();
+            <section class="board-col" @key="etapa.Id">
                 <header>
-                    <span class="pill @tone">@Fmt.Stage(etapa)</span>
+                    <span class="pill @(StatusPill.ForEtapa(etapa.Equivale).Tone)" style="@(etapa.Color is { } color ? $"background:{color}1A;color:{color}" : null)">@Embudo.NombreDe(etapa)</span>
+                    <span class="muted" title="@(T("pipeline.probabilidad", etapa.Probabilidad))">@columna.Count · @Fmt.Amount(columna.Sum(o => o.Oportunidad.Monto)) · @etapa.Probabilidad %</span>
+                </header>
+                @foreach (var v in columna)
+                {
+                    @Tarjeta(v, etapa)
+                }
+                @if (columna.Count == 0)
+                {
+                    <div class="board-empty">@T("pipeline.sin_oportunidades")</div>
+                }
+            </section>
+        }
+        @foreach (var cerrada in new[] { EtapaOportunidad.Ganado, EtapaOportunidad.Perdido })
+        {
+            var columna = DelEmbudo.Where(o => o.Oportunidad.Etapa == cerrada).ToList();
+            var (_, tone) = StatusPill.ForEtapa(cerrada);
+            <section class="board-col" @key="cerrada">
+                <header>
+                    <span class="pill @tone">@Fmt.Stage(cerrada)</span>
                     <span class="muted">@columna.Count · @Fmt.Amount(columna.Sum(o => o.Oportunidad.Monto))</span>
                 </header>
                 @foreach (var v in columna)
                 {
-                    var o = v.Oportunidad;
-                    <article class="deal @(o.EstaVencida(Fmt.Today) ? "late" : "")" @key="o.Id" @onclick="() => Editar(o)">
-                        <strong>@o.Titulo</strong>
-                        <span class="muted">@(v.Cliente ?? T("pipeline.sin_cliente"))@(v.Contacto is { Length: > 0 } k ? $" · {k}" : "")</span>
-                        <div class="deal-foot">
-                            <b>@Fmt.Amount(o.Monto)</b>
-                            @if (o.FechaCierreEstimada is { } cierre && etapa.EstaAbierta())
-                            {
-                                <span class="@(o.EstaVencida(Fmt.Today) ? "warn-text" : "muted")" title="@(T("pipeline.cierre_estimado"))"><Icon Name="calendar" Size="13" /> @Fmt.Relative(cierre)</span>
-                            }
-                        </div>
-                        <div class="deal-actions" @onclick:stopPropagation>
-                            @if (etapa.EstaAbierta())
-                            {
-                                <a class="btn btn-sm btn-ghost" href="@($"cotizaciones/nueva?oportunidad={o.Id}")" title="@(T("pipeline.cotizar"))"><Icon Name="file" Size="15" /></a>
-                                <KebabMenu>
-                                    @foreach (var siguiente in Etapas.Todas.Where(e => e != etapa))
-                                    {
-                                        <button @onclick="() => MoverAsync(o, siguiente)">@T("pipeline.mover", Fmt.Stage(siguiente))</button>
-                                    }
-                                </KebabMenu>
-                            }
-                            else
-                            {
-                                <button class="btn btn-sm btn-ghost" @onclick="() => MoverAsync(o, EtapaOportunidad.Negociacion)">@T("pipeline.reabrir")</button>
-                            }
-                        </div>
-                    </article>
+                    @Tarjeta(v, null)
                 }
                 @if (columna.Count == 0)
                 {
@@ -79,7 +80,17 @@
         <ChildContent>
             <div class="field">
                 <label>@T("pipeline.por_que_se_perdio")</label>
-                <input class="control" placeholder="@(T("pipeline.precio_eligio_la_competencia"))" @bind="_motivo" />
+                <select class="select" @bind="_motivo">
+                    <option value="">@T("pipeline.elige_el_motivo")</option>
+                    @foreach (var m in _motivos)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>@T("pipeline.competidor_opcional")</label>
+                <input class="control" placeholder="@(T("pipeline.a_quien_se_perdio"))" @bind="_competidor" />
             </div>
         </ChildContent>
         <Footer>
@@ -94,23 +105,78 @@
     [SupplyParameterFromQuery(Name = "cliente")] public Guid? ClienteQuery { get; set; }
 
     private IReadOnlyList<OportunidadVista> _oportunidades = [];
+    private IReadOnlyList<Embudo> _embudos = [];
+    private Embudo _embudo = Embudo.Predeterminado;
+    private IReadOnlyList<string> _motivos = [];
     private ResumenPipeline? _resumen;
     private string _busqueda = "";
     private Oportunidad? _editando, _perdiendo;
     private bool _nueva;
-    private string? _motivo;
+    private string? _motivo, _competidor;
     private CancellationTokenSource? _debounce;
+
+    private IEnumerable<OportunidadVista> DelEmbudo => _oportunidades.Where(o => (o.Oportunidad.EmbudoId ?? Guid.Empty) == _embudo.Id);
+    private IEnumerable<OportunidadVista> Abiertas => DelEmbudo.Where(o => o.Oportunidad.Etapa.EstaAbierta());
+    private decimal Ponderado => Abiertas.Sum(o => o.Oportunidad.Monto * Probabilidades.De(o.Oportunidad, _embudo) / 100m);
+
+    private EtapaEmbudo? EtapaDe(Oportunidad o) =>
+        _embudo.Etapa(o.EtapaId) ?? _embudo.PrimeraQueEquivale(o.Etapa) ?? _embudo.Etapas.FirstOrDefault();
 
     protected override async Task LoadAsync()
     {
         _oportunidades = await Crm.Oportunidades.ListarAsync(_busqueda);
         _resumen = ResumenPipeline.Calcular(_oportunidades.Select(o => o.Oportunidad));
+        var embudos = (await Crm.Embudos.ListarAsync()).ToList();
+        // Las oportunidades sin embudo (de antes de configurar embudos) se ven en el predeterminado.
+        if (!embudos.Any(x => x.EsPredeterminado) && _oportunidades.Any(o => o.Oportunidad.EmbudoId is null))
+            embudos.Add(Embudo.Predeterminado);
+        _embudos = embudos;
+        _embudo = _embudos.FirstOrDefault(x => x.Id == _embudo.Id) ?? _embudos.FirstOrDefault(x => x.PorDefecto) ?? _embudos[0];
+        _motivos = (await Crm.Clientes.ObtenerAjustesAsync()).Motivos;
         if (NuevaQuery == 1 && _editando is null)
         {
             NuevaQuery = null;
             Nueva();
         }
     }
+
+    private RenderFragment Tarjeta(OportunidadVista v, EtapaEmbudo? etapa) => __builder =>
+    {
+        var o = v.Oportunidad;
+        <article class="deal @(o.EstaVencida(Fmt.Today) ? "late" : "")" @key="o.Id" @onclick="() => Editar(o)">
+            <strong>@o.Titulo</strong>
+            <span class="muted">@(v.Cliente ?? T("pipeline.sin_cliente"))@(v.Contacto is { Length: > 0 } k ? $" · {k}" : "")</span>
+            <div class="deal-foot">
+                <b>@Fmt.Amount(o.Monto)</b>
+                @if (o.FechaCierreEstimada is { } cierre && etapa is not null)
+                {
+                    <span class="@(o.EstaVencida(Fmt.Today) ? "warn-text" : "muted")" title="@(T("pipeline.cierre_estimado"))"><Icon Name="calendar" Size="13" /> @Fmt.Relative(cierre)</span>
+                }
+                @if (o.Etapa == EtapaOportunidad.Perdido && o.MotivoPerdida is { } motivo)
+                {
+                    <span class="muted" title="@o.Competidor">@motivo</span>
+                }
+            </div>
+            <div class="deal-actions" @onclick:stopPropagation>
+                @if (etapa is not null)
+                {
+                    <a class="btn btn-sm btn-ghost" href="@($"cotizaciones/nueva?oportunidad={o.Id}")" title="@(T("pipeline.cotizar"))"><Icon Name="file" Size="15" /></a>
+                    <KebabMenu>
+                        @foreach (var otra in _embudo.Etapas.Where(x => x.Id != etapa.Id))
+                        {
+                            <button @onclick="() => MoverAsync(o, otra)">@T("pipeline.mover", Embudo.NombreDe(otra))</button>
+                        }
+                        <button @onclick="() => CerrarAsync(o, EtapaOportunidad.Ganado)">@T("pipeline.mover", Fmt.Stage(EtapaOportunidad.Ganado))</button>
+                        <button class="danger" @onclick="() => CerrarAsync(o, EtapaOportunidad.Perdido)">@T("pipeline.mover", Fmt.Stage(EtapaOportunidad.Perdido))</button>
+                    </KebabMenu>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-ghost" @onclick="() => CerrarAsync(o, EtapaOportunidad.Negociacion)">@T("pipeline.reabrir")</button>
+                }
+            </div>
+        </article>
+    };
 
     private async Task BuscarAsync(ChangeEventArgs e)
     {
@@ -130,7 +196,10 @@
     private void Nueva()
     {
         _nueva = true;
-        _editando = new Oportunidad { ClienteId = ClienteQuery, CreadoEn = DateTimeOffset.UtcNow };
+        _editando = new Oportunidad
+        {
+            ClienteId = ClienteQuery, CreadoEn = DateTimeOffset.UtcNow, EmbudoId = _embudo.EsPredeterminado ? null : _embudo.Id,
+        };
     }
 
     private void Editar(Oportunidad o)
@@ -145,11 +214,15 @@
         await ReloadAsync();
     }
 
-    private async Task MoverAsync(Oportunidad o, EtapaOportunidad etapa)
+    private Task MoverAsync(Oportunidad o, EtapaEmbudo etapa) =>
+        RunAsync(() => Crm.Oportunidades.MoverAEtapaAsync(o.Id, etapa.Id), T("pipeline.paso_a", o.Titulo, Embudo.NombreDe(etapa)));
+
+    private async Task CerrarAsync(Oportunidad o, EtapaOportunidad etapa)
     {
         if (etapa == EtapaOportunidad.Perdido)
         {
             _motivo = null;
+            _competidor = o.Competidor;
             _perdiendo = o;
             return;
         }
@@ -161,7 +234,7 @@
     {
         if (_perdiendo is not { } o)
             return;
-        await RunAsync(() => Crm.Oportunidades.CambiarEtapaAsync(o.Id, EtapaOportunidad.Perdido, _motivo));
+        await RunAsync(() => Crm.Oportunidades.PerderAsync(o.Id, _motivo, _competidor));
         _perdiendo = null;
     }
 

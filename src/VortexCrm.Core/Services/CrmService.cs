@@ -26,7 +26,9 @@ public abstract class CrmService(CrmDatabase db, ICrmContext context, TimeProvid
     }
 
     /// <summary>Sede que emite las cotizaciones: la elegida en este equipo (null = domicilio fiscal).</summary>
-    protected Guid? DefaultSite => Context.DefaultSiteId;
+    /// <summary>Sede de las cotizaciones de este equipo, si el usuario puede usarla (sin sedes asignadas en el hub, todas).</summary>
+    protected Guid? DefaultSite =>
+        Context.DefaultSiteId is { } s && (Context.SiteIds.Count == 0 || Context.SiteIds.Contains(s)) ? s : Context.SiteIds.FirstOrDefault() is var f && f != Guid.Empty ? f : null;
 
     /// <summary>Inicio del día local (Perú, UTC-5) como instante UTC, para filtrar "hoy".</summary>
     protected DateTimeOffset StartOfDay(int daysAgo = 0)

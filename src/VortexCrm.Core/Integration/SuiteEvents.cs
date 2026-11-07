@@ -52,6 +52,8 @@ public static class CrmRecordKinds
     public const string Cotizacion = "cotizacion";
     public const string Tarea = "tarea";
     public const string Ajustes = "ajustes";
+    public const string Embudo = "embudo";
+    public const string Meta = "meta";
 }
 
 // ---------- Consumidos por el CRM ----------

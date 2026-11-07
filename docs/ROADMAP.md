@@ -43,11 +43,11 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | # | Requisito | Estado | Fase |
 |---|---|---|---|
 | CRM-20 | Pipeline con monto, cierre estimado y tasa de cierre | Hecho | — |
-| CRM-21 | Varios embudos con etapas, probabilidad y colores configurables | Parcial: cinco etapas fijas | 2 |
-| CRM-22 | Motivos de pérdida predefinidos y competidor | Parcial: motivo en texto libre | 2 |
+| CRM-21 | Varios embudos con etapas, probabilidad y colores configurables | Hecho | 2 |
+| CRM-22 | Motivos de pérdida predefinidos y competidor | Hecho | 2 |
 | CRM-23 | Productos en la oportunidad (monto calculado) | Pendiente | 2 |
-| CRM-24 | Pronóstico ponderado por mes y por vendedor | Pendiente | 2 |
-| CRM-25 | Metas y cuotas por vendedor y equipo, con avance | Pendiente | 2 |
+| CRM-24 | Pronóstico ponderado por mes y por vendedor | Hecho | 2 |
+| CRM-25 | Metas y cuotas por vendedor y equipo, con avance | Hecho | 2 |
 | CRM-26 | Alertas de oportunidades estancadas | Pendiente | 5 |
 
 ### Cotizaciones (CPQ)
@@ -84,7 +84,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-52 | Auditoría de etapas, cotizaciones, pedidos y borrados | Hecho | 1 |
 | CRM-53 | Territorios y equipos de venta con visibilidad por jerarquía | Pendiente | 5 |
 | CRM-54 | Comisiones calculadas sobre lo ganado o lo cobrado | Pendiente | 5 |
-| CRM-55 | Sedes por usuario | Pendiente | 2 |
+| CRM-55 | Sedes por usuario | Hecho | 2 |
 
 ### Automatización y reportes
 
@@ -159,6 +159,12 @@ borrar la oportunidad de otro.
 
 **Terminado cuando:** dos embudos con etapas distintas conviven; convertir un lead crea cliente, contacto y
 oportunidad; el pronóstico del mes coincide en dos equipos.
+
+**Estado (2026-11):** 2a hecha: embudos configurables (etapas con probabilidad, color y equivalencia al ciclo común,
+embudo por defecto y archivado), motivos de pérdida y competidor, metas por vendedor y equipo, pronóstico ponderado
+de los próximos meses y avance por vendedor, y sedes por usuario. Pruebas en `EmbudosTests`. **Pendiente (2b):** leads
+y conversión (CRM-10, CRM-11), productos en la oportunidad (CRM-23), responsable del cliente y duplicados (CRM-03,
+CRM-04).
 
 ## Fase 3: actividades y comunicación · M
 

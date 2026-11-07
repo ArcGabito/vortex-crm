@@ -81,14 +81,16 @@ public sealed class ServicioClientes(CrmDatabase db, ICrmContext context, TimePr
             await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.SettingsChanged, "settings", null, null,
                 $"{ajustes.ModoIgvPredeterminado}; condiciones: {Clean(ajustes.CondicionesPredeterminadas) ?? "(ninguna)"}");
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Ajustes, Guid.Empty,
-                new Registros.AjustesDatos(ajustes.ModoIgvPredeterminado.ToString(), Clean(ajustes.CondicionesPredeterminadas)));
+                new Registros.AjustesDatos(ajustes.ModoIgvPredeterminado.ToString(), Clean(ajustes.CondicionesPredeterminadas),
+                    ajustes.MotivosPerdida?.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct().ToList()));
             return 0;
         }, ct);
     }
 
     internal static async Task<Ajustes> AjustesAsync(SqliteConnection c) =>
         await c.FirstOrDefaultAsync("SELECT * FROM ajustes WHERE id = 1",
-            r => new Ajustes(Enum.Parse<ModoIgv>(r.Str("modo_igv")), r.StrOrNull("condiciones")))
+            r => new Ajustes(Enum.Parse<ModoIgv>(r.Str("modo_igv")), r.StrOrNull("condiciones"),
+                r.StrOrNull("motivos_perdida") is { } m ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(m) : null))
         ?? new Ajustes(ModoIgv.Incluido, null);
 
     // ---------- Actividad que informan los otros sistemas ----------

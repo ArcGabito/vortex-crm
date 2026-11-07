@@ -8,6 +8,13 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Embudos de venta configurables (fase 2a):** uno por línea de negocio, con sus etapas, probabilidad de cierre y
+  color; cada etapa equivale a Prospecto, Cotizado o Negociación, así las cotizaciones siguen haciendo avanzar la
+  oportunidad. Pantalla Embudos (desde Configuración) y tablero del pipeline por embudo.
+- **Motivos de pérdida** configurables y **competidor** de cada oportunidad.
+- **Pronóstico y metas:** lo ganado y lo ponderado por probabilidad de los próximos meses contra la meta del equipo, y
+  el avance de cada vendedor en el mes. Metas por mes, de un vendedor o del equipo.
+- **Sedes por usuario:** con sedes asignadas en el hub, las cotizaciones solo salen de esas sedes.
 - **Microsoft Store:** paquete MSIX generado por `.github/workflows/store.yml` (etiqueta `vX.Y.Z`), firmado por la Store
   para instalar sin la advertencia de SmartScreen; envío automático opcional. Guía en `docs/MICROSOFT-STORE.md`.
 - **El idioma sigue al usuario:** el que elige en Configuración se guarda en el hub y se usa al entrar en cualquier

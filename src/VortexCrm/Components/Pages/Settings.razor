@@ -36,6 +36,11 @@
                         <label>@T("settings.condiciones_que_se_copian_en")</label>
                         <textarea class="control" rows="3" placeholder="@(T("settings.forma_de_pago_tiempo_de"))" @bind="_condiciones"></textarea>
                     </div>
+                    <div class="field">
+                        <label>@T("settings.motivos_de_perdida")</label>
+                        <textarea class="control" rows="5" placeholder="@(T("settings.un_motivo_por_linea"))" @bind="_motivos"></textarea>
+                    </div>
+                    <a class="btn btn-sm" style="align-self:flex-start" href="embudos"><Icon Name="layers" Size="16" />@T("settings.embudos_de_venta")</a>
                     @if (Recordatorios.Disponible)
                     {
                         <button class="btn btn-sm" style="align-self:flex-start" @onclick="PermisoAsync"><Icon Name="bell" Size="16" />@T("settings.permitir_avisos_de_tareas")</button>
@@ -207,13 +212,14 @@
     [Inject] private IServicioRecordatorios Recordatorios { get; set; } = null!;
 
     private ModoIgv _modoIgv;
-    private string? _condiciones;
+    private string? _condiciones, _motivos;
     private bool _busy, _ajustesCargados;
 
     private async Task GuardarAjustesAsync()
     {
         _busy = true;
-        await RunAsync(() => Crm.Clientes.GuardarAjustesAsync(new Ajustes(_modoIgv, _condiciones)), T("settings.ajustes_de_ventas_guardados"));
+        await RunAsync(() => Crm.Clientes.GuardarAjustesAsync(new Ajustes(_modoIgv, _condiciones,
+            (_motivos ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))), T("settings.ajustes_de_ventas_guardados"));
         _busy = false;
     }
 
@@ -236,6 +242,7 @@
         {
             var ajustes = await Crm.Clientes.ObtenerAjustesAsync();
             (_modoIgv, _condiciones, _ajustesCargados) = (ajustes.ModoIgvPredeterminado, ajustes.CondicionesPredeterminadas, true);
+            _motivos = string.Join("\n", ajustes.Motivos);
         }
         _sites = await Crm.Master.GetSitesAsync(activeOnly: true);
         _failed = await Session.GetFailedAsync();

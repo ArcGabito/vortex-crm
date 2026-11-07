@@ -50,6 +50,16 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
                 RequireOwner(anterior.ResponsableId, anterior.ResponsableNombre);
             oportunidad.ResponsableId ??= Context.UserId;
             oportunidad.ResponsableNombre ??= Context.UserName;
+            if (anterior is null)
+                oportunidad.EmbudoId ??= await ServicioEmbudos.EmbudoPorDefectoAsync(c, tx);
+            var embudo = await ServicioEmbudos.EmbudoAsync(c, tx, oportunidad.EmbudoId);
+            Require(oportunidad.EmbudoId is null || !embudo.EsPredeterminado, T("error.el_embudo_no_existe"));
+            if (oportunidad.EtapaId is { } etapaId && oportunidad.Etapa.EstaAbierta())
+            {
+                var etapa = embudo.Etapa(etapaId);
+                Require(etapa is not null, T("error.la_etapa_no_es_del_embudo"));
+                oportunidad.CambiarEtapa(etapa!.Equivale, now);
+            }
             await GuardarAsync(c, tx, now, oportunidad, anterior?.Etapa);
             if (anterior is not null && anterior.Etapa != oportunidad.Etapa)
                 await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.StageChanged, "deal", oportunidad.Id, oportunidad.Titulo,
@@ -58,7 +68,19 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
         }, ct);
     }
 
-    public Task CambiarEtapaAsync(Guid id, EtapaOportunidad etapa, string? motivoPerdida = null, CancellationToken ct = default)
+    public Task CambiarEtapaAsync(Guid id, EtapaOportunidad etapa, string? motivoPerdida = null, CancellationToken ct = default) =>
+        CambiarEtapaAsync(id, etapa, null, motivoPerdida, null, ct);
+
+    /// <summary>Mueve la oportunidad a una etapa abierta de su embudo.</summary>
+    public Task MoverAEtapaAsync(Guid id, Guid etapaId, CancellationToken ct = default) =>
+        CambiarEtapaAsync(id, null, etapaId, null, null, ct);
+
+    /// <summary>Marca la oportunidad como perdida con el motivo (de la lista de ajustes u otro) y, si se sabe, el competidor.</summary>
+    public Task PerderAsync(Guid id, string? motivo, string? competidor, CancellationToken ct = default) =>
+        CambiarEtapaAsync(id, EtapaOportunidad.Perdido, null, motivo, competidor, ct);
+
+    private Task CambiarEtapaAsync(Guid id, EtapaOportunidad? etapaComun, Guid? etapaId, string? motivoPerdida, string? competidor,
+        CancellationToken ct)
     {
         RequirePermission(CrmPermissions.Sell);
         return InTransactionAsync(async (c, tx, now) =>
@@ -67,9 +89,21 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
             Require(oportunidad is not null, T("error.la_oportunidad_no_existe"));
             RequireOwner(oportunidad!.ResponsableId, oportunidad.ResponsableNombre);
             var anterior = oportunidad.Etapa;
+            var embudo = await ServicioEmbudos.EmbudoAsync(c, tx, oportunidad.EmbudoId);
+            var etapa = etapaComun ?? EtapaOportunidad.Prospecto;
+            if (etapaId is { } eid)
+            {
+                var destino = embudo.Etapa(eid);
+                Require(destino is not null, T("error.la_etapa_no_es_del_embudo"));
+                etapa = destino!.Equivale;
+            }
             oportunidad.CambiarEtapa(etapa, now);
+            oportunidad.EtapaId = etapaId ?? oportunidad.EtapaId;
             if (etapa == EtapaOportunidad.Perdido)
+            {
                 oportunidad.MotivoPerdida = Clean(motivoPerdida);
+                oportunidad.Competidor = Clean(competidor) ?? oportunidad.Competidor;
+            }
             await GuardarAsync(c, tx, now, oportunidad, anterior);
             if (anterior != etapa)
                 await AuditAsync(c, tx, now, VortexApi.Suite.Auditing.AuditActions.StageChanged, "deal", id, oportunidad.Titulo,
@@ -102,6 +136,17 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
     internal static async Task GuardarAsync(SqliteConnection c, SqliteTransaction tx, DateTimeOffset now, Oportunidad oportunidad,
         EtapaOportunidad? etapaAnterior)
     {
+        // La etapa del embudo sigue a la etapa común: si una cotización la hizo avanzar (o se cerró o reabrió), se ubica en
+        // la primera etapa del embudo que equivale.
+        if (!oportunidad.Etapa.EstaAbierta())
+            oportunidad.EtapaId = null;
+        else
+        {
+            var embudo = await ServicioEmbudos.EmbudoAsync(c, tx, oportunidad.EmbudoId);
+            if (embudo.Etapa(oportunidad.EtapaId)?.Equivale != oportunidad.Etapa)
+                oportunidad.EtapaId = embudo.PrimeraQueEquivale(oportunidad.Etapa)?.Id
+                    ?? embudo.Etapas.LastOrDefault(e => e.Equivale < oportunidad.Etapa)?.Id ?? embudo.Etapas.FirstOrDefault()?.Id;
+        }
         await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Oportunidad, oportunidad.Id, Registros.Datos(oportunidad));
         if (oportunidad.Etapa != EtapaOportunidad.Ganado || etapaAnterior == EtapaOportunidad.Ganado || oportunidad.ClienteId is not { } cliente)
             return;

@@ -18,6 +18,7 @@ public sealed class CrmWorkspace
         Master = new MasterDataService(db, context, clock);
         Contactos = new ServicioContactos(db, context, clock);
         Oportunidades = new ServicioOportunidades(db, context, clock);
+        Embudos = new ServicioEmbudos(db, context, clock);
         Cotizaciones = new ServicioCotizaciones(db, context, clock);
         Tareas = new ServicioTareas(db, context, clock, recordatorios);
         Clientes = new ServicioClientes(db, context, clock, Contactos, Oportunidades, Cotizaciones, Tareas);
@@ -31,6 +32,7 @@ public sealed class CrmWorkspace
     public MasterDataService Master { get; }
     public ServicioContactos Contactos { get; }
     public ServicioOportunidades Oportunidades { get; }
+    public ServicioEmbudos Embudos { get; }
     public ServicioCotizaciones Cotizaciones { get; }
     public ServicioTareas Tareas { get; }
     public ServicioClientes Clientes { get; }

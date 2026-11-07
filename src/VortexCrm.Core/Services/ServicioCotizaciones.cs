@@ -86,6 +86,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         cotizacion.Lineas.RemoveAll(l => l.EstaVacia);
         var errores = cotizacion.Validar();
         Require(errores.Count == 0, string.Join(" ", errores));
+        Require(cotizacion.SedeId is not { } sede || Context.SiteIds.Count == 0 || Context.SiteIds.Contains(sede), T("error.sede_no_asignada"));
         return InTransactionAsync(async (c, tx, now) =>
         {
             var guardada = await ObtenerAsync(c, tx, cotizacion.Id);
