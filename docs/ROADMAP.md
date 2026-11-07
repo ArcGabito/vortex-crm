@@ -1,73 +1,258 @@
 # Hoja de ruta
 
-Plan para que Vortex CRM compita con Salesforce Sales Cloud, HubSpot, Pipedrive y Zoho CRM en equipos comerciales de
-**Perú, LATAM, EE. UU. y Europa**. Las fases van en el orden en que conviene construirlas; la fase 1 es común a la
-suite ([ROADMAP-SUITE](https://github.com/ArcGabito/vortex-api/blob/main/docs/ROADMAP-SUITE.md)).
-Tamaños (S, M, L, XL) relativos entre fases.
+Guía para que Vortex CRM cumpla lo que un equipo comercial exige a un CRM empresarial y compita con Salesforce Sales
+Cloud, HubSpot, Pipedrive y Zoho CRM en **Perú, LATAM, EE. UU. y Europa**. Lo común a la suite está en
+[ROADMAP-SUITE](https://github.com/ArcGabito/vortex-api/blob/main/docs/ROADMAP-SUITE.md).
 
-## Dónde estamos (0.1.0)
+Cómo usarla:
 
-| Área | Hoy | Falta para competir |
-|---|---|---|
-| Clientes | Empresas y personas del hub, contactos, ficha de 360° con actividad de la suite | Leads y conversión, segmentación, campos personalizados, duplicados |
-| Pipeline | Cinco etapas fijas, monto, cierre estimado, tasa de cierre | Varios embudos con etapas configurables y probabilidad, motivos de pérdida, pronóstico |
-| Cotizaciones | Con IGV, PDF, WhatsApp, aceptación y pedido | Impuestos por país, monedas, plantillas, descuentos con aprobación, firma |
-| Actividades | Tareas con responsable y avisos en Android | Calendario, correo y llamadas registrados, recordatorios en escritorio |
-| Equipo | Varios equipos sincronizados | Roles, territorios, cartera por vendedor, metas y comisiones |
-| Reportes | Panel con pipeline y ventas ganadas | Embudo por etapa, actividad por vendedor, previsión, exportación |
-| Automatización | Avance de etapa al enviar y aceptar | Reglas (si pasa X, crear tarea o avisar), secuencias de seguimiento |
-| Internacional | Perú, soles, español | Impuestos por país, monedas, idiomas |
+1. **Requisitos empresariales** es la lista de lo que debe tener el CRM. Cada requisito tiene un código (`CRM-xx`),
+   su estado y la fase que lo cubre.
+2. **Fases** dice en qué orden se construyen, qué datos y eventos necesitan y cuándo se dan por terminadas.
+3. Al cerrar una fase se actualiza su **Estado** y el de sus requisitos, y se anota en el `CHANGELOG`.
+
+Los tamaños (S, M, L, XL) son relativos entre fases y se vuelven a estimar al empezar cada una.
+
+## Requisitos empresariales
+
+Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y **Pendiente**.
+
+### Clientes y contactos
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-01 | Empresas y personas del hub con contactos | Hecho | — |
+| CRM-02 | Ficha de 360° con la actividad de la suite (ventas, comprobantes, pagos, despachos) | Hecho | — |
+| CRM-03 | Responsable comercial del cliente y reasignación de cartera | Pendiente | 2 |
+| CRM-04 | Detección y fusión de duplicados | Pendiente | 2 |
+| CRM-05 | Segmentos y etiquetas, con listas guardadas | Pendiente | 5 |
+| CRM-06 | Campos personalizados en clientes, oportunidades y cotizaciones | Pendiente | 5 |
+| CRM-07 | Jerarquía de empresas (matriz y sucursales) | Pendiente | 5 |
+
+### Leads
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-10 | Leads con origen, calificación y estado | Pendiente | 2 |
+| CRM-11 | Conversión de lead a cliente, contacto y oportunidad en un paso | Pendiente | 2 |
+| CRM-12 | Asignación automática de leads (por turno, territorio o carga) | Pendiente | 5 |
+| CRM-13 | Captura desde formularios web | Pendiente | 7 |
+
+### Oportunidades y pronóstico
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-20 | Pipeline con monto, cierre estimado y tasa de cierre | Hecho | — |
+| CRM-21 | Varios embudos con etapas, probabilidad y colores configurables | Parcial: cinco etapas fijas | 2 |
+| CRM-22 | Motivos de pérdida predefinidos y competidor | Parcial: motivo en texto libre | 2 |
+| CRM-23 | Productos en la oportunidad (monto calculado) | Pendiente | 2 |
+| CRM-24 | Pronóstico ponderado por mes y por vendedor | Pendiente | 2 |
+| CRM-25 | Metas y cuotas por vendedor y equipo, con avance | Pendiente | 2 |
+| CRM-26 | Alertas de oportunidades estancadas | Pendiente | 5 |
+
+### Cotizaciones (CPQ)
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-30 | Cotización con impuestos del país, moneda propia, PDF y WhatsApp | Hecho | 1 |
+| CRM-31 | Aceptación que genera el pedido en el ERP | Hecho | — |
+| CRM-32 | Plantillas de cotización y textos predefinidos | Pendiente | 4 |
+| CRM-33 | Listas de precios por cliente compartidas con el ERP y el POS | Pendiente | 4 |
+| CRM-34 | Descuento máximo por rol y aprobación del gerente | Pendiente | 4 |
+| CRM-35 | Versiones de una cotización | Pendiente | 4 |
+| CRM-36 | Aceptación en línea con firma (enlace público del hub) | Pendiente | 4 |
+| CRM-37 | Productos opcionales y validez de la oferta | Pendiente | 4 |
+
+### Actividades y comunicación
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-40 | Tareas con responsable y avisos en Android | Hecho | — |
+| CRM-41 | Calendario de tareas y reuniones | Pendiente | 3 |
+| CRM-42 | Recordatorios en Windows, macOS e iOS | Pendiente | 3 |
+| CRM-43 | Registro de llamadas, correos y WhatsApp en la ficha | Pendiente | 3 |
+| CRM-44 | Plantillas de correo y WhatsApp | Pendiente | 3 |
+| CRM-45 | Envío de la cotización por correo con el PDF | Pendiente | 3 |
+| CRM-46 | Secuencias de seguimiento (varios pasos con plazos) | Pendiente | 5 |
+
+### Equipo y control
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-50 | Roles (`vendedor`, `gerente_ventas`, `consulta`, `administrador`) validados en Core | Hecho | 1 |
+| CRM-51 | Vendedor responsable: cada uno cambia lo suyo, el gerente todo | Hecho | 1 |
+| CRM-52 | Auditoría de etapas, cotizaciones, pedidos y borrados | Hecho | 1 |
+| CRM-53 | Territorios y equipos de venta con visibilidad por jerarquía | Pendiente | 5 |
+| CRM-54 | Comisiones calculadas sobre lo ganado o lo cobrado | Pendiente | 5 |
+| CRM-55 | Sedes por usuario | Pendiente | 2 |
+
+### Automatización y reportes
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-60 | Avance de etapa al enviar y aceptar una cotización | Hecho | — |
+| CRM-61 | Reglas (si pasa X, crear tarea, asignar o avisar) | Pendiente | 5 |
+| CRM-62 | Reportes: embudo por etapa, conversión, ciclo de venta, actividad y ranking | Parcial: panel con pipeline y ganadas | 5 |
+| CRM-63 | Tableros por rol y exportación a Excel y PDF | Pendiente | 5 |
+
+### Servicio al cliente
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-70 | Casos con prioridad, responsable y estados | Pendiente | 6 |
+| CRM-71 | Acuerdos de nivel de servicio (SLA) con alertas | Pendiente | 6 |
+| CRM-72 | Casos desde correo y WhatsApp | Pendiente | 6 |
+| CRM-73 | Encuesta de satisfacción al cerrar | Pendiente | 6 |
+
+### Marketing y privacidad
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-80 | Campañas por correo y WhatsApp a un segmento | Pendiente | 7 |
+| CRM-81 | Origen y campaña de cada lead y oportunidad (atribución) | Pendiente | 7 |
+| CRM-82 | Consentimientos y baja de comunicaciones | Pendiente | 7 |
+| CRM-83 | Exportar o borrar los datos de una persona (Ley 29733, LGPD, GDPR) | Pendiente | 7 |
+
+### Integraciones
+
+| # | Requisito | Estado | Fase |
+|---|---|---|---|
+| CRM-90 | Correo y calendario de Microsoft 365 y Google | Pendiente | 8 |
+| CRM-91 | WhatsApp Business API | Pendiente | 8 |
+| CRM-92 | Importación masiva de clientes, contactos y oportunidades | Pendiente | 8 |
+| CRM-93 | API y webhooks propios del CRM sobre los del hub | Pendiente | 8 |
 
 ## Reglas que el plan respeta
 
-- El cliente es del hub; los datos comerciales son del CRM y se replican con `crm.record.*` (último cambio gana).
+- El cliente es del hub; los datos comerciales son del CRM y se replican con `crm.record.*` (el último cambio gana).
 - Nada fijo para un país: impuestos, monedas y formatos vienen de `VortexApi.Suite`.
-- Sin conexión primero; los vendedores trabajan en campo desde el celular.
-- Módulos opcionales por `features` del hub (`leads`, `automatizacion`, `metas`…).
+- Sin conexión primero: los vendedores trabajan en campo desde el celular.
+- Un pedido nace en el CRM con Id determinista compartido con el ERP; el CRM no factura ni mueve stock.
+- Los datos personales se tratan con consentimiento y se pueden exportar o borrar.
+- Módulos opcionales por `features` del hub (`leads`, `automatizacion`, `servicio`, `marketing`…).
 
 ## Fase 1: base común de la suite · M
 
-- **Impuestos por país** en cotizaciones (reemplaza el IGV fijo) y **moneda de la cotización**.
-- **Roles del CRM**: `administrador`, `gerente_ventas`, `vendedor`, `consulta`. Un vendedor ve y edita lo suyo; el
-  gerente ve todo el equipo.
-- **Auditoría** de cambios de etapa, aceptaciones, descuentos y borrados.
-- **Idiomas** español, inglés y portugués (1b, hecho): la interfaz completa, con selector en Configuración → Este
-  equipo (por defecto, el idioma del país de la empresa). Los mensajes de validación, el
-  PDF y el WhatsApp de la cotización también salen en el idioma elegido.
+Impuestos por país y moneda en cotizaciones, roles del CRM con vendedor responsable, auditoría e idiomas (español,
+inglés y portugués, también en el PDF y el WhatsApp de la cotización).
 
 **Terminado cuando:** una cotización para Colombia sale con IVA 19 % en pesos colombianos y un `vendedor` no puede
 borrar la oportunidad de otro.
 
+**Estado (2026-11):** hecha.
+
 ## Fase 2: embudos, leads y pronóstico · L
 
-- Embudos configurables (etapas, probabilidad, colores) por línea de negocio; motivos de pérdida predefinidos.
-- Leads (prospectos sin calificar) con origen y conversión a cliente, contacto y oportunidad.
-- Pronóstico ponderado por probabilidad y por mes; metas por vendedor y avance.
-- Responsable de cada cliente y oportunidad; reasignación de cartera.
+**Objetivo:** que el gerente sepa cuánto va a vender este mes y de dónde sale.
+
+- CRM-21, CRM-22: embudos configurables por línea de negocio (etapas, probabilidad, colores) y motivos de pérdida
+  predefinidos. Las cinco etapas actuales pasan a ser el embudo por defecto.
+- CRM-10, CRM-11: leads con origen y conversión.
+- CRM-23 a CRM-25: productos en la oportunidad, pronóstico ponderado y metas.
+- CRM-03, CRM-04: responsable del cliente, reasignación de cartera y duplicados.
+- CRM-55: sedes por usuario (`Access.SiteIds`, ya en el hub).
+
+**Datos y eventos:** embudos, leads y metas viajan como `crm.record.upserted`. `deal.won` gana `pipelineId` y
+`lines` (aditivos).
+
+**Hub:** responsable comercial y segmento del cliente en `party`.
+
+**Terminado cuando:** dos embudos con etapas distintas conviven; convertir un lead crea cliente, contacto y
+oportunidad; el pronóstico del mes coincide en dos equipos.
 
 ## Fase 3: actividades y comunicación · M
 
-- Calendario de tareas y reuniones; recordatorios en Windows y macOS.
-- Registro de llamadas, correos y mensajes de WhatsApp en la ficha.
-- Plantillas de correo y de WhatsApp; envío de la cotización por correo con el PDF.
+- CRM-41, CRM-42: calendario de tareas y reuniones, recordatorios en Windows, macOS e iOS.
+- CRM-43 a CRM-45: registro de llamadas, correos y WhatsApp; plantillas; envío de la cotización por correo.
+
+**Terminado cuando:** un vendedor agenda una visita desde el celular, recibe el aviso en el escritorio y registra el
+resultado en la ficha.
 
 ## Fase 4: cotizaciones empresariales · M
 
-- Plantillas de cotización y textos predefinidos; listas de precios por cliente (del ERP).
-- Descuento máximo por rol y aprobación del gerente; versiones de una misma cotización.
-- Aceptación en línea con firma (enlace público vía hub).
+- CRM-32 a CRM-37: plantillas, listas de precios compartidas, descuento máximo por rol con aprobación, versiones,
+  firma en línea, productos opcionales y validez.
 
-## Fase 5: automatización y reportes · L
+**Hub:** listas de precios (las mismas del ERP y el POS); enlace público firmado para aceptar cotizaciones.
 
-- Reglas de automatización (crear tarea al pasar a una etapa, avisar si una oportunidad lleva N días quieta).
-- Reportes: embudo por etapa, conversión, ciclo de venta, actividad y ranking por vendedor; exportación.
-- Campos personalizados en clientes, oportunidades y cotizaciones.
+**Terminado cuando:** una cotización con un descuento mayor al permitido no se puede enviar sin la aprobación del
+gerente; el cliente la acepta desde el enlace y el pedido llega al ERP.
 
-## Fase 6: integraciones · M
+## Fase 5: equipo, automatización y reportes · L
 
-Correo (Microsoft 365, Google), WhatsApp Business, formularios web para capturar leads, calendario externo.
+- CRM-53, CRM-54: territorios, visibilidad por jerarquía y comisiones.
+- CRM-12, CRM-26, CRM-46, CRM-61: asignación automática de leads, alertas de estancadas, secuencias y reglas.
+- CRM-05 a CRM-07: segmentos, campos personalizados y jerarquía de empresas.
+- CRM-62, CRM-63: reportes y tableros por rol con exportación.
+
+**Multiequipo:** las reglas se ejecutan en un solo equipo por registro (el del responsable), para no crear tareas
+repetidas.
+
+**Terminado cuando:** una oportunidad quieta 15 días crea una tarea a su responsable una sola vez aunque haya varios
+equipos abiertos.
+
+## Fase 6: servicio al cliente · L
+
+- CRM-70 a CRM-73: casos con SLA, desde correo y WhatsApp, y encuesta al cerrar. Se activa con el `feature`
+  `servicio`.
+
+**Terminado cuando:** un caso que vence su SLA avisa al supervisor y queda en el reporte de cumplimiento.
+
+## Fase 7: marketing y privacidad · M
+
+- CRM-80, CRM-81: campañas a segmentos y atribución.
+- CRM-82, CRM-83: consentimientos, baja de comunicaciones y exportación o borrado de datos personales.
+- CRM-13: formularios web para capturar leads (vía hub).
+
+**Hub:** consentimientos del cliente en `party` (compartidos con el POS); endpoint público para formularios.
+
+**Terminado cuando:** una persona que se dio de baja no recibe campañas, y su solicitud de borrado elimina sus datos
+del CRM en todos los equipos.
+
+## Fase 8: integraciones · M
+
+CRM-90 a CRM-93: correo y calendario externos, WhatsApp Business, importación masiva y API.
 
 ## Propuestas al hub
 
-Tipos de cambio como dato maestro; responsable comercial y segmento del cliente (`party`); enlace público firmado
-para aceptar cotizaciones.
+| Propuesta | Tipo | Fase |
+|---|---|---|
+| Responsable comercial y segmento del cliente | Campos de `party` | 2 |
+| `pipelineId` y `lines` en `deal.won` | Campos aditivos | 2 |
+| Listas de precios | Dato maestro compartido con ERP y POS | 4 |
+| Enlace público firmado para aceptar cotizaciones | Endpoint | 4 |
+| Consentimientos del cliente | Campos de `party` | 7 |
+| Formularios web para leads | Endpoint público | 7 |
+
+## Decisiones pendientes
+
+| # | Decisión | Recomendación | Antes de |
+|---|---|---|---|
+| 1 | Leads en el CRM o como `party` del hub | En el CRM hasta convertirse; al convertir se crea el `party` | Fase 2 |
+| 2 | Qué equipo ejecuta las reglas automáticas | El del responsable del registro; si no está activo, el primero que sincroniza después del plazo | Fase 5 |
+| 3 | Servicio al cliente en el CRM o en otro sistema | En el CRM con el `feature` `servicio` | Fase 6 |
+| 4 | Envío de correo y WhatsApp masivo | Proveedor externo (SMTP transaccional, WhatsApp Business API) configurado en el hub | Fase 7 |
+
+## Versiones
+
+| Versión | Contenido |
+|---|---|
+| 0.2.0 | Fase 1 |
+| 0.3.0 | Fase 2 |
+| 0.4.0 | Fase 3 |
+| 0.5.0 | Fase 4 |
+| 0.6.0 | Fase 5 |
+| 1.0.0 | Estabilización y piloto con un equipo comercial real |
+| 1.x | Fases 6, 7 y 8 |
+
+## Cómo se trabaja cada fase
+
+1. **Hub primero:** las propuestas de la fase se envían a `vortex-api` con pruebas y se vuelve a empaquetar el SDK
+   (`scripts/pack-sdk.*`).
+2. **Base de datos:** una migración nueva en `CrmDatabase`; nunca se edita una publicada.
+3. **Registros:** los datos comerciales nuevos se replican con `crm.record.*`; los pedidos usan Id determinista.
+4. **Permisos y auditoría:** cada acción sensible valida su permiso en Core y deja su auditoría.
+5. **Pruebas:** unitarias y un escenario en `SyncTests` por cada dato replicado.
+6. **Documentación:** los eventos nuevos o ampliados van en [INTEGRACION.md](INTEGRACION.md); los cambios, en el
+   `CHANGELOG`; los requisitos cumplidos se marcan en esta guía.
+7. **Pantallas:** con los componentes compartidos, en los tres idiomas, probadas en Windows y en la vista móvil.
