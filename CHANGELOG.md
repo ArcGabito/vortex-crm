@@ -35,6 +35,10 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 - CI (pruebas en Linux y app en Windows), Dependabot, plantilla de pull request, CONTRIBUTING, SECURITY y CLAUDE.md.
 
 ### Changed
+- **Morado .NET como color de la suite:** el naranja de la marca (`#FF5B14`) pasa a `#512BD4`, el morado de .NET,
+  en el acento de `app.css`, el logo, el ícono de la app, la pantalla de inicio, la barra de título y Android. La portada
+  del inicio de sesión se muestra en tonos morados con `filter: hue-rotate`. Los colores de estado no cambian.
+  También el color de las cotizaciones en PDF y el de la notificación de recordatorios en Android.
 - Arquitectura de Vortex WMS: `VortexCrm` (MAUI Blazor Hybrid) + `VortexCrm.Core` + pruebas, con el sistema de diseño
   de la suite en lugar de MudBlazor y SQLite sin ORM en lugar de EF Core.
 - Cotizaciones numeradas por equipo (`COT-3F0C-0012`) y PDF con los datos de la empresa y la sede del hub.

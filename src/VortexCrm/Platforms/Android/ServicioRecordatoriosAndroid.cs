@@ -105,7 +105,7 @@ public sealed class ReceptorRecordatorios : BroadcastReceiver
 
         var notificacion = new NotificationCompat.Builder(context, Canal)
             .SetSmallIcon(Resource.Drawable.ic_notificacion)!
-            .SetColor(Android.Graphics.Color.ParseColor("#FF5B14"))!
+            .SetColor(Android.Graphics.Color.ParseColor("#512BD4"))!
             .SetContentTitle(intent.GetStringExtra(ExtraTitulo))!
             .SetContentText(intent.GetStringExtra(ExtraMensaje))!
             .SetCategory(NotificationCompat.CategoryReminder)!
