@@ -1,0 +1,217 @@
+@page "/pronostico"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">@T("forecast.pronostico")</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>@T("forecast.pronostico_y_metas")</h2>
+            <p>@T("forecast.explica")</p>
+        </div>
+        @if (Session.Can(CrmPermissions.EditSettings))
+        {
+            <button class="btn btn-dark" @onclick="() => NuevaMeta(null, null)"><Icon Name="plus" Size="18" />@T("forecast.fijar_meta")</button>
+        }
+    </div>
+
+    @if (_p is { } p)
+    {
+        var actual = p.Meses[0];
+        <div class="stat-strip boxed">
+            <StatTile Icon="star" Label="@(T("forecast.ganado_este_mes"))" Value="@Fmt.Amount(actual.Ganado)" Hint="@(actual.AvancePct is { } a ? T("forecast.de_la_meta", a) : null)" />
+            <StatTile Icon="layers" Label="@(T("forecast.ponderado"))" Value="@Fmt.Amount(actual.Ponderado)" Hint="@Fmt.Count(actual.Abiertas, T("count.oportunidad"), T("count.oportunidades"))" />
+            <StatTile Icon="arrows" Label="@(T("forecast.esperado_al_cierre"))" Value="@Fmt.Amount(actual.Esperado)" />
+            <StatTile Icon="check" Label="@(T("forecast.meta_del_equipo"))" Value="@(actual.Meta is { } metaEquipo ? Fmt.Amount(metaEquipo) : "—")" />
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>@T("forecast.proximos_meses")</h3>
+                    <div class="sub">@T("forecast.proximos_explica")</div>
+                </div>
+            </div>
+            <div class="card-body" style="padding-top:0">
+                <div class="table-wrap">
+                    <table class="data" style="min-width:620px">
+                        <thead>
+                            <tr><th>@T("forecast.mes")</th><th class="num">@T("forecast.ganado")</th><th class="num">@T("forecast.en_curso")</th><th class="num">@T("forecast.ponderado")</th><th class="num">@T("forecast.esperado")</th><th class="num">@T("forecast.meta")</th><th>@T("forecast.avance")</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in p.Meses)
+                            {
+                                <tr @key="m.Mes">
+                                    <td class="strong">@Fmt.Month(m.Mes)</td>
+                                    <td class="num">@Fmt.Amount(m.Ganado)</td>
+                                    <td class="num muted">@Fmt.Amount(m.EnCurso)</td>
+                                    <td class="num">@Fmt.Amount(m.Ponderado)</td>
+                                    <td class="num strong">@Fmt.Amount(m.Esperado)</td>
+                                    <td class="num">@(m.Meta is { } meta ? Fmt.Amount(meta) : "—")</td>
+                                    <td style="min-width:140px">@Avance(m.Ganado, m.Esperado, m.Meta)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (p.SinFecha > 0)
+                {
+                    <div class="alert info" style="margin-top:12px"><Icon Name="calendar" Size="18" /><span>@T("forecast.sin_fecha", Fmt.Amount(p.SinFecha))</span></div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>@T("forecast.por_vendedor")</h3>
+                    <div class="sub">@Fmt.Month(actual.Mes)</div>
+                </div>
+            </div>
+            <div class="card-body" style="padding-top:0">
+                @if (p.Vendedores.Count == 0)
+                {
+                    <EmptyState Icon="users" Title="@(T("forecast.sin_actividad"))" Text="@(T("forecast.sin_actividad_explica"))" />
+                }
+                else
+                {
+                    <div class="table-wrap">
+                        <table class="data" style="min-width:560px">
+                            <thead>
+                                <tr><th>@T("forecast.vendedor")</th><th class="num">@T("forecast.ganado")</th><th class="num">@T("forecast.ponderado")</th><th class="num">@T("forecast.meta")</th><th>@T("forecast.avance")</th><th class="actions-col"></th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var v in p.Vendedores)
+                                {
+                                    <tr @key="v.ResponsableId">
+                                        <td><div class="cell-main"><Avatar Text="@(v.Nombre is { Length: > 0 } n ? n : "?")" Size="30" /><span class="strong">@(v.Nombre is { Length: > 0 } nombre ? nombre : T("forecast.sin_responsable"))</span></div></td>
+                                        <td class="num">@Fmt.Amount(v.Ganado)</td>
+                                        <td class="num">@Fmt.Amount(v.Ponderado)</td>
+                                        <td class="num">@(v.Meta is { } meta ? Fmt.Amount(meta) : "—")</td>
+                                        <td style="min-width:140px">@Avance(v.Ganado, v.Ganado + v.Ponderado, v.Meta)</td>
+                                        <td class="actions-col">
+                                            @if (Session.Can(CrmPermissions.EditSettings) && v.ResponsableId is not null)
+                                            {
+                                                <button class="btn btn-sm btn-ghost" @onclick="() => NuevaMeta(v.ResponsableId, v.Nombre)">@T("forecast.meta")</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (_editando)
+{
+    <Modal Title="@(T("forecast.fijar_meta"))" Subtitle="@(_metaNombre ?? T("forecast.todo_el_equipo"))" Size="sm" Error="@_error" OnClose="() => _editando = false">
+        <ChildContent>
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("forecast.mes")</label>
+                    <input class="control" type="month" value="@_metaMes.ToString("yyyy-MM")" @onchange="SetMes" />
+                </div>
+                <div class="field">
+                    <label>@T("forecast.monto_meta", Fmt.Symbol(Fmt.Currency))</label>
+                    <input class="control" type="number" min="0" step="100" @bind="_metaMonto" />
+                </div>
+            </div>
+            @if (_metaResponsable is null && _vendedores.Count > 0)
+            {
+                <div class="field">
+                    <label>@T("forecast.para")</label>
+                    <select class="select" @onchange="ElegirVendedor">
+                        <option value="">@T("forecast.todo_el_equipo")</option>
+                        @foreach (var v in _vendedores)
+                        {
+                            <option value="@v.Id">@v.Nombre</option>
+                        }
+                    </select>
+                </div>
+            }
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _editando = false">@T("forecast.cancelar")</button>
+            <button class="btn btn-dark" @onclick="GuardarMetaAsync">@T("forecast.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private Pronostico? _p;
+    private IReadOnlyList<(Guid Id, string Nombre)> _vendedores = [];
+    private bool _editando;
+    private DateOnly _metaMes;
+    private decimal _metaMonto;
+    private Guid? _metaResponsable;
+    private string? _metaNombre, _error;
+
+    protected override async Task LoadAsync()
+    {
+        _p = await Crm.Embudos.PronosticoAsync(3);
+        // Vendedores conocidos: los responsables de oportunidades (el hub no da la lista de miembros sin conexión).
+        _vendedores = (await Crm.Oportunidades.ListarAsync())
+            .Where(o => o.Oportunidad.ResponsableId is not null)
+            .GroupBy(o => o.Oportunidad.ResponsableId!.Value)
+            .Select(g => (g.Key, g.First().Oportunidad.ResponsableNombre ?? ""))
+            .OrderBy(v => v.Item2).ToList();
+    }
+
+    private RenderFragment Avance(decimal ganado, decimal esperado, decimal? meta) => __builder =>
+    {
+        if (meta is not > 0)
+        {
+            <span class="faint">—</span>
+            return;
+        }
+        var pct = (int)Math.Min(100, ganado / meta.Value * 100);
+        var esperadoPct = (int)Math.Min(100, esperado / meta.Value * 100);
+        <div style="display:flex;align-items:center;gap:8px">
+            <div class="bar" style="flex:1;position:relative" title="@(T("forecast.esperado_pct", esperadoPct))">
+                <span style="width:@(esperadoPct)%;opacity:.3;position:absolute;left:0;top:0"></span>
+                <span style="width:@(pct)%;position:relative"></span>
+            </div>
+            <span class="strong" style="font-size:12px">@pct %</span>
+        </div>
+    };
+
+    private void NuevaMeta(Guid? responsable, string? nombre)
+    {
+        _error = null;
+        _metaMes = new DateOnly(Fmt.Today.Year, Fmt.Today.Month, 1);
+        _metaMonto = 0;
+        _metaResponsable = responsable;
+        _metaNombre = nombre;
+        _editando = true;
+    }
+
+    private void SetMes(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParseExact($"{e.Value}-01", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d))
+            _metaMes = d;
+    }
+
+    private void ElegirVendedor(ChangeEventArgs e)
+    {
+        var id = Guid.TryParse(e.Value?.ToString(), out var g) ? g : (Guid?)null;
+        _metaNombre = id is null ? null : _vendedores.FirstOrDefault(v => v.Id == id).Nombre;
+        _metaResponsableElegido = id;
+    }
+
+    private Guid? _metaResponsableElegido;
+
+    private async Task GuardarMetaAsync()
+    {
+        var responsable = _metaResponsable ?? _metaResponsableElegido;
+        _error = await TryAsync(() => Crm.Embudos.GuardarMetaAsync(_metaMes, responsable, _metaNombre, _metaMonto), T("forecast.meta_guardada"));
+        if (_error is null)
+        {
+            _editando = false;
+            _metaResponsableElegido = null;
+        }
+    }
+}

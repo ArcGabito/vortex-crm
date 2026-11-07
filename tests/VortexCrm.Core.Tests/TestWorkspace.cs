@@ -83,6 +83,7 @@ public sealed class TestWorkspace(string deviceTag = "TEST", Guid? userId = null
         public string UserName { get; set; } = "Luis";
         public string DeviceTag => deviceTag;
         public Guid? DefaultSiteId => store;
+        public IReadOnlyList<Guid> SiteIds { get; set; } = [];
         public string Role { get; set; } = role;
         public bool Can(string permission) => CrmPermissions.Matrix.Can(Role, "User", permission);
     }

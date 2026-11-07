@@ -1,0 +1,166 @@
+@page "/embudos"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">@T("pipelines.embudos")</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>@T("pipelines.embudos_de_venta")</h2>
+            <p>@T("pipelines.explica")</p>
+        </div>
+        @if (Session.Can(CrmPermissions.EditSettings))
+        {
+            <button class="btn btn-dark" @onclick="Nuevo"><Icon Name="plus" Size="18" />@T("pipelines.nuevo_embudo")</button>
+        }
+    </div>
+
+    <div class="grid-cards">
+        @foreach (var e in _embudos)
+        {
+            <div class="card site-card" @key="e.Id">
+                <div class="top">
+                    <div class="two-line">
+                        <span class="t1">@(e.EsPredeterminado ? T("pipelines.predeterminado") : e.Nombre)</span>
+                        <span class="t2">@Fmt.Count(e.Etapas.Count, T("count.etapa"), T("count.etapas"))@(e.PorDefecto ? T("pipelines.por_defecto") : "")@(e.Archivado ? T("pipelines.archivado") : "")</span>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    @foreach (var etapa in e.Etapas)
+                    {
+                        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:@(etapa.Color ?? "var(--text-3)")"></span>
+                            <span style="flex:1">@Embudo.NombreDe(etapa)</span>
+                            <span class="muted">@etapa.Probabilidad %</span>
+                        </div>
+                    }
+                </div>
+                @if (!e.EsPredeterminado && Session.Can(CrmPermissions.EditSettings))
+                {
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-sm" @onclick="() => Editar(e)">@T("pipelines.editar")</button>
+                        @if (!e.Archivado)
+                        {
+                            <button class="btn btn-sm btn-ghost" @onclick="() => ArchivarAsync(e)">@T("pipelines.archivar")</button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (_editando is { } ed)
+{
+    <Modal Title="@(ed.Nuevo ? T("pipelines.nuevo_embudo") : T("pipelines.editar_embudo"))" Subtitle="@(T("pipelines.se_comparte"))" Size="lg" Error="@_error" OnClose="() => _editando = null">
+        <ChildContent>
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("pipelines.nombre")</label>
+                    <input class="control" placeholder="@(T("pipelines.ej_proyectos"))" @bind="ed.Nombre" />
+                </div>
+                <label class="check" style="align-self:flex-end;margin-bottom:10px"><input type="checkbox" @bind="ed.PorDefecto" />@T("pipelines.usar_por_defecto")</label>
+            </div>
+            <div class="lines">
+                @for (var i = 0; i < ed.Etapas.Count; i++)
+                {
+                    var index = i;
+                    var etapa = ed.Etapas[index];
+                    <div class="line" style="grid-template-columns:minmax(0,1fr) 150px 90px 44px 100px" @key="etapa.Id">
+                        <input class="control" placeholder="@(T("pipelines.nombre_de_la_etapa"))" @bind="etapa.Nombre" />
+                        <select class="select" @bind="etapa.Equivale" title="@(T("pipelines.equivale_explica"))">
+                            @foreach (var x in new[] { EtapaOportunidad.Prospecto, EtapaOportunidad.Cotizado, EtapaOportunidad.Negociacion })
+                            {
+                                <option value="@x">@Fmt.Stage(x)</option>
+                            }
+                        </select>
+                        <input class="control" type="number" min="0" max="100" @bind="etapa.Probabilidad" aria-label="@(T("pipelines.probabilidad"))" title="@(T("pipelines.probabilidad"))" />
+                        <input type="color" style="width:38px;height:38px;border:0;background:none" @bind="etapa.Color" aria-label="@(T("pipelines.color"))" />
+                        <div style="display:flex;gap:2px">
+                            <button class="btn btn-ghost icon-btn sm" disabled="@(index == 0)" @onclick="() => Mover(index, -1)" aria-label="@(T("pipelines.subir"))"><Icon Name="chevron-left" Size="16" /></button>
+                            <button class="btn btn-ghost icon-btn sm" @onclick="() => ed.Etapas.RemoveAt(index)" aria-label="@(T("pipelines.quitar"))"><Icon Name="x" Size="16" /></button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <button class="btn btn-sm" style="align-self:flex-start" @onclick="AgregarEtapa"><Icon Name="plus" Size="16" />@T("pipelines.agregar_etapa")</button>
+            <div class="alert info"><Icon Name="alert" Size="18" /><span>@T("pipelines.ganado_y_perdido")</span></div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _editando = null">@T("pipelines.cancelar")</button>
+            <button class="btn btn-dark" @onclick="GuardarAsync">@T("pipelines.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private sealed class EtapaForm
+    {
+        public Guid Id { get; init; } = Guid.NewGuid();
+        public string Nombre { get; set; } = "";
+        public EtapaOportunidad Equivale { get; set; } = EtapaOportunidad.Prospecto;
+        public int Probabilidad { get; set; } = 10;
+        public string? Color { get; set; } = "#512bd4";
+    }
+
+    private sealed class EmbudoForm
+    {
+        public Guid Id { get; init; } = Guid.NewGuid();
+        public bool Nuevo { get; init; }
+        public string Nombre { get; set; } = "";
+        public bool PorDefecto { get; set; }
+        public List<EtapaForm> Etapas { get; } = [];
+
+        public Embudo ToEmbudo() => new(Id, Nombre, Etapas.Select(e => new EtapaEmbudo(e.Id, e.Nombre, e.Equivale, e.Probabilidad, e.Color)).ToList(),
+            PorDefecto);
+    }
+
+    private IReadOnlyList<Embudo> _embudos = [];
+    private EmbudoForm? _editando;
+    private string? _error;
+
+    protected override async Task LoadAsync() => _embudos = await Crm.Embudos.ListarAsync(incluirArchivados: true);
+
+    private void Nuevo()
+    {
+        _error = null;
+        _editando = new EmbudoForm { Nuevo = true };
+        // Arranca con las etapas habituales para no empezar en blanco.
+        foreach (var e in Embudo.Predeterminado.Etapas)
+            _editando.Etapas.Add(new EtapaForm { Nombre = Fmt.Stage(e.Equivale), Equivale = e.Equivale, Probabilidad = e.Probabilidad });
+    }
+
+    private void Editar(Embudo embudo)
+    {
+        _error = null;
+        _editando = new EmbudoForm { Id = embudo.Id, Nombre = embudo.Nombre, PorDefecto = embudo.PorDefecto };
+        foreach (var e in embudo.Etapas)
+            _editando.Etapas.Add(new EtapaForm { Id = e.Id, Nombre = e.Nombre, Equivale = e.Equivale, Probabilidad = e.Probabilidad, Color = e.Color });
+    }
+
+    private void AgregarEtapa()
+    {
+        var ultima = _editando!.Etapas.LastOrDefault();
+        _editando.Etapas.Add(new EtapaForm
+        {
+            Equivale = ultima?.Equivale ?? EtapaOportunidad.Prospecto, Probabilidad = Math.Min(100, (ultima?.Probabilidad ?? 0) + 10),
+        });
+    }
+
+    private void Mover(int index, int delta)
+    {
+        var etapas = _editando!.Etapas;
+        (etapas[index], etapas[index + delta]) = (etapas[index + delta], etapas[index]);
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (_editando is not { } ed)
+            return;
+        _error = await TryAsync(() => Crm.Embudos.GuardarAsync(ed.ToEmbudo()), T("pipelines.embudo_guardado"));
+        if (_error is null)
+            _editando = null;
+    }
+
+    private Task ArchivarAsync(Embudo embudo) => RunAsync(() => Crm.Embudos.ArchivarAsync(embudo.Id), T("pipelines.embudo_archivado", embudo.Nombre));
+}

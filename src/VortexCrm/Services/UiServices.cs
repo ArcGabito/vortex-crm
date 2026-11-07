@@ -143,6 +143,9 @@ public static class Fmt
     /// <summary>Monto en la moneda de la empresa.</summary>
     public static string Amount(decimal value) => Money(value, Currency);
 
+    /// <summary>Mes con su año: «noviembre 2026».</summary>
+    public static string Month(DateOnly month) => month.ToString("MMMM yyyy", Culture);
+
     public static string Date(DateOnly value) => value.ToString("dd MMM yyyy", Culture);
 
     /// <summary>"Hoy", "Mañana", "lun. 5 oct."…</summary>

@@ -17,6 +17,9 @@ public interface ICrmContext
     /// <summary>Sede que emite las cotizaciones de este equipo (puede ser null: domicilio fiscal).</summary>
     Guid? DefaultSiteId { get; }
 
+    /// <summary>Sedes asignadas al usuario en el hub (<c>Access.SiteIds</c>). Vacío: trabaja en todas.</summary>
+    IReadOnlyList<Guid> SiteIds => [];
+
     /// <summary>Rol efectivo del usuario en el CRM (<see cref="CrmPermissions"/>).</summary>
     string Role { get; }
 
@@ -136,7 +139,17 @@ public static class TiposActividad
 }
 
 /// <summary>Ajustes de ventas de la organización (se replican entre equipos).</summary>
-public sealed record Ajustes(ModoIgv ModoIgvPredeterminado, string? CondicionesPredeterminadas);
+/// <summary>Ajustes de ventas de la organización. <c>MotivosPerdida</c>: lista para elegir al marcar una oportunidad como perdida.</summary>
+public sealed record Ajustes(ModoIgv ModoIgvPredeterminado, string? CondicionesPredeterminadas, IReadOnlyList<string>? MotivosPerdida = null)
+{
+    public IReadOnlyList<string> Motivos => MotivosPerdida is { Count: > 0 } m ? m : MotivosPredeterminados;
+
+    public static IReadOnlyList<string> MotivosPredeterminados =>
+    [
+        Texts.CoreText.T("motivo.precio"), Texts.CoreText.T("motivo.competencia"), Texts.CoreText.T("motivo.sin_presupuesto"),
+        Texts.CoreText.T("motivo.no_responde"), Texts.CoreText.T("motivo.producto"), Texts.CoreText.T("motivo.plazo"),
+    ];
+}
 
 /// <summary>Todo lo de un cliente en una pantalla.</summary>
 public sealed record FichaCliente(

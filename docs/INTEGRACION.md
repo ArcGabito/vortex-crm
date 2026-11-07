@@ -25,7 +25,7 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 
 | Evento | Contenido |
 |---|---|
-| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`) |
+| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`) |
 | `crm.record.deleted` | `{ kind, id, updatedAt }` |
 
 - Cada equipo aplica lo que llega solo si es **más nuevo** que lo que tiene (`actualizado_en`): el último cambio gana y
@@ -42,6 +42,11 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
   sus decimales. `quote.accepted` y `order.created` viajan en esa moneda.
 - `crm.record.upserted` agrega `moneda`, `responsableId` y `responsableNombre` en cotizaciones y oportunidades (los
   eventos anteriores, sin esos campos, se aplican igual).
+- Fase 2a: las oportunidades agregan `embudoId`, `etapaId` y `competidor`; los ajustes, `motivosPerdida`. Los registros
+  nuevos `embudo` (`nombre`, `etapas` con `id`, `nombre`, `equivale`, `probabilidad` y `color`, `porDefecto`,
+  `archivado`) y `meta` (`mes`, `responsableId`, `responsableNombre`, `monto`) siguen la misma regla: gana el más nuevo.
+  Un equipo con una versión anterior del CRM ignora los tipos que no conoce.
+- Sedes por usuario: con sedes asignadas en el hub (`Access.SiteIds`), las cotizaciones solo salen de esas sedes.
 - Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
   todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos
   y sedes). OrgAdmin y PlatformAdmin del hub son administradores.

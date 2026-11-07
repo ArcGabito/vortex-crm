@@ -26,7 +26,7 @@ internal static class Registros
     public sealed record OportunidadDatos(
         Guid Id, string Titulo, Guid? ClienteId, Guid? ContactoId, decimal Monto, string Etapa, DateOnly? FechaCierreEstimada,
         string? MotivoPerdida, string? Notas, DateTimeOffset CreadoEn, DateTimeOffset? CerradoEn, Guid? ResponsableId = null,
-        string? ResponsableNombre = null);
+        string? ResponsableNombre = null, Guid? EmbudoId = null, Guid? EtapaId = null, string? Competidor = null);
 
     public sealed record LineaDatos(Guid? ItemId, string Descripcion, string Unidad, decimal Cantidad, decimal PrecioUnitario);
 
@@ -40,7 +40,13 @@ internal static class Registros
         Guid? ContactoId, Guid? OportunidadId, Guid? ResponsableId, string? ResponsableNombre, string? Notas,
         DateTimeOffset CreadoEn, DateTimeOffset? CompletadaEn);
 
-    public sealed record AjustesDatos(string ModoIgv, string? Condiciones);
+    public sealed record AjustesDatos(string ModoIgv, string? Condiciones, IReadOnlyList<string>? MotivosPerdida = null);
+
+    public sealed record EtapaDatos(Guid Id, string Nombre, string Equivale, int Probabilidad, string? Color);
+
+    public sealed record EmbudoDatos(Guid Id, string Nombre, IReadOnlyList<EtapaDatos> Etapas, bool PorDefecto, bool Archivado);
+
+    public sealed record MetaDatos(Guid Id, DateOnly Mes, Guid? ResponsableId, string? ResponsableNombre, decimal Monto);
 
     // ---------- Publicar ----------
 
@@ -93,13 +99,15 @@ internal static class Registros
                 var op = data.Deserialize<OportunidadDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
                     INSERT OR REPLACE INTO oportunidades (id, titulo, cliente_id, contacto_id, monto, etapa, fecha_cierre_estimada, motivo_perdida,
-                                                          notas, creado_en, cerrado_en, responsable_id, responsable_nombre, actualizado_en)
+                                                          notas, creado_en, cerrado_en, responsable_id, responsable_nombre, embudo_id, etapa_id,
+                                                          competidor, actualizado_en)
                     VALUES ($id, $titulo, $cliente, $contacto, $monto, $etapa, $cierre, $motivo, $notas, $creado, $cerrado, $responsable,
-                            $responsableNombre, $actualizado)
+                            $responsableNombre, $embudo, $etapaId, $competidor, $actualizado)
                     """, tx, ("$id", op.Id), ("$titulo", op.Titulo), ("$cliente", op.ClienteId), ("$contacto", op.ContactoId), ("$monto", op.Monto),
                     ("$etapa", op.Etapa), ("$cierre", Fecha(op.FechaCierreEstimada)), ("$motivo", op.MotivoPerdida), ("$notas", op.Notas),
                     ("$creado", op.CreadoEn), ("$cerrado", op.CerradoEn), ("$responsable", op.ResponsableId),
-                    ("$responsableNombre", op.ResponsableNombre), ("$actualizado", actualizado));
+                    ("$responsableNombre", op.ResponsableNombre), ("$embudo", op.EmbudoId), ("$etapaId", op.EtapaId),
+                    ("$competidor", op.Competidor), ("$actualizado", actualizado));
                 return true;
 
             case CrmRecordKinds.Cotizacion:
@@ -143,8 +151,28 @@ internal static class Registros
             case CrmRecordKinds.Ajustes:
                 var a = data.Deserialize<AjustesDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
-                    INSERT OR REPLACE INTO ajustes (id, modo_igv, condiciones, actualizado_en) VALUES (1, $modo, $condiciones, $actualizado)
-                    """, tx, ("$modo", a.ModoIgv), ("$condiciones", a.Condiciones), ("$actualizado", actualizado));
+                    INSERT OR REPLACE INTO ajustes (id, modo_igv, condiciones, motivos_perdida, actualizado_en)
+                    VALUES (1, $modo, $condiciones, $motivos, $actualizado)
+                    """, tx, ("$modo", a.ModoIgv), ("$condiciones", a.Condiciones),
+                    ("$motivos", a.MotivosPerdida is { Count: > 0 } m ? JsonSerializer.Serialize(m) : null), ("$actualizado", actualizado));
+                return true;
+
+            case CrmRecordKinds.Embudo:
+                var em = data.Deserialize<EmbudoDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO embudos (id, nombre, etapas, por_defecto, archivado, actualizado_en)
+                    VALUES ($id, $nombre, $etapas, $defecto, $archivado, $actualizado)
+                    """, tx, ("$id", em.Id), ("$nombre", em.Nombre), ("$etapas", JsonSerializer.Serialize(em.Etapas ?? [], VortexJson.Options)),
+                    ("$defecto", em.PorDefecto), ("$archivado", em.Archivado), ("$actualizado", actualizado));
+                return true;
+
+            case CrmRecordKinds.Meta:
+                var me = data.Deserialize<MetaDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO metas (id, mes, responsable_id, responsable_nombre, monto, actualizado_en)
+                    VALUES ($id, $mes, $responsable, $nombre, $monto, $actualizado)
+                    """, tx, ("$id", me.Id), ("$mes", Fecha(me.Mes)), ("$responsable", me.ResponsableId), ("$nombre", me.ResponsableNombre),
+                    ("$monto", me.Monto), ("$actualizado", actualizado));
                 return true;
 
             default:
@@ -171,6 +199,8 @@ internal static class Registros
         CrmRecordKinds.Cotizacion => "cotizaciones",
         CrmRecordKinds.Tarea => "tareas",
         CrmRecordKinds.Ajustes => "ajustes",
+        CrmRecordKinds.Embudo => "embudos",
+        CrmRecordKinds.Meta => "metas",
         _ => null,
     };
 
@@ -181,7 +211,22 @@ internal static class Registros
 
     public static OportunidadDatos Datos(Oportunidad o) =>
         new(o.Id, o.Titulo.Trim(), o.ClienteId, o.ContactoId, o.Monto, o.Etapa.ToString(), o.FechaCierreEstimada, Limpio(o.MotivoPerdida),
-            Limpio(o.Notas), o.CreadoEn, o.CerradoEn, o.ResponsableId, o.ResponsableNombre);
+            Limpio(o.Notas), o.CreadoEn, o.CerradoEn, o.ResponsableId, o.ResponsableNombre, o.EmbudoId, o.EtapaId, Limpio(o.Competidor));
+
+    public static EmbudoDatos Datos(Embudo e) =>
+        new(e.Id, e.Nombre.Trim(), e.Etapas.Select(x => new EtapaDatos(x.Id, x.Nombre.Trim(), x.Equivale.ToString(), x.Probabilidad, x.Color)).ToList(),
+            e.PorDefecto, e.Archivado);
+
+    public static MetaDatos Datos(Meta m) => new(m.Id, m.Mes, m.ResponsableId, m.ResponsableNombre, m.Monto);
+
+    public static Embudo LeerEmbudo(SqliteDataReader r) => new(
+        r.Guid("id"), r.Str("nombre"),
+        (JsonSerializer.Deserialize<List<EtapaDatos>>(r.Str("etapas"), VortexJson.Options) ?? [])
+            .Select(x => new EtapaEmbudo(x.Id, x.Nombre, Enum.Parse<EtapaOportunidad>(x.Equivale), x.Probabilidad, x.Color)).ToList(),
+        r.Bool("por_defecto"), r.Bool("archivado"));
+
+    public static Meta LeerMeta(SqliteDataReader r) =>
+        new(r.Guid("id"), FechaOrNull(r, "mes")!.Value, r.GuidOrNull("responsable_id"), r.StrOrNull("responsable_nombre"), r.Dec("monto"));
 
     public static CotizacionDatos Datos(Cotizacion c) =>
         new(c.Id, c.Numero, c.ClienteId, c.ContactoId, c.OportunidadId, c.SedeId, c.FechaEmision, c.ValidaHasta, c.ModoIgv.ToString(),
@@ -206,6 +251,7 @@ internal static class Registros
         Monto = r.Dec("monto"), Etapa = Enum.Parse<EtapaOportunidad>(r.Str("etapa")), FechaCierreEstimada = FechaOrNull(r, "fecha_cierre_estimada"),
         MotivoPerdida = r.StrOrNull("motivo_perdida"), Notas = r.StrOrNull("notas"), CreadoEn = r.Time("creado_en"),
         CerradoEn = r.TimeOrNull("cerrado_en"), ResponsableId = r.GuidOrNull("responsable_id"), ResponsableNombre = r.StrOrNull("responsable_nombre"),
+        EmbudoId = r.GuidOrNull("embudo_id"), EtapaId = r.GuidOrNull("etapa_id"), Competidor = r.StrOrNull("competidor"),
     };
 
     public static Cotizacion LeerCotizacion(SqliteDataReader r) => new()

@@ -1,5 +1,5 @@
 @inject AppSession Session
-@* Alta y edición de una oportunidad del pipeline. *@
+@* Alta y edición de una oportunidad del pipeline: embudo, etapa de ese embudo, cierre, competidor y motivo si se perdió. *@
 <Modal Title="@(Nueva ? T("oportunidadmodal.nueva_oportunidad") : T("oportunidadmodal.editar_oportunidad"))" Subtitle="@(T("oportunidadmodal.se_comparte_con_los_demas"))" Error="@_error" OnClose="OnClose">
     <ChildContent>
         <div class="field">
@@ -28,6 +28,18 @@
                 </select>
             </div>
         </div>
+        @if (_embudos.Count > 1)
+        {
+            <div class="field">
+                <label>@T("oportunidadmodal.embudo")</label>
+                <select class="select" value="@(_embudo.Id)" @onchange="ElegirEmbudo">
+                    @foreach (var e in _embudos)
+                    {
+                        <option value="@e.Id">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+        }
         <div class="form-row three">
             <div class="field">
                 <label>@T("oportunidadmodal.monto_estimado", Fmt.Symbol(Fmt.Currency))</label>
@@ -36,10 +48,12 @@
             <div class="field">
                 <label>@T("oportunidadmodal.etapa")</label>
                 <select class="select" @bind="_etapa">
-                    @foreach (var e in Etapas.Todas)
+                    @foreach (var e in _embudo.Etapas)
                     {
-                        <option value="@e">@Fmt.Stage(e)</option>
+                        <option value="@e.Id">@Embudo.NombreDe(e) (@e.Probabilidad %)</option>
                     }
+                    <option value="@nameof(EtapaOportunidad.Ganado)">@Fmt.Stage(EtapaOportunidad.Ganado)</option>
+                    <option value="@nameof(EtapaOportunidad.Perdido)">@Fmt.Stage(EtapaOportunidad.Perdido)</option>
                 </select>
             </div>
             <div class="field">
@@ -47,13 +61,25 @@
                 <input class="control" type="date" @bind="Valor.FechaCierreEstimada" />
             </div>
         </div>
-        @if (_etapa == EtapaOportunidad.Perdido)
-        {
+        <div class="form-row">
             <div class="field">
-                <label>@T("oportunidadmodal.por_que_se_perdio")</label>
-                <input class="control" placeholder="@(T("oportunidadmodal.precio_eligio_la_competencia"))" @bind="Valor.MotivoPerdida" />
+                <label>@T("oportunidadmodal.competidor_opcional")</label>
+                <input class="control" placeholder="@(T("oportunidadmodal.contra_quien_compites"))" @bind="Valor.Competidor" />
             </div>
-        }
+            @if (_etapa == nameof(EtapaOportunidad.Perdido))
+            {
+                <div class="field">
+                    <label>@T("oportunidadmodal.por_que_se_perdio")</label>
+                    <select class="select" @bind="Valor.MotivoPerdida">
+                        <option value="">@T("oportunidadmodal.elige_el_motivo")</option>
+                        @foreach (var m in Motivos)
+                        {
+                            <option value="@m">@m</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
         <div class="field">
             <label>@T("oportunidadmodal.notas")</label>
             <textarea class="control" rows="3" @bind="Valor.Notas"></textarea>
@@ -76,17 +102,39 @@
     [Parameter] public EventCallback OnSaved { get; set; }
 
     private IReadOnlyList<Option> _clientes = [], _contactos = [];
-    private EtapaOportunidad _etapa;
+    private IReadOnlyList<Embudo> _embudos = [];
+    private Embudo _embudo = Embudo.Predeterminado;
+    private IReadOnlyList<string> _motivos = [];
+    private string _etapa = "";
     private string? _error;
     private bool _busy;
 
     private CrmWorkspace Crm => Session.Workspace!;
 
+    /// <summary>Los motivos de la lista y, si la oportunidad ya tenía otro, también ese.</summary>
+    private IEnumerable<string> Motivos => Valor.MotivoPerdida is { Length: > 0 } m && !_motivos.Contains(m) ? _motivos.Append(m) : _motivos;
+
     protected override async Task OnInitializedAsync()
     {
-        _etapa = Valor.Etapa;
+        _embudos = await Crm.Embudos.ListarAsync();
+        _embudo = Valor.EmbudoId is { } id ? await Crm.Embudos.ObtenerAsync(id) : _embudos.FirstOrDefault(e => e.PorDefecto) ?? _embudos[0];
+        if (!_embudos.Contains(_embudo))
+            _embudos = [.. _embudos, _embudo];   // un embudo archivado sigue disponible para sus oportunidades
+        _etapa = Valor.Etapa.EstaAbierta()
+            ? (_embudo.Etapa(Valor.EtapaId) ?? _embudo.PrimeraQueEquivale(Valor.Etapa) ?? _embudo.Etapas[0]).Id.ToString()
+            : Valor.Etapa.ToString();
+        _motivos = (await Crm.Clientes.ObtenerAjustesAsync()).Motivos;
         _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
         await CargarContactosAsync();
+    }
+
+    private void ElegirEmbudo(ChangeEventArgs e)
+    {
+        if (!Guid.TryParse(e.Value?.ToString(), out var id) || _embudos.FirstOrDefault(x => x.Id == id) is not { } embudo)
+            return;
+        _embudo = embudo;
+        if (Guid.TryParse(_etapa, out _))
+            _etapa = embudo.Etapas[0].Id.ToString();
     }
 
     private async Task ElegirClienteAsync(ChangeEventArgs e)
@@ -105,8 +153,16 @@
         _error = null;
         try
         {
-            if (_etapa != Valor.Etapa)
-                Valor.CambiarEtapa(_etapa, DateTimeOffset.UtcNow);
+            Valor.EmbudoId = _embudo.EsPredeterminado ? null : _embudo.Id;
+            if (Guid.TryParse(_etapa, out var etapaId) && _embudo.Etapa(etapaId) is { } etapa)
+            {
+                Valor.CambiarEtapa(etapa.Equivale, DateTimeOffset.UtcNow);
+                Valor.EtapaId = etapa.Id;
+            }
+            else if (Enum.TryParse<EtapaOportunidad>(_etapa, out var cerrada))
+            {
+                Valor.CambiarEtapa(cerrada, DateTimeOffset.UtcNow);
+            }
             await Crm.Oportunidades.GuardarAsync(Valor);
             Session.NotifyLocalChange();
             await OnSaved.InvokeAsync();

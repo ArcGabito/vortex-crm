@@ -20,6 +20,15 @@ public sealed class Oportunidad
 
     public EtapaOportunidad Etapa { get; internal set; } = EtapaOportunidad.Prospecto;
 
+    /// <summary>Embudo de ventas (null: el predeterminado).</summary>
+    public Guid? EmbudoId { get; set; }
+
+    /// <summary>Etapa abierta del embudo; su equivalencia es <see cref="Etapa"/>. Null mientras está cerrada.</summary>
+    public Guid? EtapaId { get; set; }
+
+    /// <summary>Con quién compite la venta (y a quién se perdió).</summary>
+    public string? Competidor { get; set; }
+
     public DateOnly? FechaCierreEstimada { get; set; }
 
     /// <summary>Vendedor responsable (usuario del hub): un vendedor solo edita las suyas.</summary>

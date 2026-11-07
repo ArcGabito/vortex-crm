@@ -143,5 +143,22 @@ internal static class Schema
         ALTER TABLE oportunidades ADD COLUMN responsable_id TEXT;
         ALTER TABLE oportunidades ADD COLUMN responsable_nombre TEXT;
         """ + VortexApi.Suite.Auditing.AuditSchema.Sql,
+        // 3: embudos configurables, competidor y motivos de pérdida, y metas de ventas. Embudos y metas son registros del
+        // CRM: se replican con crm.record.upserted y gana el más nuevo.
+        """
+        ALTER TABLE oportunidades ADD COLUMN embudo_id TEXT;
+        ALTER TABLE oportunidades ADD COLUMN etapa_id TEXT;
+        ALTER TABLE oportunidades ADD COLUMN competidor TEXT;
+        ALTER TABLE ajustes ADD COLUMN motivos_perdida TEXT;
+
+        CREATE TABLE embudos (
+            id TEXT PRIMARY KEY, nombre TEXT NOT NULL, etapas TEXT NOT NULL, por_defecto INTEGER NOT NULL DEFAULT 0,
+            archivado INTEGER NOT NULL DEFAULT 0, actualizado_en TEXT NOT NULL);
+
+        CREATE TABLE metas (
+            id TEXT PRIMARY KEY, mes TEXT NOT NULL, responsable_id TEXT, responsable_nombre TEXT, monto REAL NOT NULL,
+            actualizado_en TEXT NOT NULL);
+        CREATE INDEX ix_metas_mes ON metas (mes);
+        """,
     ];
 }
