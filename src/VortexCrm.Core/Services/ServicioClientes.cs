@@ -50,6 +50,21 @@ public sealed class ServicioClientes(CrmDatabase db, ICrmContext context, TimePr
             abiertas.Count, abiertas.Sum(q => q.Total));
     }
 
+    /// <summary>
+    /// Tablero del panel: curva de lo ganado y lo cotizado de los últimos meses, indicadores con su variación y las
+    /// oportunidades abiertas de mayor monto (con el nombre del cliente).
+    /// </summary>
+    public async Task<(TableroVentas Tablero, IReadOnlyList<OportunidadVista> Principales)> TableroAsync(int meses = 7,
+        CancellationToken ct = default)
+    {
+        var hoy = FormatoPeru.Hoy(Clock);
+        var vistas = await oportunidades.ListarAsync(ct: ct);
+        var quotes = await cotizaciones.ListarAsync(ct: ct);
+        var tablero = TableroVentas.Calcular(vistas.Select(v => v.Oportunidad), quotes.Select(q => (q.FechaEmision, q.Total, q.Estado)), hoy, meses);
+        var porId = vistas.ToDictionary(v => v.Oportunidad.Id);
+        return (tablero, tablero.Principales.Select(o => porId[o.Id]).ToList());
+    }
+
     // ---------- Ajustes de ventas ----------
 
     public async Task<Ajustes> ObtenerAjustesAsync(CancellationToken ct = default)

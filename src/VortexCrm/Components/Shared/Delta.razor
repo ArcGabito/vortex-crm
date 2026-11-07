@@ -1,0 +1,17 @@
+@* Variación contra el mes pasado: "+3,2 % vs mes pasado" en verde o rojo; sin dato, un guion. *@
+<div class="metric-foot">
+    @if (Value is { } d)
+    {
+        <span class="delta @(d == 0 ? "flat" : (d > 0) == UpIsGood ? "good" : "bad")">@(d > 0 ? "+" : "")@d.ToString("0.#", Fmt.Culture)%</span>
+    }
+    else
+    {
+        <span class="delta flat">—</span>
+    }
+    <span>@T("delta.vs_mes_pasado")</span>
+</div>
+
+@code {
+    [Parameter] public decimal? Value { get; set; }
+    [Parameter] public bool UpIsGood { get; set; } = true;
+}

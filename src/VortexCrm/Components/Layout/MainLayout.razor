@@ -37,11 +37,11 @@
                 <NavLink class="nav-link" href="configuracion"><Icon Name="settings" />@T("nav.configuracion")</NavLink>
             </nav>
 
-            <div class="promo">
-                <Logo IconOnly Size="64" />
-                <h4 style="margin-top:8px">@T("nav.libre_de_codigo_abierto")</h4>
+            <div class="promo dark">
+                <span class="promo-mark"><Icon Name="heart" Size="20" /></span>
+                <h4>@T("nav.libre_de_codigo_abierto")</h4>
                 <p>@T("nav.vortex_crm_es_agpl_3")</p>
-                <button class="btn btn-accent btn-sm" @onclick="OpenRepoAsync">@T("nav.contribuir")</button>
+                <button class="btn btn-block btn-sm" @onclick="OpenRepoAsync">@T("nav.contribuir")</button>
             </div>
         </aside>
 

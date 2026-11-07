@@ -1,0 +1,124 @@
+@using System.Globalization
+@* Dos curvas suaves (Catmull-Rom) con relleno degradado; al pasar el mouse se marca el punto y se muestran ambos valores.
+   El SVG se estira al ancho (preserveAspectRatio=none): los puntos y textos van en HTML para no deformarse. *@
+<div class="line-chart">
+    <div class="lc-axis">
+        @for (var i = Ticks; i >= 0; i--)
+        {
+            <span>@Fmt.Compact(_max * i / Ticks)</span>
+        }
+    </div>
+    <div class="lc-plot" @onmouseleave="() => _hover = null">
+        <svg viewBox="0 0 @W @H" preserveAspectRatio="none" role="img" aria-label="@AriaLabel">
+            <defs>
+                <linearGradient id="lc-fill-a" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="var(--chart-a)" stop-opacity=".18" />
+                    <stop offset="1" stop-color="var(--chart-a)" stop-opacity="0" />
+                </linearGradient>
+                <linearGradient id="lc-fill-b" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="var(--chart-b)" stop-opacity=".18" />
+                    <stop offset="1" stop-color="var(--chart-b)" stop-opacity="0" />
+                </linearGradient>
+            </defs>
+            @for (var i = 0; i <= Ticks; i++)
+            {
+                <line class="grid" x1="0" x2="@W" y1="@N(i * (double)H / Ticks)" y2="@N(i * (double)H / Ticks)" />
+            }
+            <path d="@Area(B)" fill="url(#lc-fill-b)" />
+            <path d="@Area(A)" fill="url(#lc-fill-a)" />
+            <path class="curve b" d="@Curve(B)" />
+            <path class="curve a" d="@Curve(A)" />
+            @if (_hover is { } h)
+            {
+                <line class="hover-line" x1="@N(X(h))" x2="@N(X(h))" y1="0" y2="@H" />
+            }
+            @for (var i = 0; i < Labels.Count; i++)
+            {
+                var index = i;
+                var x0 = i == 0 ? 0 : (X(i - 1) + X(i)) / 2;
+                var x1 = i == Labels.Count - 1 ? W : (X(i) + X(i + 1)) / 2;
+                <rect x="@N(x0)" y="0" width="@N(x1 - x0)" height="@H" fill="transparent" @onmouseenter="() => _hover = index" />
+            }
+        </svg>
+        @if (_hover is { } hv && hv < Labels.Count)
+        {
+            <span class="lc-dot a" style="left:@P(X(hv) / W);top:@P(Y(A[hv]) / H)"></span>
+            <span class="lc-dot b" style="left:@P(X(hv) / W);top:@P(Y(B[hv]) / H)"></span>
+            <div class="lc-tip" style="left:@P(X(hv) / W);@(X(hv) / W > .7 ? "transform:translateX(-108%)" : "transform:translateX(10px)")">
+                <div class="tip-head">@Labels[hv]</div>
+                <div class="tip-row"><span class="dot a"></span>@LabelA <strong>@Format(A[hv])</strong></div>
+                <div class="tip-row"><span class="dot b"></span>@LabelB <strong>@Format(B[hv])</strong></div>
+            </div>
+        }
+        <div class="lc-labels">
+            @for (var i = 0; i < Labels.Count; i++)
+            {
+                <span class="@(_hover == i ? "on" : "")" style="left:@P(X(i) / W)">@Labels[i]</span>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private const double W = 600, H = 200, Pad = 14;
+    private const int Ticks = 4;
+
+    [Parameter, EditorRequired] public IReadOnlyList<string> Labels { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<decimal> A { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<decimal> B { get; set; } = [];
+    [Parameter] public string LabelA { get; set; } = "";
+    [Parameter] public string LabelB { get; set; } = "";
+    [Parameter] public Func<decimal, string> Format { get; set; } = v => Fmt.Compact(v);
+    [Parameter] public string? AriaLabel { get; set; }
+
+    private int? _hover;
+    private decimal _max = 1;
+
+    protected override void OnParametersSet()
+    {
+        var top = A.Concat(B).DefaultIfEmpty(0).Max();
+        _max = NiceCeiling(top);
+        if (_hover >= Labels.Count)
+            _hover = null;
+    }
+
+    private double X(int i) => Labels.Count <= 1 ? W / 2 : Pad + i * (W - 2 * Pad) / (Labels.Count - 1);
+    private double Y(decimal v) => H - (double)(v / _max) * (H - 6);
+
+    private string Curve(IReadOnlyList<decimal> values)
+    {
+        if (values.Count == 0)
+            return "";
+        var pts = values.Select((v, i) => (X: X(i), Y: Y(v))).ToList();
+        var d = new System.Text.StringBuilder($"M{N(pts[0].X)},{N(pts[0].Y)}");
+        for (var i = 0; i < pts.Count - 1; i++)
+        {
+            var p0 = pts[Math.Max(0, i - 1)];
+            var p1 = pts[i];
+            var p2 = pts[i + 1];
+            var p3 = pts[Math.Min(pts.Count - 1, i + 2)];
+            // Catmull-Rom a Bézier, con el control acotado al alto para que la curva no salga del gráfico.
+            var c1 = (X: p1.X + (p2.X - p0.X) / 6, Y: Math.Clamp(p1.Y + (p2.Y - p0.Y) / 6, 0, H));
+            var c2 = (X: p2.X - (p3.X - p1.X) / 6, Y: Math.Clamp(p2.Y - (p3.Y - p1.Y) / 6, 0, H));
+            d.Append($" C{N(c1.X)},{N(c1.Y)} {N(c2.X)},{N(c2.Y)} {N(p2.X)},{N(p2.Y)}");
+        }
+        return d.ToString();
+    }
+
+    private string Area(IReadOnlyList<decimal> values) =>
+        values.Count == 0 ? "" : $"{Curve(values)} L{N(X(values.Count - 1))},{N(H)} L{N(X(0))},{N(H)} Z";
+
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string P(double ratio) => (ratio * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+
+    private static decimal NiceCeiling(decimal value)
+    {
+        if (value <= 0)
+            return 1;
+        var magnitude = (decimal)Math.Pow(10, Math.Floor(Math.Log10((double)value)));
+        foreach (var step in new[] { 1m, 2m, 2.5m, 5m, 10m })
+            if (value <= step * magnitude)
+                return step * magnitude;
+        return 10 * magnitude;
+    }
+}
