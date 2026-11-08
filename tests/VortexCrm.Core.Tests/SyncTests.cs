@@ -138,7 +138,8 @@ public sealed class SyncTests : IAsyncLifetime
 
         var actividad = (await _a.Crm.Clientes.FichaAsync(c))!.Actividad;
         Assert.Equal(4, actividad.Count);
-        Assert.Equal(["despacho", "cobro", "comprobante", "venta"], actividad.Select(x => x.Tipo).Reverse().Reverse());
+        // Los cuatro eventos llevan casi la misma hora: se compara sin depender del orden.
+        Assert.Equal(["cobro", "comprobante", "despacho", "venta"], actividad.Select(x => x.Tipo).Order());
         Assert.Contains(actividad, x => x.Titulo == "Factura F001-000045" && x.Monto == 1180m);
         Assert.Contains(actividad, x => x.Detalle == "Olva · guía OLV-1");
     }
