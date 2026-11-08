@@ -3,7 +3,7 @@
 <svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g transform="translate(108 108) scale(5)">
         <path d="M20 6 H38 a6 6 0 0 1 6 6 V22 a6 6 0 0 1 -6 6 H36 L36 34 L29 28 H20 a6 6 0 0 1 -6 -6 V12 a6 6 0 0 1 6 -6 Z" fill="#FFFFFF" />
-        <path d="M10 17 H28 a6 6 0 0 1 6 6 V33 a6 6 0 0 1 -6 6 H19 L12 45 L12 39 H10 a6 6 0 0 1 -6 -6 V23 a6 6 0 0 1 6 -6 Z" fill="#512BD4" stroke="#1C120D" stroke-width="2" />
+        <path d="M10 17 H28 a6 6 0 0 1 6 6 V33 a6 6 0 0 1 -6 6 H19 L12 45 L12 39 H10 a6 6 0 0 1 -6 -6 V23 a6 6 0 0 1 6 -6 Z" fill="#512BD4" stroke="#111111" stroke-width="2" />
         <circle cx="12" cy="28" r="2" fill="#FFFFFF" /><circle cx="19" cy="28" r="2" fill="#FFFFFF" /><circle cx="26" cy="28" r="2" fill="#FFFFFF" />
     </g>
 </svg>

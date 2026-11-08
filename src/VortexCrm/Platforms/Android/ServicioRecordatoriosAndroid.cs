@@ -77,7 +77,7 @@ public sealed class ReceptorRecordatorios : BroadcastReceiver
     /// </summary>
     public static Intent CrearIntent(Context contexto, Guid tareaId) =>
         new Intent(contexto, typeof(ReceptorRecordatorios))
-            .SetData(Android.Net.Uri.Parse($"vortexcrm://tareas/{tareaId}"))!;
+            .SetData(global::Android.Net.Uri.Parse($"vortexcrm://tareas/{tareaId}"))!;
 
     /// <summary>Número de la notificación de la tarea (el hash de un Guid es siempre el mismo).</summary>
     public static int CodigoDe(Guid tareaId) => tareaId.GetHashCode();
@@ -105,7 +105,7 @@ public sealed class ReceptorRecordatorios : BroadcastReceiver
 
         var notificacion = new NotificationCompat.Builder(context, Canal)
             .SetSmallIcon(Resource.Drawable.ic_notificacion)!
-            .SetColor(Android.Graphics.Color.ParseColor("#512BD4"))!
+            .SetColor(global::Android.Graphics.Color.ParseColor("#512BD4"))!
             .SetContentTitle(intent.GetStringExtra(ExtraTitulo))!
             .SetContentText(intent.GetStringExtra(ExtraMensaje))!
             .SetCategory(NotificationCompat.CategoryReminder)!

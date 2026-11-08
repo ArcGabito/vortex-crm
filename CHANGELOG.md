@@ -8,6 +8,11 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Celular (Android):** la app respeta las barras del sistema (estado y gestos) con íconos oscuros; el botón Atrás
+  cierra el diálogo o el menú abiertos y vuelve a la página anterior en vez de cerrar la app; las tablas se ven como
+  tarjetas y las pestañas que no caben se deslizan; en pantallas táctiles no se abre el teclado solo. El negro de la
+  pantalla de inicio, el ícono, la barra de título y el logo deja el café `#1C120D` que se veía amarillento; los montos
+  menores a 10 mil del panel se muestran con decimales. Corrige la compilación para Android (`Android.Net` y `Android.Graphics` se resolvían dentro del espacio de nombres `VortexCrm.Platforms.Android`).
 - **Embudos de venta configurables (fase 2a):** uno por línea de negocio, con sus etapas, probabilidad de cierre y
   color; cada etapa equivale a Prospecto, Cotizado o Negociación, así las cotizaciones siguen haciendo avanzar la
   oportunidad. Pantalla Embudos (desde Configuración) y tablero del pipeline por embudo.
