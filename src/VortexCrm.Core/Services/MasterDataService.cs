@@ -190,6 +190,12 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
     public Task<Guid> CreatePartyAsync(PartyDraft draft, CancellationToken ct = default)
     {
         RequirePermission(CrmPermissions.CreateCustomer);
+        ValidateParty(draft);
+        return InTransactionAsync((c, tx, now) => InsertPartyAsync(c, tx, now, draft), ct);
+    }
+
+    private static void ValidateParty(PartyDraft draft)
+    {
         Require(!string.IsNullOrWhiteSpace(draft.Name), T("error.el_nombre_es_obligatorio"));
         Require(draft.IsCustomer || draft.IsSupplier, T("error.indica_si_es_cliente_proveedor"));
         var docType = Clean(draft.DocumentType)?.ToUpperInvariant();
@@ -199,8 +205,14 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
             Require(Ruc().IsMatch(docNumber!), T("error.el_ruc_debe_tener_11"));
         if (docType == "DNI")
             Require(Dni().IsMatch(docNumber!), T("error.el_dni_debe_tener_8"));
+    }
 
-        return InTransactionAsync(async (c, tx, now) =>
+    /// <summary>Crea el cliente o proveedor en la base local y encola su alta en el hub (también lo usa la conversión de leads).</summary>
+    internal static async Task<Guid> InsertPartyAsync(SqliteConnection c, SqliteTransaction tx, DateTimeOffset now, PartyDraft draft)
+    {
+        ValidateParty(draft);
+        var docType = Clean(draft.DocumentType)?.ToUpperInvariant();
+        var docNumber = Clean(draft.DocumentNumber);
         {
             if (docNumber is not null)
             {
@@ -230,7 +242,7 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
                 ("$district", Clean(draft.District)), ("$notes", body.notes), ("$now", now));
             await Outbox.EnqueueUpsertAsync(c, tx, now, VortexMasterResource.Parties, id, body);
             return id;
-        }, ct);
+        }
     }
 
     // ---------- Consultas ----------

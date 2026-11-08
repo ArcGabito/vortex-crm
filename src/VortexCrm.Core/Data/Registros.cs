@@ -26,7 +26,16 @@ internal static class Registros
     public sealed record OportunidadDatos(
         Guid Id, string Titulo, Guid? ClienteId, Guid? ContactoId, decimal Monto, string Etapa, DateOnly? FechaCierreEstimada,
         string? MotivoPerdida, string? Notas, DateTimeOffset CreadoEn, DateTimeOffset? CerradoEn, Guid? ResponsableId = null,
-        string? ResponsableNombre = null, Guid? EmbudoId = null, Guid? EtapaId = null, string? Competidor = null);
+        string? ResponsableNombre = null, Guid? EmbudoId = null, Guid? EtapaId = null, string? Competidor = null,
+        IReadOnlyList<LineaOportunidadDatos>? Lineas = null);
+
+    /// <summary>Producto de la oportunidad. Lineas null en <see cref="OportunidadDatos"/>: no cambian.</summary>
+    public sealed record LineaOportunidadDatos(Guid? ItemId, string Descripcion, decimal Cantidad, decimal PrecioUnitario);
+
+    public sealed record LeadDatos(
+        Guid Id, string Nombre, string? Empresa, string? TipoDocumento, string? Documento, string? Telefono, string? Email, string Origen,
+        string Estado, string? Notas, string? MotivoDescarte, Guid? ResponsableId, string? ResponsableNombre, Guid? ClienteId,
+        Guid? ContactoId, Guid? OportunidadId, DateTimeOffset CreadoEn, DateTimeOffset? ConvertidoEn);
 
     public sealed record LineaDatos(Guid? ItemId, string Descripcion, string Unidad, decimal Cantidad, decimal PrecioUnitario);
 
@@ -108,6 +117,17 @@ internal static class Registros
                     ("$creado", op.CreadoEn), ("$cerrado", op.CerradoEn), ("$responsable", op.ResponsableId),
                     ("$responsableNombre", op.ResponsableNombre), ("$embudo", op.EmbudoId), ("$etapaId", op.EtapaId),
                     ("$competidor", op.Competidor), ("$actualizado", actualizado));
+                if (op.Lineas is { } lineasOp)
+                {
+                    await c.ExecAsync("DELETE FROM oportunidad_lineas WHERE oportunidad_id = $id", tx, ("$id", op.Id));
+                    var no = 0;
+                    foreach (var l in lineasOp)
+                        await c.ExecAsync("""
+                            INSERT INTO oportunidad_lineas (oportunidad_id, linea, item_id, descripcion, cantidad, precio_unitario)
+                            VALUES ($id, $n, $item, $descripcion, $cantidad, $precio)
+                            """, tx, ("$id", op.Id), ("$n", ++no), ("$item", l.ItemId), ("$descripcion", l.Descripcion),
+                            ("$cantidad", l.Cantidad), ("$precio", l.PrecioUnitario));
+                }
                 return true;
 
             case CrmRecordKinds.Cotizacion:
@@ -175,6 +195,21 @@ internal static class Registros
                     ("$monto", me.Monto), ("$actualizado", actualizado));
                 return true;
 
+            case CrmRecordKinds.Lead:
+                var le = data.Deserialize<LeadDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO leads (id, nombre, empresa, tipo_documento, documento, telefono, email, origen, estado, notas,
+                                                  motivo_descarte, responsable_id, responsable_nombre, cliente_id, contacto_id, oportunidad_id,
+                                                  creado_en, convertido_en, actualizado_en)
+                    VALUES ($id, $nombre, $empresa, $tipo, $doc, $telefono, $email, $origen, $estado, $notas, $motivo, $responsable,
+                            $responsableNombre, $cliente, $contacto, $oportunidad, $creado, $convertido, $actualizado)
+                    """, tx, ("$id", le.Id), ("$nombre", le.Nombre), ("$empresa", le.Empresa), ("$tipo", le.TipoDocumento), ("$doc", le.Documento),
+                    ("$telefono", le.Telefono), ("$email", le.Email), ("$origen", le.Origen), ("$estado", le.Estado), ("$notas", le.Notas),
+                    ("$motivo", le.MotivoDescarte), ("$responsable", le.ResponsableId), ("$responsableNombre", le.ResponsableNombre),
+                    ("$cliente", le.ClienteId), ("$contacto", le.ContactoId), ("$oportunidad", le.OportunidadId), ("$creado", le.CreadoEn),
+                    ("$convertido", le.ConvertidoEn), ("$actualizado", actualizado));
+                return true;
+
             default:
                 return false;
         }
@@ -189,6 +224,8 @@ internal static class Registros
         var borrados = await c.ExecAsync($"DELETE FROM {tabla} WHERE id = $id{condicion}", tx, ("$id", id), ("$en", borradoEn));
         if (kind == CrmRecordKinds.Cotizacion && borrados > 0)
             await c.ExecAsync("DELETE FROM cotizacion_lineas WHERE cotizacion_id = $id", tx, ("$id", id));
+        if (kind == CrmRecordKinds.Oportunidad && borrados > 0)
+            await c.ExecAsync("DELETE FROM oportunidad_lineas WHERE oportunidad_id = $id", tx, ("$id", id));
         return borrados > 0;
     }
 
@@ -201,6 +238,7 @@ internal static class Registros
         CrmRecordKinds.Ajustes => "ajustes",
         CrmRecordKinds.Embudo => "embudos",
         CrmRecordKinds.Meta => "metas",
+        CrmRecordKinds.Lead => "leads",
         _ => null,
     };
 
@@ -211,7 +249,22 @@ internal static class Registros
 
     public static OportunidadDatos Datos(Oportunidad o) =>
         new(o.Id, o.Titulo.Trim(), o.ClienteId, o.ContactoId, o.Monto, o.Etapa.ToString(), o.FechaCierreEstimada, Limpio(o.MotivoPerdida),
-            Limpio(o.Notas), o.CreadoEn, o.CerradoEn, o.ResponsableId, o.ResponsableNombre, o.EmbudoId, o.EtapaId, Limpio(o.Competidor));
+            Limpio(o.Notas), o.CreadoEn, o.CerradoEn, o.ResponsableId, o.ResponsableNombre, o.EmbudoId, o.EtapaId, Limpio(o.Competidor),
+            o.Lineas?.Select(l => new LineaOportunidadDatos(l.ItemId, l.Descripcion.Trim(), l.Cantidad, l.PrecioUnitario)).ToList());
+
+    public static LeadDatos Datos(Lead l) =>
+        new(l.Id, l.Nombre.Trim(), Limpio(l.Empresa), Limpio(l.TipoDocumento)?.ToUpperInvariant(), Limpio(l.Documento), Limpio(l.Telefono),
+            Limpio(l.Email), l.Origen, l.Estado, Limpio(l.Notas), Limpio(l.MotivoDescarte), l.ResponsableId, l.ResponsableNombre, l.ClienteId,
+            l.ContactoId, l.OportunidadId, l.CreadoEn, l.ConvertidoEn);
+
+    public static Lead LeerLead(SqliteDataReader r) => Lead.Cargar(
+        r.Guid("id"), r.Str("nombre"), r.StrOrNull("empresa"), r.StrOrNull("tipo_documento"), r.StrOrNull("documento"), r.StrOrNull("telefono"),
+        r.StrOrNull("email"), r.Str("origen"), r.Str("estado"), r.StrOrNull("notas"), r.StrOrNull("motivo_descarte"), r.GuidOrNull("responsable_id"),
+        r.StrOrNull("responsable_nombre"), r.GuidOrNull("cliente_id"), r.GuidOrNull("contacto_id"), r.GuidOrNull("oportunidad_id"),
+        r.Time("creado_en"), r.TimeOrNull("convertido_en"));
+
+    public static LineaOportunidad LeerLineaOportunidad(SqliteDataReader r) =>
+        new(r.GuidOrNull("item_id"), r.Str("descripcion"), r.Dec("cantidad"), r.Dec("precio_unitario"));
 
     public static EmbudoDatos Datos(Embudo e) =>
         new(e.Id, e.Nombre.Trim(), e.Etapas.Select(x => new EtapaDatos(x.Id, x.Nombre.Trim(), x.Equivale.ToString(), x.Probabilidad, x.Color)).ToList(),

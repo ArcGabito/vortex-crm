@@ -46,6 +46,7 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
         return InTransactionAsync(async (c, tx, now) =>
         {
             var anterior = await ObtenerAsync(c, tx, oportunidad.Id);
+            oportunidad.RecalcularMonto();
             if (anterior is not null)
                 RequireOwner(anterior.ResponsableId, anterior.ResponsableNombre);
             oportunidad.ResponsableId ??= Context.UserId;
@@ -126,8 +127,15 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
 
     // ---------- Internos (los usa también el servicio de cotizaciones) ----------
 
-    internal static Task<Oportunidad?> ObtenerAsync(SqliteConnection c, SqliteTransaction? tx, Guid id) =>
-        c.FirstOrDefaultAsync("SELECT * FROM oportunidades WHERE id = $id", Registros.LeerOportunidad, tx, ("$id", id));
+    /// <summary>La oportunidad con sus productos.</summary>
+    internal static async Task<Oportunidad?> ObtenerAsync(SqliteConnection c, SqliteTransaction? tx, Guid id)
+    {
+        var oportunidad = await c.FirstOrDefaultAsync("SELECT * FROM oportunidades WHERE id = $id", Registros.LeerOportunidad, tx, ("$id", id));
+        if (oportunidad is not null)
+            oportunidad.Lineas = await c.QueryAsync("SELECT * FROM oportunidad_lineas WHERE oportunidad_id = $id ORDER BY linea",
+                Registros.LeerLineaOportunidad, tx, ("$id", id));
+        return oportunidad;
+    }
 
     /// <summary>
     /// Guarda y replica la oportunidad. Si acaba de ganarse, publica <c>deal.won</c> con un Id determinista: si se reabre y
@@ -156,7 +164,8 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
             """, tx, ("$id", oportunidad.Id));
         var moneda = await c.ScalarAsync<string?>("SELECT currency_code FROM company WHERE id = 1", tx) ?? "PEN";
         await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.DealWon,
-            new DealWon(oportunidad.Id, cliente, oportunidad.Monto, moneda, cotizacion is null ? null : Guid.Parse(cotizacion)),
+            new DealWon(oportunidad.Id, cliente, oportunidad.Monto, moneda, cotizacion is null ? null : Guid.Parse(cotizacion), oportunidad.EmbudoId,
+                oportunidad.Lineas is { Count: > 0 } lineas ? lineas.Select(l => new DealLine(l.ItemId, l.Descripcion, l.Cantidad, l.PrecioUnitario)).ToList() : null),
             subjectType: "deal", subjectId: oportunidad.Titulo, id: DeterministicId.From("deal_won", oportunidad.Id));
     }
 }
