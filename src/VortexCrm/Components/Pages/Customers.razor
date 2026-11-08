@@ -9,10 +9,20 @@
             <h2>@T("customers.clientes_2")</h2>
             <p>@T("customers.un_solo_directorio_para_la")</p>
         </div>
-        @if (Session.Can(CrmPermissions.CreateCustomer))
-        {
-            <button class="btn btn-dark" @onclick="Abrir"><Icon Name="plus" Size="18" />@T("customers.nuevo_cliente")</button>
-        }
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            @if (Session.Can(CrmPermissions.MergeCustomers) && _duplicados.Count > 0)
+            {
+                <button class="btn btn-outline" @onclick="() => _verDuplicados = true"><Icon Name="users" Size="18" />@T("customers.duplicados_n", _duplicados.Count)</button>
+            }
+            @if (Session.Can(CrmPermissions.AssignCustomers))
+            {
+                <button class="btn btn-outline" @onclick="AbrirReasignar"><Icon Name="arrows" Size="18" />@T("customers.reasignar_cartera")</button>
+            }
+            @if (Session.Can(CrmPermissions.CreateCustomer))
+            {
+                <button class="btn btn-dark" @onclick="Abrir"><Icon Name="plus" Size="18" />@T("customers.nuevo_cliente")</button>
+            }
+        </div>
     </div>
 
     <div class="filters">
@@ -21,6 +31,15 @@
             <div class="input-icon">
                 <Icon Name="search" Size="16" />
                 <input class="control" placeholder="@(T("customers.nombre_ruc_dni_correo"))" value="@_busqueda" @oninput="BuscarAsync" />
+            </div>
+        </div>
+        <div class="field" style="width:auto">
+            <label>@T("customers.cartera")</label>
+            <div class="segmented">
+                @foreach (var (valor, etiqueta) in Carteras)
+                {
+                    <button class="@(_cartera == valor ? "on" : "")" @onclick="async () => { _cartera = valor; _pagina = 1; await ReloadAsync(); }">@etiqueta</button>
+                }
             </div>
         </div>
     </div>
@@ -35,7 +54,7 @@
         {
             <div class="table-wrap">
                 <table class="data">
-                    <thead><tr><th>@T("customers.cliente")</th><th>@T("customers.documento")</th><th>@T("customers.contacto")</th><th>@T("customers.ciudad")</th><th></th></tr></thead>
+                    <thead><tr><th>@T("customers.cliente")</th><th>@T("customers.documento")</th><th>@T("customers.contacto")</th><th>@T("customers.responsable")</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var p in page.Items)
                         {
@@ -48,8 +67,12 @@
                                 </td>
                                 <td><div class="two-line"><span class="t1">@(p.DocumentNumber ?? "—")</span><span class="t2">@p.DocumentType</span></div></td>
                                 <td><div class="two-line"><span class="t1" style="font-weight:600">@(p.Phone ?? "—")</span><span class="t2">@p.Email</span></div></td>
-                                <td><span class="muted">@(p.City ?? "—")</span></td>
+                                <td><div class="two-line"><span class="t1">@(p.OwnerName ?? T("customers.sin_responsable"))</span><span class="t2">@p.City</span></div></td>
                                 <td>
+                                    @if (!p.IsActive)
+                                    {
+                                        <span class="tag">@T("customers.inactivo")</span>
+                                    }
                                     @if (p.Pending)
                                     {
                                         <span class="tag" title="@(T("customers.guardado_en_este_equipo_se"))">@T("customers.por_enviar")</span>
@@ -139,6 +162,72 @@
     </Modal>
 }
 
+@if (_reasignar)
+{
+    <Modal Title="@(T("customers.reasignar_cartera"))" Subtitle="@(T("customers.reasignar_explica"))" Size="sm" Error="@_error" OnClose="() => _reasignar = false">
+        <ChildContent>
+            <div class="field">
+                <label>@T("customers.de")</label>
+                <select class="select" @bind="_desde">
+                    <option value="">@T("customers.elige")</option>
+                    @foreach (var v in _vendedores)
+                    {
+                        <option value="@v.Id">@v.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>@T("customers.a")</label>
+                <select class="select" @bind="_hasta">
+                    <option value="">@T("customers.sin_responsable")</option>
+                    @foreach (var v in _vendedores.Where(v => v.Id != _desde))
+                    {
+                        <option value="@v.Id">@v.Nombre</option>
+                    }
+                </select>
+            </div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _reasignar = false">@T("customers.cancelar")</button>
+            <button class="btn btn-dark" disabled="@(_busy || _desde is null)" @onclick="ReasignarAsync">@T("customers.reasignar")</button>
+        </Footer>
+    </Modal>
+}
+
+@if (_verDuplicados)
+{
+    <Modal Title="@(T("customers.clientes_duplicados"))" Subtitle="@(T("customers.duplicados_explica"))" Size="lg" Error="@_error" OnClose="() => _verDuplicados = false">
+        <ChildContent>
+            @if (_duplicados.Count == 0)
+            {
+                <EmptyState Icon="check" Title="@(T("customers.sin_duplicados"))" Text="@(T("customers.sin_duplicados_explica"))" />
+            }
+            @foreach (var g in _duplicados)
+            {
+                var principal = _principal.GetValueOrDefault(g.Valor, g.Clientes[0].Id);
+                <div class="dup-group" @key="g.Valor">
+                    <div class="dup-head"><span class="tag">@T($"customers.motivo.{g.Motivo}")</span><span class="muted">@g.Valor</span></div>
+                    @foreach (var p in g.Clientes)
+                    {
+                        <label class="dup-row">
+                            <input type="radio" name="@g.Valor" checked="@(p.Id == principal)" @onchange="() => _principal[g.Valor] = p.Id" />
+                            <span class="two-line"><span class="t1">@p.Name</span><span class="t2">@(p.DocumentNumber is null ? T("customers.sin_documento") : $"{p.DocumentType} {p.DocumentNumber}")@(p.Email is null ? "" : $" · {p.Email}")@(p.Phone is null ? "" : $" · {p.Phone}")</span></span>
+                            @if (p.Id == principal)
+                            {
+                                <span class="tag">@T("customers.se_queda")</span>
+                            }
+                        </label>
+                    }
+                    <div><button class="btn btn-sm btn-dark" disabled="@_busy" @onclick="() => FusionarAsync(g, principal)">@T("customers.fusionar_en_el_marcado")</button></div>
+                </div>
+            }
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _verDuplicados = false">@T("customers.cerrar")</button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     private sealed class ClienteForm
     {
@@ -157,7 +246,15 @@
 
     [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
 
+    private static (string Valor, string Etiqueta)[] Carteras => [("", T("customers.todos")), ("mine", T("customers.mis_clientes")), ("free", T("customers.sin_responsable"))];
+
     private PagedResult<PartyRow>? _resultado;
+    private string _cartera = "";
+    private IReadOnlyList<GrupoDuplicados> _duplicados = [];
+    private readonly Dictionary<string, Guid> _principal = [];
+    private bool _verDuplicados, _reasignar;
+    private IReadOnlyList<Vendedor> _vendedores = [];
+    private Guid? _desde, _hasta;
     private string _busqueda = "";
     private int _pagina = 1;
     private CancellationTokenSource? _debounce;
@@ -175,8 +272,56 @@
         }
     }
 
-    protected override async Task LoadAsync() =>
-        _resultado = await Crm.Master.GetPartiesAsync(_busqueda, customers: true, suppliers: null, _pagina, 15);
+    protected override async Task LoadAsync()
+    {
+        _resultado = await Crm.Master.GetPartiesAsync(_busqueda, customers: true, suppliers: null, _pagina, 15,
+            owner: _cartera == "mine" ? Session.UserId : null, unassigned: _cartera == "free");
+        if (Session.Can(CrmPermissions.MergeCustomers))
+            _duplicados = await Crm.Cartera.DuplicadosAsync();
+    }
+
+    private async Task AbrirReasignar()
+    {
+        _error = null;
+        _vendedores = await Crm.Cartera.VendedoresAsync();
+        (_desde, _hasta) = (null, null);
+        _reasignar = true;
+    }
+
+    private async Task ReasignarAsync()
+    {
+        if (_desde is not { } desde)
+            return;
+        var hasta = _vendedores.FirstOrDefault(v => v.Id == _hasta);
+        _busy = true;
+        var movidos = 0;
+        _error = await TryAsync(async () => movidos = await Crm.Cartera.ReasignarCarteraAsync(desde, hasta?.Id, hasta?.Nombre));
+        _busy = false;
+        if (_error is null)
+        {
+            Toasts.Success(T("customers.cartera_reasignada", movidos));
+            _reasignar = false;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task FusionarAsync(GrupoDuplicados grupo, Guid principal)
+    {
+        _busy = true;
+        var nombre = grupo.Clientes.First(p => p.Id == principal).Name;
+        _error = await TryAsync(async () =>
+        {
+            foreach (var otro in grupo.Clientes.Where(p => p.Id != principal))
+                await Crm.Cartera.FusionarAsync(principal, otro.Id);
+        });
+        _busy = false;
+        if (_error is null)
+        {
+            Toasts.Success(T("customers.fusionados_en", nombre));
+            await ReloadAsync();
+            _verDuplicados = _duplicados.Count > 0;
+        }
+    }
 
     private async Task BuscarAsync(ChangeEventArgs e)
     {

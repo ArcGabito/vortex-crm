@@ -66,23 +66,26 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
         await using var c = await Db.OpenAsync(ct);
         await c.ExecAsync("""
             INSERT INTO parties (id, name, trade_name, kind, document_type, document_number, is_customer, is_supplier, email,
-                                 phone, address_line, district, city, region, notes, is_active, version, is_deleted, pending, updated_at)
+                                 phone, address_line, district, city, region, notes, is_active, version, is_deleted, pending, updated_at,
+                                 owner_id, owner_name, hub_data)
             VALUES ($id, $name, $trade, $kind, $doctype, $docnum, $customer, $supplier, $email, $phone, $line, $district, $city,
-                    $region, $notes, $active, $version, $deleted, 0, $updated)
+                    $region, $notes, $active, $version, $deleted, 0, $updated, $owner, $ownerName, $hub)
             ON CONFLICT (id) DO UPDATE SET
                 name = excluded.name, trade_name = excluded.trade_name, kind = excluded.kind,
                 document_type = excluded.document_type, document_number = excluded.document_number,
                 is_customer = excluded.is_customer, is_supplier = excluded.is_supplier, email = excluded.email,
                 phone = excluded.phone, address_line = excluded.address_line, district = excluded.district, city = excluded.city,
                 region = excluded.region, notes = excluded.notes, is_active = excluded.is_active, version = excluded.version,
-                is_deleted = excluded.is_deleted, pending = 0, updated_at = excluded.updated_at
-            WHERE excluded.version > parties.version
+                is_deleted = excluded.is_deleted, pending = 0, updated_at = excluded.updated_at, owner_id = excluded.owner_id,
+                owner_name = excluded.owner_name, hub_data = excluded.hub_data
+            WHERE excluded.version > parties.version OR (excluded.version = parties.version AND parties.pending = 0)
             """, null, ("$id", change.EntityId), ("$name", d.Name), ("$trade", d.TradeName), ("$kind", d.Kind),
             ("$doctype", d.DocumentType), ("$docnum", d.DocumentNumber), ("$customer", d.IsCustomer),
             ("$supplier", d.IsSupplier), ("$email", d.Email), ("$phone", d.Phone), ("$line", d.Address?.Line),
             ("$district", d.Address?.District), ("$city", d.Address?.City), ("$region", d.Address?.Region), ("$notes", d.Notes),
             ("$active", d.IsActive), ("$version", change.Version), ("$deleted", Deleted(change.Operation, d.Meta)),
-            ("$updated", d.Meta.UpdatedAt));
+            ("$updated", d.Meta.UpdatedAt), ("$owner", d.Account?.OwnerUserId), ("$ownerName", d.Account?.OwnerName),
+            ("$hub", System.Text.Json.JsonSerializer.Serialize(d, VortexJson.Options)));
     }
 
     public async Task ApplyCompanyAsync(VortexMasterChange<VortexCompany> change, CancellationToken ct = default)
@@ -305,8 +308,10 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
                 r.Int("version"), r.Bool("pending"), r.Int("quotes"), r.Int("open_quotes")), null, ("$active", activeOnly));
     }
 
+    /// <param name="owner">Solo los clientes de este responsable.</param>
+    /// <param name="unassigned">Solo los clientes sin responsable.</param>
     public async Task<PagedResult<PartyRow>> GetPartiesAsync(string? search, bool? customers, bool? suppliers, int page,
-        int pageSize, CancellationToken ct = default)
+        int pageSize, CancellationToken ct = default, Guid? owner = null, bool unassigned = false)
     {
         await using var c = await Db.OpenAsync(ct);
         const string where = """
@@ -314,11 +319,13 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
               AND ($search IS NULL OR name LIKE $like OR trade_name LIKE $like OR document_number LIKE $like OR email LIKE $like)
               AND ($customers IS NULL OR is_customer = $customers)
               AND ($suppliers IS NULL OR is_supplier = $suppliers)
+              AND ($owner IS NULL OR owner_id = $owner)
+              AND ($unassigned = 0 OR owner_id IS NULL)
             """;
         var args = new (string, object?)[]
         {
             ("$search", Clean(search)), ("$like", Like(search)), ("$customers", customers), ("$suppliers", suppliers),
-            ("$limit", pageSize), ("$offset", (page - 1) * pageSize),
+            ("$limit", pageSize), ("$offset", (page - 1) * pageSize), ("$owner", owner), ("$unassigned", unassigned),
         };
         var total = await c.ScalarAsync<int>($"SELECT COUNT(*) FROM parties {where}", null, args);
         var rows = await c.QueryAsync($"SELECT * FROM parties {where} ORDER BY name COLLATE NOCASE LIMIT $limit OFFSET $offset",
@@ -360,7 +367,8 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
         r.Guid("id"), r.Str("name"), r.StrOrNull("trade_name"), r.Str("kind"), r.StrOrNull("document_type"),
         r.StrOrNull("document_number"), r.Bool("is_customer"), r.Bool("is_supplier"), r.StrOrNull("email"),
         r.StrOrNull("phone"), r.StrOrNull("city"), r.Bool("is_active"), r.Int("version"), r.Bool("pending"),
-        r.StrOrNull("address_line"), r.StrOrNull("district"), r.StrOrNull("region"), r.StrOrNull("notes"));
+        r.StrOrNull("address_line"), r.StrOrNull("district"), r.StrOrNull("region"), r.StrOrNull("notes"),
+        r.GuidOrNull("owner_id"), r.StrOrNull("owner_name"));
 
     [GeneratedRegex(@"^\d{11}$")]
     private static partial Regex Ruc();

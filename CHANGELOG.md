@@ -8,6 +8,10 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Cartera (fase 2c):** responsable del cliente compartido por el hub (`party.account`): el vendedor toma clientes
+  libres; el gerente asigna y reasigna carteras con sus oportunidades abiertas; filtros "Mis clientes" y "Sin
+  responsable". Detección de clientes duplicados (documento, nombre, correo, teléfono) y fusión: lo del duplicado pasa
+  al que se queda y el duplicado queda inactivo en el hub.
 - **Leads (fase 2b):** interesados con origen (web, referido, redes, evento, llamada), estado y responsable; se
   califican, se descartan con motivo y se convierten en un paso en cliente (o se unen al que ya tiene su documento),
   contacto y oportunidad. Pantalla Leads.
@@ -72,4 +76,5 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 - Workflow de publicación para Windows anterior.
 
 ### Fixed
+- El buscador de artículos perdía dígitos cuando un lector de códigos escribía rápido.
 - Celular: los diálogos y los indicadores ya no se salen de la pantalla; el editor de líneas pasa a dos filas.

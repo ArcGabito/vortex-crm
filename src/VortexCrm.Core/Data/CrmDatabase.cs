@@ -174,5 +174,15 @@ internal static class Schema
             oportunidad_id TEXT NOT NULL, linea INTEGER NOT NULL, item_id TEXT, descripcion TEXT NOT NULL, cantidad REAL NOT NULL,
             precio_unitario REAL NOT NULL, PRIMARY KEY (oportunidad_id, linea));
         """,
+        // 5: cartera (fase 2c). Responsable del cliente (bloque account del party del hub) y una copia del cliente tal como
+        // llega del hub, para devolverlo completo al cambiar el responsable o al desactivar un duplicado. Se vuelven a
+        // bajar los clientes para traer su responsable.
+        """
+        ALTER TABLE parties ADD COLUMN owner_id TEXT;
+        ALTER TABLE parties ADD COLUMN owner_name TEXT;
+        ALTER TABLE parties ADD COLUMN hub_data TEXT;
+        CREATE INDEX ix_parties_owner ON parties (owner_id);
+        DELETE FROM sync_cursors WHERE stream = 'master';
+        """,
     ];
 }

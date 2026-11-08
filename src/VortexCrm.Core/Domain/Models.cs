@@ -80,7 +80,8 @@ public sealed record SiteRow(
 public sealed record PartyRow(
     Guid Id, string Name, string? TradeName, string Kind, string? DocumentType, string? DocumentNumber, bool IsCustomer,
     bool IsSupplier, string? Email, string? Phone, string? City, bool IsActive, int Version, bool Pending,
-    string? AddressLine = null, string? District = null, string? Region = null, string? Notes = null)
+    string? AddressLine = null, string? District = null, string? Region = null, string? Notes = null,
+    Guid? OwnerId = null, string? OwnerName = null)
 {
     public string DisplayName => string.IsNullOrWhiteSpace(TradeName) ? Name : TradeName;
 
@@ -162,3 +163,20 @@ public sealed record AuditRow(
 public sealed record PanelCrm(
     ResumenPipeline Pipeline, IReadOnlyList<VentaMes> VentasPorMes, decimal GanadoEsteMes, int TareasParaHoy, int TareasVencidas,
     int CotizacionesAbiertas, decimal MontoCotizado);
+
+/// <summary>Alguien del equipo comercial que puede atender clientes (los que ya aparecen como responsables).</summary>
+public sealed record Vendedor(Guid Id, string Nombre);
+
+/// <summary>Clientes que parecen el mismo: mismo documento, nombre, correo o teléfono.</summary>
+public sealed record GrupoDuplicados(string Motivo, string Valor, IReadOnlyList<PartyRow> Clientes);
+
+/// <summary>Qué se movió al fusionar dos clientes.</summary>
+public sealed record ResultadoFusion(int Contactos, int Oportunidades, int Cotizaciones, int Tareas, int Leads);
+
+public static class MotivosDuplicado
+{
+    public const string Documento = "documento";
+    public const string Nombre = "nombre";
+    public const string Correo = "correo";
+    public const string Telefono = "telefono";
+}
