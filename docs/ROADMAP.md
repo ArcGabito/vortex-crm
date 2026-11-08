@@ -68,11 +68,11 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | # | Requisito | Estado | Fase |
 |---|---|---|---|
 | CRM-40 | Tareas con responsable y avisos en Android | Hecho | — |
-| CRM-41 | Calendario de tareas y reuniones | Pendiente | 3 |
-| CRM-42 | Recordatorios en Windows, macOS e iOS | Pendiente | 3 |
-| CRM-43 | Registro de llamadas, correos y WhatsApp en la ficha | Pendiente | 3 |
-| CRM-44 | Plantillas de correo y WhatsApp | Pendiente | 3 |
-| CRM-45 | Envío de la cotización por correo con el PDF | Pendiente | 3 |
+| CRM-41 | Calendario de tareas y reuniones | Hecho | 3 |
+| CRM-42 | Recordatorios en Windows, macOS e iOS | Parcial | 3 |
+| CRM-43 | Registro de llamadas, correos y WhatsApp en la ficha | Hecho | 3 |
+| CRM-44 | Plantillas de correo y WhatsApp | Hecho | 3 |
+| CRM-45 | Envío de la cotización por correo con el PDF | Hecho | 3 |
 | CRM-46 | Secuencias de seguimiento (varios pasos con plazos) | Pendiente | 5 |
 
 ### Equipo y control
@@ -181,6 +181,16 @@ El segmento del cliente queda para la fase 5 (CRM-05).
 
 **Terminado cuando:** un vendedor agenda una visita desde el celular, recibe el aviso en el escritorio y registra el
 resultado en la ficha.
+
+**Estado (2026-11):** hecha. Interacciones (llamada, WhatsApp, correo, reunión, visita, nota) con resumen y resultado en
+la ficha del cliente, replicadas a todo el equipo; cada vendedor corrige o borra las suyas. Al completar una tarea con
+cliente u oportunidad se anota qué pasó y queda como interacción del tipo de la tarea. Vista semanal de tareas (en el
+celular los días van uno debajo del otro). Plantillas de WhatsApp y correo con variables (`{cliente}`, `{contacto}`,
+`{vendedor}`, `{empresa}`, `{cotizacion}`, `{monto}`, `{fecha}`) que configura el gerente; enviar con una plantilla
+registra la interacción. La cotización se envía por correo con el PDF adjunto (cliente de correo del equipo; si no hay,
+se exporta el PDF y se abre el correo). Avisos de tareas en Windows con notificaciones del sistema mientras la app está
+abierta (también minimizada); macOS e iOS quedan para cuando haya esas plataformas (CRM-42 parcial). Pruebas en
+`ActividadesTests`.
 
 ## Fase 4: cotizaciones empresariales · M
 

@@ -1,0 +1,100 @@
+@inject AppSession Session
+@* Mensaje por WhatsApp o correo al cliente, opcionalmente desde una plantilla. Al enviarlo queda como interacción. *@
+<Modal Title="@(Canal == CanalPlantilla.WhatsApp ? T("mensaje.whatsapp_a", Nombre) : T("mensaje.correo_a", Nombre))" Subtitle="@Destino" Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        @if (_plantillas.Count > 0)
+        {
+            <div class="field">
+                <label>@T("mensaje.plantilla")</label>
+                <select class="select" @onchange="UsarPlantilla">
+                    <option value="">@T("mensaje.sin_plantilla")</option>
+                    @foreach (var p in _plantillas)
+                    {
+                        <option value="@p.Id">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+        }
+        @if (Canal == CanalPlantilla.Correo)
+        {
+            <div class="field">
+                <label>@T("mensaje.asunto")</label>
+                <input class="control" @bind="_asunto" />
+            </div>
+        }
+        <div class="field">
+            <label>@T("mensaje.mensaje")</label>
+            <textarea class="control" rows="7" @bind="_texto"></textarea>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn" @onclick="OnClose">@T("mensaje.cancelar")</button>
+        <button class="btn btn-dark" disabled="@(_busy || string.IsNullOrWhiteSpace(_texto))" @onclick="EnviarAsync">
+            <Icon Name="@(Canal == CanalPlantilla.WhatsApp ? "message" : "mail")" Size="16" />@T("mensaje.abrir_y_registrar")
+        </button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public CanalPlantilla Canal { get; set; }
+    [Parameter] public Guid? ClienteId { get; set; }
+    [Parameter] public Guid? ContactoId { get; set; }
+    [Parameter] public string Nombre { get; set; } = "";
+    [Parameter] public string? Telefono { get; set; }
+    [Parameter] public string? Email { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSent { get; set; }
+
+    private IReadOnlyList<Plantilla> _plantillas = [];
+    private DatosPlantilla _datos = new();
+    private string? _texto, _asunto, _error, _nombrePlantilla;
+    private bool _busy;
+
+    private CrmWorkspace Crm => Session.Workspace!;
+    private string? Destino => Canal == CanalPlantilla.WhatsApp ? Telefono : Email;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plantillas = await Crm.Actividades.PlantillasAsync(Canal);
+        _datos = await Crm.Actividades.DatosAsync(ClienteId, ContactoId);
+    }
+
+    private void UsarPlantilla(ChangeEventArgs e)
+    {
+        if (_plantillas.FirstOrDefault(p => p.Id.ToString() == e.Value?.ToString()) is not { } p)
+            return;
+        _nombrePlantilla = p.Nombre;
+        _texto = Plantillas.Llenar(p.Cuerpo, _datos);
+        _asunto = p.Asunto is null ? _asunto : Plantillas.Llenar(p.Asunto, _datos);
+    }
+
+    /// <summary>Abre WhatsApp o el correo con el mensaje y lo registra en la ficha.</summary>
+    private async Task EnviarAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var texto = _texto!.Trim();
+            var url = Canal == CanalPlantilla.WhatsApp
+                ? $"https://wa.me/{TelefonoPeru.ParaWhatsApp(Telefono)}?text={Uri.EscapeDataString(texto)}"
+                : $"mailto:{Email}?subject={Uri.EscapeDataString(_asunto ?? "")}&body={Uri.EscapeDataString(texto)}";
+            await Launcher.Default.OpenAsync(new Uri(url));
+            var interaccion = Crm.Actividades.Nueva(ClienteId, Canal == CanalPlantilla.WhatsApp ? TipoInteraccion.WhatsApp : TipoInteraccion.Correo);
+            interaccion.ContactoId = ContactoId;
+            interaccion.Resumen = _nombrePlantilla ?? (Canal == CanalPlantilla.WhatsApp ? T("mensaje.whatsapp_enviado") : _asunto ?? T("mensaje.correo_enviado"));
+            interaccion.Resultado = texto.Length > 500 ? texto[..500] + "…" : texto;
+            await Crm.Actividades.RegistrarAsync(interaccion);
+            Session.NotifyLocalChange();
+            await OnSent.InvokeAsync();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

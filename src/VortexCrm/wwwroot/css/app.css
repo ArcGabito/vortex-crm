@@ -1567,3 +1567,30 @@ table.data td { font-size: 13.5px; }
 .dup-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; min-width: 0; }
 .dup-row .two-line { flex: 1; min-width: 0; }
 .dup-row input { accent-color: var(--accent); }
+
+/* ---------- Actividades: interacciones y calendario semanal ---------- */
+
+.interaction-result { white-space: pre-line; color: var(--text-1, inherit); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.week-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.week-day { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; min-height: 140px; display: flex; flex-direction: column; gap: 6px; min-width: 0; background: var(--surface); }
+.week-day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.week-day-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 700; text-transform: capitalize; }
+.week-task { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; padding: 5px 6px; border-radius: 8px; background: var(--accent-soft, #efeafd); cursor: pointer; min-width: 0; }
+.week-task span { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.week-task.done { opacity: .55; text-decoration: line-through; }
+.week-task.late { background: var(--warn-soft, #fff4e5); }
+
+@media (max-width: 900px) {
+    .week { grid-template-columns: minmax(0, 1fr); }
+    .week-day { min-height: 0; }
+}
+
+/* Ayuda debajo de un campo y separación entre ícono y texto en los selectores. */
+.hint { font-size: 12.5px; color: var(--text-3); margin: 0; line-height: 1.45; }
+.segmented button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+@media (max-width: 640px) {
+    /* Los selectores que pasan a varias líneas (tipo de tarea, de interacción) no se desplazan: se ven todas sus opciones. */
+    .segmented[style*="flex-wrap"] { overflow: visible; flex-wrap: wrap; }
+}

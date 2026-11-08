@@ -58,7 +58,43 @@ public sealed class ServicioTareas(CrmDatabase db, ICrmContext context, TimeProv
         await ActualizarAvisoAsync(tarea, ct);
     }
 
-    public Task CompletarAsync(Guid id, CancellationToken ct = default) => CambiarAsync(id, (t, now) => t.Completar(now), ct);
+    /// <summary>
+    /// Completa la tarea. Con <paramref name="resultado"/> (qué pasó en la llamada, la visita…) queda además como
+    /// interacción en la ficha del cliente (o de la oportunidad), del tipo que corresponde a la tarea; sin cliente ni oportunidad
+    /// no hay ficha donde dejarlo y solo se completa.
+    /// </summary>
+    public async Task CompletarAsync(Guid id, string? resultado = null, CancellationToken ct = default)
+    {
+        var tarea = await InTransactionAsync(async (c, tx, now) =>
+        {
+            var t = await ObtenerAsync(c, tx, id);
+            Require(t is not null, T("error.la_tarea_no_existe"));
+            RequireOwner(t!.ResponsableId, t.ResponsableNombre);
+            t.Completar(now);
+            await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Tarea, t.Id, Registros.Datos(t));
+            if (!string.IsNullOrWhiteSpace(resultado) && (t.ClienteId is not null || t.OportunidadId is not null))
+            {
+                var interaccion = new Domain.Actividades.Interaccion
+                {
+                    ClienteId = t.ClienteId, ContactoId = t.ContactoId, OportunidadId = t.OportunidadId, TareaId = t.Id,
+                    Tipo = t.Tipo switch
+                    {
+                        TipoTarea.Llamada => Domain.Actividades.TipoInteraccion.Llamada,
+                        TipoTarea.WhatsApp => Domain.Actividades.TipoInteraccion.WhatsApp,
+                        TipoTarea.Reunion => Domain.Actividades.TipoInteraccion.Reunion,
+                        TipoTarea.Visita => Domain.Actividades.TipoInteraccion.Visita,
+                        TipoTarea.Correo => Domain.Actividades.TipoInteraccion.Correo,
+                        _ => Domain.Actividades.TipoInteraccion.Nota,
+                    },
+                    Fecha = now, Resumen = t.Titulo, Resultado = resultado.Trim(), ResponsableId = Context.UserId,
+                    ResponsableNombre = Context.UserName, CreadoEn = now,
+                };
+                await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Interaccion, interaccion.Id, Registros.Datos(interaccion));
+            }
+            return t;
+        }, ct);
+        await ActualizarAvisoAsync(tarea, ct);
+    }
 
     public Task ReabrirAsync(Guid id, CancellationToken ct = default) => CambiarAsync(id, (t, _) => t.Reabrir(), ct);
 

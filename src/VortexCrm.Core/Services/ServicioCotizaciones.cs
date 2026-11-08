@@ -187,6 +187,38 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         return (mensaje, MensajeWhatsApp.Enlace(contacto?.Telefono ?? cliente.Phone, mensaje));
     }
 
+    /// <summary>
+    /// Datos para enviar la cotización por correo: a quién (el correo del contacto o, si no tiene, el del cliente), el asunto
+    /// y el texto (el mismo saludo que el mensaje de WhatsApp). El PDF se adjunta aparte.
+    /// </summary>
+    public async Task<(string? Para, string Asunto, string Cuerpo)> CorreoAsync(Guid id, CancellationToken ct = default)
+    {
+        await using var c = await Db.OpenAsync(ct);
+        var (cotizacion, cliente, contacto, empresa) = await DatosDeEnvioAsync(c, id);
+        var saludo = contacto?.Nombres ?? (cliente.Kind == "Person" ? cliente.Name.Split(' ')[0] : null);
+        var emisor = empresa?.DisplayName ?? T("pdf.mi_empresa");
+        var cuerpo = MensajeWhatsApp.Cotizacion(cotizacion, emisor, saludo).Replace("*", "");
+        var para = !string.IsNullOrWhiteSpace(contacto?.Email) ? contacto!.Email : cliente.Email;
+        return (para, T("cotizacion.asunto_correo", cotizacion.Codigo, emisor), cuerpo);
+    }
+
+    /// <summary>Deja constancia en la ficha de que la cotización se envió por correo.</summary>
+    public Task RegistrarEnvioPorCorreoAsync(Guid id, string? para, CancellationToken ct = default) =>
+        InTransactionAsync(async (c, tx, now) =>
+        {
+            var cotizacion = await ObtenerAsync(c, tx, id);
+            Require(cotizacion is not null, T("error.guarda_la_cotizacion_primero"));
+            var interaccion = new Domain.Actividades.Interaccion
+            {
+                ClienteId = cotizacion!.ClienteId, ContactoId = cotizacion.ContactoId, OportunidadId = cotizacion.OportunidadId,
+                Tipo = Domain.Actividades.TipoInteraccion.Correo, Fecha = now, CreadoEn = now,
+                Resumen = T("cotizacion.enviada_por_correo", cotizacion.Codigo), Resultado = para,
+                ResponsableId = Context.UserId, ResponsableNombre = Context.UserName,
+            };
+            await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Interaccion, interaccion.Id, Registros.Datos(interaccion));
+            return 0;
+        }, ct);
+
     public async Task<byte[]> GenerarPdfAsync(Guid id, CancellationToken ct = default)
     {
         await using var c = await Db.OpenAsync(ct);

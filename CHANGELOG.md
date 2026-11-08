@@ -8,6 +8,10 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Actividades (fase 3):** interacciones con el cliente (llamada, WhatsApp, correo, reunión, visita, nota) con su
+  resultado en la ficha; completar una tarea pide qué pasó y lo deja como interacción. Vista semanal de tareas.
+  Plantillas de WhatsApp y correo con datos del cliente, configurables por el gerente. Envío de la cotización por
+  correo con el PDF adjunto. Avisos de tareas en Windows mientras la app está abierta.
 - **Cartera (fase 2c):** responsable del cliente compartido por el hub (`party.account`): el vendedor toma clientes
   libres; el gerente asigna y reasigna carteras con sus oportunidades abiertas; filtros "Mis clientes" y "Sin
   responsable". Detección de clientes duplicados (documento, nombre, correo, teléfono) y fusión: lo del duplicado pasa

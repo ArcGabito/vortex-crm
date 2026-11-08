@@ -60,6 +60,8 @@ public static class CrmRecordKinds
     public const string Embudo = "embudo";
     public const string Meta = "meta";
     public const string Lead = "lead";
+    public const string Interaccion = "interaccion";
+    public const string Plantilla = "plantilla";
 }
 
 // ---------- Consumidos por el CRM ----------

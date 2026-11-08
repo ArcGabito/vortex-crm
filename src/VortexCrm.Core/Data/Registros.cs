@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using VortexApi.Client;
 using VortexCrm.Core.Domain;
+using VortexCrm.Core.Domain.Actividades;
 using VortexCrm.Core.Domain.Contactos;
 using VortexCrm.Core.Domain.Tareas;
 using VortexCrm.Core.Domain.Ventas;
@@ -43,6 +44,12 @@ internal static class Registros
         Guid Id, string? Numero, Guid? ClienteId, Guid? ContactoId, Guid? OportunidadId, Guid? SedeId, DateOnly FechaEmision,
         DateOnly ValidaHasta, string ModoIgv, string? Condiciones, string Estado, Guid? PedidoId, DateTimeOffset CreadoEn,
         IReadOnlyList<LineaDatos> Lineas, string Moneda = "PEN", Guid? ResponsableId = null, string? ResponsableNombre = null);
+
+    public sealed record InteraccionDatos(
+        Guid Id, Guid? ClienteId, Guid? ContactoId, Guid? OportunidadId, Guid? TareaId, string Tipo, DateTimeOffset Fecha, string Resumen,
+        string? Resultado, Guid? ResponsableId, string? ResponsableNombre, DateTimeOffset CreadoEn);
+
+    public sealed record PlantillaDatos(Guid Id, string Nombre, string Canal, string? Asunto, string Cuerpo);
 
     public sealed record TareaDatos(
         Guid Id, string Titulo, string Tipo, DateOnly Fecha, TimeOnly? Hora, int? AvisarMinutosAntes, Guid? ClienteId,
@@ -210,6 +217,27 @@ internal static class Registros
                     ("$convertido", le.ConvertidoEn), ("$actualizado", actualizado));
                 return true;
 
+            case CrmRecordKinds.Interaccion:
+                var it = data.Deserialize<InteraccionDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO interacciones (id, cliente_id, contacto_id, oportunidad_id, tarea_id, tipo, fecha, resumen, resultado,
+                                                          responsable_id, responsable_nombre, creado_en, actualizado_en)
+                    VALUES ($id, $cliente, $contacto, $oportunidad, $tarea, $tipo, $fecha, $resumen, $resultado, $responsable, $nombre,
+                            $creado, $actualizado)
+                    """, tx, ("$id", it.Id), ("$cliente", it.ClienteId), ("$contacto", it.ContactoId), ("$oportunidad", it.OportunidadId),
+                    ("$tarea", it.TareaId), ("$tipo", it.Tipo), ("$fecha", it.Fecha), ("$resumen", it.Resumen), ("$resultado", it.Resultado),
+                    ("$responsable", it.ResponsableId), ("$nombre", it.ResponsableNombre), ("$creado", it.CreadoEn), ("$actualizado", actualizado));
+                return true;
+
+            case CrmRecordKinds.Plantilla:
+                var pl = data.Deserialize<PlantillaDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO plantillas (id, nombre, canal, asunto, cuerpo, actualizado_en)
+                    VALUES ($id, $nombre, $canal, $asunto, $cuerpo, $actualizado)
+                    """, tx, ("$id", pl.Id), ("$nombre", pl.Nombre), ("$canal", pl.Canal), ("$asunto", pl.Asunto), ("$cuerpo", pl.Cuerpo),
+                    ("$actualizado", actualizado));
+                return true;
+
             default:
                 return false;
         }
@@ -239,6 +267,8 @@ internal static class Registros
         CrmRecordKinds.Embudo => "embudos",
         CrmRecordKinds.Meta => "metas",
         CrmRecordKinds.Lead => "leads",
+        CrmRecordKinds.Interaccion => "interacciones",
+        CrmRecordKinds.Plantilla => "plantillas",
         _ => null,
     };
 
@@ -286,6 +316,28 @@ internal static class Registros
             Limpio(c.Condiciones), c.Estado.ToString(), c.PedidoId, c.CreadoEn,
             c.Lineas.Where(l => !l.EstaVacia).Select(l => new LineaDatos(l.ItemId, l.Descripcion.Trim(), l.Unidad, l.Cantidad, l.PrecioUnitario)).ToList(),
             c.Moneda, c.ResponsableId, c.ResponsableNombre);
+
+    public static InteraccionDatos Datos(Interaccion i) =>
+        new(i.Id, i.ClienteId, i.ContactoId, i.OportunidadId, i.TareaId, i.Tipo.ToString(), i.Fecha, i.Resumen.Trim(), Limpio(i.Resultado),
+            i.ResponsableId, i.ResponsableNombre, i.CreadoEn);
+
+    public static Interaccion LeerInteraccion(SqliteDataReader r) => new()
+    {
+        Id = r.Guid("id"), ClienteId = r.GuidOrNull("cliente_id"), ContactoId = r.GuidOrNull("contacto_id"),
+        OportunidadId = r.GuidOrNull("oportunidad_id"), TareaId = r.GuidOrNull("tarea_id"),
+        Tipo = Enum.TryParse<TipoInteraccion>(r.Str("tipo"), out var tipo) ? tipo : TipoInteraccion.Nota, Fecha = r.Time("fecha"),
+        Resumen = r.Str("resumen"), Resultado = r.StrOrNull("resultado"), ResponsableId = r.GuidOrNull("responsable_id"),
+        ResponsableNombre = r.StrOrNull("responsable_nombre"), CreadoEn = r.Time("creado_en"),
+    };
+
+    public static PlantillaDatos Datos(Plantilla p) => new(p.Id, p.Nombre.Trim(), p.Canal.ToString(), Limpio(p.Asunto), p.Cuerpo.Trim());
+
+    public static Plantilla LeerPlantilla(SqliteDataReader r) => new()
+    {
+        Id = r.Guid("id"), Nombre = r.Str("nombre"),
+        Canal = Enum.TryParse<CanalPlantilla>(r.Str("canal"), out var canal) ? canal : CanalPlantilla.WhatsApp,
+        Asunto = r.StrOrNull("asunto"), Cuerpo = r.Str("cuerpo"),
+    };
 
     public static TareaDatos Datos(Tarea t) =>
         new(t.Id, t.Titulo.Trim(), t.Tipo.ToString(), t.Fecha, t.Hora, t.AvisarMinutosAntes, t.ClienteId, t.ContactoId, t.OportunidadId,
