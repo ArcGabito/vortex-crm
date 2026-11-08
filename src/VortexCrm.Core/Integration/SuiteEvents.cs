@@ -21,6 +21,7 @@ public static class SuiteEvents
     public const string SaleCompleted = "sale.completed";
     public const string InvoiceIssued = "invoice.issued";
     public const string PaymentReceived = "payment.received";
+    public const string InvoiceVoided = "invoice.voided";
     public const string ShipmentDispatched = "shipment.dispatched";
 }
 
@@ -63,6 +64,9 @@ public sealed record SaleCompleted(Guid SaleId, string? Number, Guid? CustomerId
 public sealed record InvoiceIssued(Guid InvoiceId, string? Number, Guid? CustomerId, decimal Total, string? CurrencyCode, string? Kind);
 
 public sealed record PaymentReceived(Guid PaymentId, Guid? CustomerId, decimal Amount, string? CurrencyCode, string? Method, string? Number);
+
+/// <summary><c>invoice.voided</c> del ERP: comprobante anulado; <c>customerId</c> desde que el ERP lo incluye.</summary>
+public sealed record InvoiceVoided(Guid InvoiceId, string? Number, string? Reason, Guid? CustomerId);
 
 public sealed record ShipmentDispatched(
     Guid ShipmentId, Guid OrderId, Guid? CustomerId, string? Carrier, string? TrackingNumber, string? Number);

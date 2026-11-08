@@ -1,6 +1,7 @@
 {
   "actividad.boleta": "Receipt",
   "actividad.compra_en_caja": "Register purchase {0}",
+  "actividad.comprobante_anulado": "Document {0} voided",
   "actividad.factura": "Invoice",
   "actividad.guia": "waybill {0}",
   "actividad.pago_recibido": "Payment received {0}",
