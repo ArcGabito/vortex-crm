@@ -34,8 +34,13 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap">
                 @if (TelefonoPeru.ParaWhatsApp(c.Phone) is not null)
                 {
-                    <button class="btn btn-outline" @onclick="() => WhatsAppAsync(c.Phone)"><Icon Name="message" Size="18" />@T("customerdetail.whatsapp")</button>
+                    <button class="btn btn-outline" @onclick="() => Mensaje(CanalPlantilla.WhatsApp, c.Phone, null)"><Icon Name="message" Size="18" />@T("customerdetail.whatsapp")</button>
                 }
+                @if (!string.IsNullOrWhiteSpace(c.Email))
+                {
+                    <button class="btn btn-outline" @onclick="() => Mensaje(CanalPlantilla.Correo, null, null)"><Icon Name="mail" Size="18" />@T("customerdetail.correo")</button>
+                }
+                <button class="btn btn-outline" @onclick="NuevaInteraccion"><Icon Name="phone" Size="18" />@T("customerdetail.registrar")</button>
                 <button class="btn btn-outline" @onclick="NuevaTarea"><Icon Name="calendar" Size="18" />@T("customerdetail.tarea")</button>
                 <button class="btn btn-outline" @onclick="NuevaOportunidad"><Icon Name="target" Size="18" />@T("customerdetail.oportunidad")</button>
                 <a class="btn btn-dark" href="@($"cotizaciones/nueva?cliente={c.Id}")"><Icon Name="file" Size="18" />@T("customerdetail.cotizar")</a>
@@ -85,6 +90,32 @@
                                 <StatusPill Text="@text" Tone="@tone" />
                                 <strong class="end">@Fmt.Money(q.Total, q.Moneda)</strong>
                             </a>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-head"><h3>@T("customerdetail.interacciones")</h3><button class="btn btn-sm" @onclick="NuevaInteraccion"><Icon Name="plus" Size="16" />@T("customerdetail.registrar")</button></div>
+                    <div class="card-body">
+                        @if (_interacciones.Count == 0)
+                        {
+                            <div class="list-row"><span class="muted">@T("customerdetail.sin_interacciones")</span></div>
+                        }
+                        @foreach (var vi in _interacciones)
+                        {
+                            var i = vi.Interaccion;
+                            <div class="list-row interaction" @key="i.Id" style="cursor:pointer" @onclick="() => EditarInteraccion(i)">
+                                <div class="stat-icon" style="width:32px;height:32px;border-radius:10px"><Icon Name="@InteraccionModal.Icono(i.Tipo)" Size="15" /></div>
+                                <div class="two-line" style="flex:1;min-width:0">
+                                    <span class="t1">@i.Resumen</span>
+                                    @if (i.Resultado is { Length: > 0 } res)
+                                    {
+                                        <span class="t2 interaction-result">@res</span>
+                                    }
+                                    <span class="t2">@T($"interaccion.tipo.{i.Tipo}")@(vi.Contacto is { Length: > 0 } k ? $" · {k}" : "")@(i.ResponsableNombre is null ? "" : $" · {i.ResponsableNombre}")</span>
+                                </div>
+                                <span class="when muted">@Fmt.Ago(i.Fecha)</span>
+                            </div>
                         }
                     </div>
                 </div>
@@ -156,7 +187,7 @@
                                 <div class="two-line" style="flex:1"><span class="t1">@k.NombreCompleto</span><span class="t2">@(k.Cargo ?? "")@(k.Telefono is null ? "" : $" · {k.Telefono}")</span></div>
                                 @if (TelefonoPeru.ParaWhatsApp(k.Telefono) is not null)
                                 {
-                                    <button class="btn btn-ghost icon-btn sm" @onclick:stopPropagation @onclick="() => WhatsAppAsync(k.Telefono)" title="@(T("customerdetail.whatsapp"))"><Icon Name="message" Size="16" /></button>
+                                    <button class="btn btn-ghost icon-btn sm" @onclick:stopPropagation @onclick="() => Mensaje(CanalPlantilla.WhatsApp, k.Telefono, k.Id)" title="@(T("customerdetail.whatsapp"))"><Icon Name="message" Size="16" /></button>
                                 }
                             </div>
                         }
@@ -193,6 +224,19 @@ else if (!Loading)
 @if (_oportunidad is { } o)
 {
     <OportunidadModal Valor="o" Nueva="_nuevo" OnClose="() => _oportunidad = null" OnSaved="CerradoAsync" />
+}
+@if (_interaccion is { } ix)
+{
+    <InteraccionModal Valor="ix" Nueva="_nuevo" Contactos="_ficha?.Contactos ?? []" OnClose="() => _interaccion = null" OnSaved="CerradoAsync" />
+}
+@if (_completar is { } ct)
+{
+    <CompletarTareaModal Tarea="ct" OnClose="() => _completar = null" OnDone="CerradoAsync" />
+}
+@if (_mensaje is { } m && _ficha is { } fm)
+{
+    <MensajeModal Canal="m.Canal" ClienteId="fm.Cliente.Id" ContactoId="m.ContactoId" Nombre="@fm.Cliente.DisplayName" Telefono="@m.Telefono"
+                  Email="@fm.Cliente.Email" OnClose="() => _mensaje = null" OnSent="CerradoAsync" />
 }
 @if (_tarea is { } t2)
 {
@@ -250,7 +294,16 @@ else if (!Loading)
         await ReloadAsync();
     }
 
-    protected override async Task LoadAsync() => _ficha = await Crm.Clientes.FichaAsync(Id);
+    private IReadOnlyList<InteraccionVista> _interacciones = [];
+    private Interaccion? _interaccion;
+    private Tarea? _completar;
+    private (CanalPlantilla Canal, string? Telefono, Guid? ContactoId)? _mensaje;
+
+    protected override async Task LoadAsync()
+    {
+        _ficha = await Crm.Clientes.FichaAsync(Id);
+        _interacciones = await Crm.Actividades.InteraccionesAsync(Id, limite: 30);
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -270,14 +323,22 @@ else if (!Loading)
         _oportunidad = null;
         _tarea = null;
         _contacto = null;
+        _interaccion = null;
+        _completar = null;
+        _mensaje = null;
         await ReloadAsync();
     }
 
-    private Task AlternarAsync(Tarea t) => RunAsync(() => t.Completada ? Crm.Tareas.ReabrirAsync(t.Id) : Crm.Tareas.CompletarAsync(t.Id));
-
-    private static async Task WhatsAppAsync(string? telefono)
+    /// <summary>Al marcar una tarea pendiente se pide su resultado (queda en la ficha); desmarcarla la reabre.</summary>
+    private async Task AlternarAsync(Tarea t)
     {
-        if (TelefonoPeru.ParaWhatsApp(telefono) is { } numero)
-            await Launcher.Default.OpenAsync(new Uri($"https://wa.me/{numero}"));
+        if (t.Completada)
+            await RunAsync(() => Crm.Tareas.ReabrirAsync(t.Id));
+        else
+            _completar = t;
     }
+
+    private void NuevaInteraccion() { _nuevo = true; _interaccion = Crm.Actividades.Nueva(Id); }
+    private void EditarInteraccion(Interaccion i) { _nuevo = false; _interaccion = i.Clonar(); }
+    private void Mensaje(CanalPlantilla canal, string? telefono, Guid? contacto) => _mensaje = (canal, telefono, contacto);
 }

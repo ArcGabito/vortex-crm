@@ -184,5 +184,16 @@ internal static class Schema
         CREATE INDEX ix_parties_owner ON parties (owner_id);
         DELETE FROM sync_cursors WHERE stream = 'master';
         """,
+        // 6: actividades (fase 3). Interacciones con el cliente (llamadas, WhatsApp, correos, reuniones, visitas) y
+        // plantillas de mensajes. Ambas son registros del CRM (crm.record.upserted).
+        """
+        CREATE TABLE interacciones (
+            id TEXT PRIMARY KEY, cliente_id TEXT, contacto_id TEXT, oportunidad_id TEXT, tarea_id TEXT, tipo TEXT NOT NULL,
+            fecha TEXT NOT NULL, resumen TEXT NOT NULL, resultado TEXT, responsable_id TEXT, responsable_nombre TEXT,
+            creado_en TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE INDEX ix_interacciones_cliente ON interacciones (cliente_id, fecha);
+        CREATE TABLE plantillas (
+            id TEXT PRIMARY KEY, nombre TEXT NOT NULL, canal TEXT NOT NULL, asunto TEXT, cuerpo TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        """,
     ];
 }

@@ -26,6 +26,7 @@
                 @if (Id is not null)
                 {
                     <button class="btn btn-outline" @onclick="WhatsAppAsync"><Icon Name="message" Size="18" />@T("quoteeditor.whatsapp")</button>
+                    <button class="btn btn-outline" @onclick="CorreoAsync"><Icon Name="mail" Size="18" />@T("quoteeditor.correo")</button>
                     <button class="btn btn-outline" @onclick="PdfAsync"><Icon Name="download" Size="18" />@T("quoteeditor.pdf")</button>
                 }
                 @if (editable)
@@ -307,6 +308,40 @@
             Toasts.Error(T("quoteeditor.el_cliente_el_contacto_no"));
         else
             await Launcher.Default.OpenAsync(new Uri(enlace));
+    }
+
+    /// <summary>
+    /// Abre el correo del equipo con la cotización en PDF adjunta (en Android y Windows). Si el equipo no permite adjuntar,
+    /// guarda el PDF y abre un correo sin adjunto. Queda registrado en la ficha del cliente.
+    /// </summary>
+    private async Task CorreoAsync()
+    {
+        if (_cotizacion!.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada && !await GuardarAsync())
+            return;
+        try
+        {
+            var (para, asunto, cuerpo) = await Crm.Cotizaciones.CorreoAsync(_cotizacion.Id);
+            var pdf = await Crm.Cotizaciones.GenerarPdfAsync(_cotizacion.Id);
+            var archivo = Path.Combine(FileSystem.CacheDirectory, $"{_cotizacion.Codigo}.pdf");
+            await File.WriteAllBytesAsync(archivo, pdf);
+            try
+            {
+                var correo = new EmailMessage { Subject = asunto, Body = cuerpo, To = para is null ? [] : [para] };
+                correo.Attachments!.Add(new EmailAttachment(archivo));
+                await Email.Default.ComposeAsync(correo);
+            }
+            catch (Exception ex) when (ex is FeatureNotSupportedException or NotImplementedException or InvalidOperationException)
+            {
+                await Exporter.ExportBytesAsync($"{_cotizacion.Codigo}.pdf", pdf, "application/pdf");
+                await Launcher.Default.OpenAsync(new Uri($"mailto:{para}?subject={Uri.EscapeDataString(asunto)}&body={Uri.EscapeDataString(cuerpo)}"));
+            }
+            await Crm.Cotizaciones.RegistrarEnvioPorCorreoAsync(_cotizacion.Id, para);
+            Toasts.Success(T("quoteeditor.correo_listo"));
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private async Task PdfAsync()

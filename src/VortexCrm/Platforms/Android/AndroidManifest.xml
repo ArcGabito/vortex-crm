@@ -10,4 +10,11 @@
 	<uses-permission android:name="android.permission.INTERNET" />
 	<!-- Avisos de las tareas (Android 13 o superior pide permiso al usuario). -->
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<!-- Android 11 o superior: ver qué app de correo abre la cotización con su PDF adjunto. -->
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.SENDTO" />
+			<data android:scheme="mailto" />
+		</intent>
+	</queries>
 </manifest>

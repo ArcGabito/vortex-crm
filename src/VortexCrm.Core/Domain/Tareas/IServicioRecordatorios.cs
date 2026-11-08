@@ -1,8 +1,8 @@
 namespace VortexCrm.Core.Domain.Tareas;
 
 /// <summary>
-/// Notificaciones del sistema para los avisos de las tareas. En la app de Android son
-/// notificaciones reales; donde no hay (web, Windows) no hacen nada y las tareas se ven en Inicio.
+/// Notificaciones del sistema para los avisos de las tareas: en Android y en Windows son notificaciones reales; donde
+/// no hay (pruebas, otras plataformas) no hacen nada y las tareas se ven en Inicio.
 /// </summary>
 public interface IServicioRecordatorios
 {
@@ -19,7 +19,7 @@ public interface IServicioRecordatorios
     Task CancelarAsync(Guid tareaId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Donde no hay notificaciones del sistema (Windows, macOS, pruebas): las tareas se ven en el panel.</summary>
+/// <summary>Donde no hay notificaciones del sistema (pruebas, otras plataformas): las tareas se ven en el panel.</summary>
 public sealed class SinRecordatorios : IServicioRecordatorios
 {
     public bool Disponible => false;

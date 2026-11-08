@@ -29,6 +29,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISessionStore, SecureStorageSessionStore>();
 #if ANDROID
         builder.Services.AddSingleton<VortexCrm.Core.Domain.Tareas.IServicioRecordatorios, VortexCrm.Platforms.Android.ServicioRecordatoriosAndroid>();
+#elif WINDOWS
+        builder.Services.AddSingleton<VortexCrm.Core.Domain.Tareas.IServicioRecordatorios, VortexCrm.Platforms.Windows.ServicioRecordatoriosWindows>();
 #else
         builder.Services.AddSingleton<VortexCrm.Core.Domain.Tareas.IServicioRecordatorios, VortexCrm.Core.Domain.Tareas.SinRecordatorios>();
 #endif

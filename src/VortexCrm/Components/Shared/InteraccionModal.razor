@@ -1,0 +1,96 @@
+@inject AppSession Session
+@* Registro de una interacción con el cliente: llamada, WhatsApp, correo, reunión, visita o nota. *@
+<Modal Title="@(Nueva ? T("interaccion.registrar") : T("interaccion.editar"))" Subtitle="@Subtitulo" Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        <div class="segmented" style="flex-wrap:wrap">
+            @foreach (var tipo in Enum.GetValues<TipoInteraccion>())
+            {
+                <button class="@(Valor.Tipo == tipo ? "on" : "")" @onclick="() => Valor.Tipo = tipo"><Icon Name="@Icono(tipo)" Size="15" />@T($"interaccion.tipo.{tipo}")</button>
+            }
+        </div>
+        <div class="form-row">
+            <div class="field">
+                <label>@T("interaccion.cuando")</label>
+                <input class="control" type="datetime-local" value="@Valor.Fecha.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")"
+                       @onchange="e => { if (DateTime.TryParse(e.Value?.ToString(), out var f)) Valor.Fecha = new DateTimeOffset(f); }" />
+            </div>
+            @if (Contactos.Count > 0)
+            {
+                <div class="field">
+                    <label>@T("interaccion.con")</label>
+                    <select class="select" value="@Valor.ContactoId" @onchange="e => Valor.ContactoId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null">
+                        <option value="">@T("interaccion.sin_contacto")</option>
+                        @foreach (var k in Contactos)
+                        {
+                            <option value="@k.Id">@k.NombreCompleto</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+        <div class="field">
+            <label>@T("interaccion.que_paso")</label>
+            <input class="control" placeholder="@(T("interaccion.que_paso_ej"))" @bind="Valor.Resumen" />
+        </div>
+        <div class="field">
+            <label>@T("interaccion.resultado")</label>
+            <textarea class="control" rows="3" placeholder="@(T("interaccion.resultado_ej"))" @bind="Valor.Resultado"></textarea>
+        </div>
+    </ChildContent>
+    <Footer>
+        @if (!Nueva)
+        {
+            <button class="btn btn-ghost danger-text" disabled="@_busy" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />@T("interaccion.eliminar")</button>
+        }
+        <button class="btn" @onclick="OnClose">@T("interaccion.cancelar")</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("interaccion.guardar")</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Interaccion Valor { get; set; } = null!;
+    [Parameter] public bool Nueva { get; set; }
+    [Parameter] public IReadOnlyList<Contacto> Contactos { get; set; } = [];
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private string? _error;
+    private bool _busy;
+
+    private CrmWorkspace Crm => Session.Workspace!;
+    private string Subtitulo => T("interaccion.por", Valor.ResponsableNombre ?? Session.UserName);
+
+    public static string Icono(TipoInteraccion tipo) => tipo switch
+    {
+        TipoInteraccion.Llamada => "phone",
+        TipoInteraccion.WhatsApp => "message",
+        TipoInteraccion.Correo => "mail",
+        TipoInteraccion.Reunion => "users",
+        TipoInteraccion.Visita => "pin",
+        _ => "edit",
+    };
+
+    private async Task GuardarAsync() => await HacerAsync(() => Crm.Actividades.RegistrarAsync(Valor));
+
+    private async Task EliminarAsync() => await HacerAsync(() => Crm.Actividades.EliminarInteraccionAsync(Valor.Id));
+
+    private async Task HacerAsync(Func<Task> accion)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await accion();
+            Session.NotifyLocalChange();
+            await OnSaved.InvokeAsync();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

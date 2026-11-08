@@ -178,6 +178,33 @@
             </div>
 
             <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@T("settings.plantillas")</h3>
+                        <div class="sub">@T("settings.plantillas_explica")</div>
+                    </div>
+                    @if (Session.Can(CrmPermissions.EditSettings))
+                    {
+                        <button class="btn btn-sm" @onclick="() => _plantilla = new Plantilla()"><Icon Name="plus" Size="16" />@T("settings.nueva")</button>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (_plantillas.Count == 0)
+                    {
+                        <div class="list-row"><span class="muted">@T("settings.sin_plantillas")</span></div>
+                    }
+                    @foreach (var p in _plantillas)
+                    {
+                        <div class="list-row" @key="p.Id" style="@(Session.Can(CrmPermissions.EditSettings) ? "cursor:pointer" : null)"
+                             @onclick="() => { if (Session.Can(CrmPermissions.EditSettings)) _plantilla = p.Clonar(); }">
+                            <Icon Name="@(p.Canal == CanalPlantilla.WhatsApp ? "message" : "mail")" Size="16" />
+                            <div class="two-line" style="flex:1;min-width:0"><span class="t1">@p.Nombre</span><span class="t2 interaction-result">@p.Cuerpo</span></div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
                 <div class="card-head"><h3>@T("settings.acerca_de")</h3></div>
                 <div class="card-body">
                     <div class="list-row">
@@ -199,6 +226,48 @@
     </div>
 </div>
 
+@if (_plantilla is { } pl)
+{
+    <Modal Title="@(pl.Nombre.Length == 0 ? T("settings.nueva_plantilla") : pl.Nombre)" Error="@_errorPlantilla" OnClose="() => _plantilla = null">
+        <ChildContent>
+            <div class="field">
+                <label>@T("settings.nombre")</label>
+                <input class="control" placeholder="@(T("settings.plantilla_nombre_ej"))" @bind="pl.Nombre" />
+            </div>
+            <div class="segmented">
+                <button class="@(pl.Canal == CanalPlantilla.WhatsApp ? "on" : "")" @onclick="() => pl.Canal = CanalPlantilla.WhatsApp"><Icon Name="message" Size="15" />WhatsApp</button>
+                <button class="@(pl.Canal == CanalPlantilla.Correo ? "on" : "")" @onclick="() => pl.Canal = CanalPlantilla.Correo"><Icon Name="mail" Size="15" />@T("settings.correo")</button>
+            </div>
+            @if (pl.Canal == CanalPlantilla.Correo)
+            {
+                <div class="field">
+                    <label>@T("settings.asunto")</label>
+                    <input class="control" @bind="pl.Asunto" />
+                </div>
+            }
+            <div class="field">
+                <label>@T("settings.texto")</label>
+                <textarea class="control" rows="6" @bind="pl.Cuerpo" @bind:event="oninput"></textarea>
+                <div class="chips">
+                    @foreach (var v in Plantillas.Variables)
+                    {
+                        <button class="chip" @onclick="() => pl.Cuerpo += Variable(v)">@Variable(v)</button>
+                    }
+                </div>
+                <span class="hint">@T("settings.variables_explica")</span>
+            </div>
+        </ChildContent>
+        <Footer>
+            @if (_plantillas.Any(x => x.Id == pl.Id))
+            {
+                <button class="btn btn-ghost danger-text" @onclick="EliminarPlantillaAsync"><Icon Name="trash" Size="16" />@T("settings.eliminar")</button>
+            }
+            <button class="btn" @onclick="() => _plantilla = null">@T("settings.cancelar")</button>
+            <button class="btn btn-dark" @onclick="GuardarPlantillaAsync">@T("settings.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     private const string SourceUrl = "https://github.com/ArcGabito/vortex-crm";
     private const string IssuesUrl = SourceUrl + "/issues";
@@ -210,6 +279,42 @@
     protected override void OnInitialized() => Session.Changed += OnSessionChanged;
 
     [Inject] private IServicioRecordatorios Recordatorios { get; set; } = null!;
+
+    private IReadOnlyList<Plantilla> _plantillas = [];
+    private Plantilla? _plantilla;
+    private string? _errorPlantilla;
+
+    private static string Variable(string nombre) => "{" + nombre + "}";
+
+    private async Task CargarPlantillasAsync()
+    {
+        if (Session.Workspace is { } crm)
+            _plantillas = await crm.Actividades.PlantillasAsync();
+    }
+
+    private async Task GuardarPlantillaAsync()
+    {
+        if (_plantilla is not { } pl)
+            return;
+        _errorPlantilla = await TryAsync(() => Crm.Actividades.GuardarPlantillaAsync(pl), T("settings.plantilla_guardada"));
+        if (_errorPlantilla is null)
+        {
+            _plantilla = null;
+            await CargarPlantillasAsync();
+        }
+    }
+
+    private async Task EliminarPlantillaAsync()
+    {
+        if (_plantilla is not { } pl)
+            return;
+        _errorPlantilla = await TryAsync(() => Crm.Actividades.EliminarPlantillaAsync(pl.Id));
+        if (_errorPlantilla is null)
+        {
+            _plantilla = null;
+            await CargarPlantillasAsync();
+        }
+    }
 
     private ModoIgv _modoIgv;
     private string? _condiciones, _motivos;
@@ -246,6 +351,7 @@
         }
         _sites = await Crm.Master.GetSitesAsync(activeOnly: true);
         _failed = await Session.GetFailedAsync();
+        await CargarPlantillasAsync();
     }
 
     private void OnSessionChanged() => _ = InvokeAsync(async () =>

@@ -11,6 +11,10 @@
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <div class="segmented">
+                <button class="@(!_semanaVista ? "on" : "")" @onclick="() => _semanaVista = false"><Icon Name="list" Size="15" />@T("tasks.lista")</button>
+                <button class="@(_semanaVista ? "on" : "")" @onclick="() => _semanaVista = true"><Icon Name="calendar" Size="15" />@T("tasks.semana")</button>
+            </div>
+            <div class="segmented">
                 <button class="@(_soloMias ? "on" : "")" @onclick="async () => { _soloMias = true; await ReloadAsync(); }">@T("tasks.mias")</button>
                 <button class="@(!_soloMias ? "on" : "")" @onclick="async () => { _soloMias = false; await ReloadAsync(); }">@T("tasks.de_todo_el_equipo")</button>
             </div>
@@ -18,7 +22,37 @@
         </div>
     </div>
 
-    @if (_agenda is { EstaVacia: true } && !Loading)
+    @if (_semanaVista)
+    {
+        <div class="week-nav">
+            <button class="btn btn-ghost icon-btn" @onclick="() => _lunes = _lunes.AddDays(-7)" aria-label="@(T("tasks.semana_anterior"))"><Icon Name="chevron-left" Size="18" /></button>
+            <strong>@T("tasks.semana_del", _lunes.ToString("d MMM", Fmt.Culture), _lunes.AddDays(6).ToString("d MMM yyyy", Fmt.Culture))</strong>
+            <button class="btn btn-ghost icon-btn" @onclick="() => _lunes = _lunes.AddDays(7)" aria-label="@(T("tasks.semana_siguiente"))"><Icon Name="chevron-right" Size="18" /></button>
+            <button class="btn btn-sm" @onclick="() => _lunes = Lunes(Fmt.Today)">@T("tasks.hoy")</button>
+        </div>
+        <div class="week">
+            @for (var d = 0; d < 7; d++)
+            {
+                var dia = _lunes.AddDays(d);
+                var delDia = _vistas.Values.Select(v => v.Tarea).Where(t => t.Fecha == dia)
+                    .OrderBy(t => t.Completada).ThenBy(t => t.Hora ?? TimeOnly.MaxValue).ToList();
+                <div class="week-day @(dia == Fmt.Today ? "today" : "")" @key="dia">
+                    <div class="week-day-head">
+                        <span>@dia.ToString("ddd d", Fmt.Culture)</span>
+                        <button class="btn btn-ghost icon-btn sm" @onclick="() => NuevaEl(dia)" aria-label="@(T("tasks.nueva_tarea"))"><Icon Name="plus" Size="14" /></button>
+                    </div>
+                    @foreach (var t in delDia)
+                    {
+                        <div class="week-task @(t.Completada ? "done" : "") @(t.EstaVencida(Fmt.Today) ? "late" : "")" @key="t.Id" @onclick="() => Editar(t)">
+                            <Icon Name="@Fmt.TaskIcon(t.Tipo)" Size="13" />
+                            <span>@(t.Hora is { } h ? $"{FormatoPeru.Hora(h)} " : "")@t.Titulo</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else if (_agenda is { EstaVacia: true } && !Loading)
     {
         <EmptyState Icon="calendar" Title="@(T("tasks.nada_pendiente"))" Text="@(T("tasks.agenda_una_llamada_una_visita"))" />
     }
@@ -39,13 +73,28 @@
 {
     <TareaModal Valor="e" Nueva="_nueva" OnClose="() => _editando = null" OnSaved="GuardadoAsync" />
 }
+@if (_completar is { } ct)
+{
+    <CompletarTareaModal Tarea="ct" OnClose="() => _completar = null" OnDone="GuardadoAsync" />
+}
 
 @code {
     private Dictionary<Guid, TareaVista> _vistas = [];
     private AgendaTareas? _agenda;
     private bool _soloMias = true;
     private Tarea? _editando;
-    private bool _nueva;
+    private bool _nueva, _semanaVista;
+    private Tarea? _completar;
+    private DateOnly _lunes = Lunes(Fmt.Today);
+
+    private static DateOnly Lunes(DateOnly dia) => dia.AddDays(-(((int)dia.DayOfWeek + 6) % 7));
+
+    private void NuevaEl(DateOnly dia)
+    {
+        _nueva = true;
+        _editando = Crm.Tareas.Nueva();
+        _editando.Fecha = dia;
+    }
 
     protected override async Task LoadAsync()
     {
@@ -86,8 +135,18 @@
     private async Task GuardadoAsync()
     {
         _editando = null;
+        _completar = null;
         await ReloadAsync();
     }
 
-    private Task AlternarAsync(Tarea t) => RunAsync(() => t.Completada ? Crm.Tareas.ReabrirAsync(t.Id) : Crm.Tareas.CompletarAsync(t.Id));
+    /// <summary>Al marcar una tarea pendiente se pide su resultado (queda en la ficha del cliente); desmarcarla la reabre.</summary>
+    private async Task AlternarAsync(Tarea t)
+    {
+        if (t.Completada)
+            await RunAsync(() => Crm.Tareas.ReabrirAsync(t.Id));
+        else if (t.ClienteId is null && t.OportunidadId is null)
+            await RunAsync(() => Crm.Tareas.CompletarAsync(t.Id));   // sin ficha donde dejar el resultado
+        else
+            _completar = t;
+    }
 }

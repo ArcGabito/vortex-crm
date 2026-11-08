@@ -1,0 +1,44 @@
+@inject AppSession Session
+@* Completar una tarea anotando qué pasó: el resultado queda como interacción en la ficha del cliente. *@
+<Modal Title="@(T("completartarea.completar"))" Subtitle="@Tarea.Titulo" Size="sm" Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        <div class="field">
+            <label>@T("completartarea.que_paso")</label>
+            <textarea class="control" rows="3" placeholder="@(T("completartarea.que_paso_ej"))" @bind="_resultado"></textarea>
+            <span class="hint">@T("completartarea.explica")</span>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn" @onclick="OnClose">@T("completartarea.cancelar")</button>
+        <button class="btn btn-dark" disabled="@_busy" @onclick="CompletarAsync"><Icon Name="check" Size="16" />@T("completartarea.completar")</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Tarea Tarea { get; set; } = null!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnDone { get; set; }
+
+    private string? _resultado, _error;
+    private bool _busy;
+
+    private async Task CompletarAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Session.Workspace!.Tareas.CompletarAsync(Tarea.Id, _resultado);
+            Session.NotifyLocalChange();
+            await OnDone.InvokeAsync();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

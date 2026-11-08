@@ -24,12 +24,12 @@ estaba.
 
 ## Datos propios del CRM
 
-Contactos, oportunidades, cotizaciones (con sus líneas), tareas y ajustes de ventas (IGV y condiciones por defecto).
+Contactos, oportunidades, cotizaciones (con sus líneas), tareas, interacciones, plantillas de mensajes y ajustes de ventas (IGV y condiciones por defecto).
 Se guardan en la base local y se replican a los demás equipos de la organización con dos eventos del catálogo del hub:
 
 | Evento | Contenido |
 |---|---|
-| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`, `lead`) |
+| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`, `lead`, `interaccion`, `plantilla`) |
 | `crm.record.deleted` | `{ kind, id, updatedAt }` |
 
 - Cada equipo aplica lo que llega solo si es **más nuevo** que lo que tiene (`actualizado_en`): el último cambio gana y
