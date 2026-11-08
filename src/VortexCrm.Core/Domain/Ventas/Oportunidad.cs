@@ -46,6 +46,19 @@ public sealed class Oportunidad
     /// <summary>Cuándo pasó a Ganado o Perdido; vuelve a <c>null</c> si se reabre.</summary>
     public DateTimeOffset? CerradoEn { get; internal set; }
 
+    /// <summary>
+    /// Productos que se están vendiendo (opcional). Con productos, el monto es su suma. Null: no se cargaron (se guardan
+    /// sin tocar los que ya tenía).
+    /// </summary>
+    public List<LineaOportunidad>? Lineas { get; set; }
+
+    /// <summary>Si tiene productos, el monto pasa a ser su suma.</summary>
+    public void RecalcularMonto()
+    {
+        if (Lineas is { Count: > 0 } lineas)
+            Monto = lineas.Sum(l => l.Total);
+    }
+
     public void CambiarEtapa(EtapaOportunidad nueva, DateTimeOffset ahora)
     {
         if (nueva == Etapa)
@@ -84,8 +97,24 @@ public sealed class Oportunidad
             errores.Add(T("error.el_monto_no_puede_ser"));
         }
 
+        if (Lineas is { } lineas && lineas.Any(l => string.IsNullOrWhiteSpace(l.Descripcion) || l.Cantidad <= 0 || l.PrecioUnitario < 0))
+        {
+            errores.Add(T("error.revisa_los_productos"));
+        }
+
         return errores;
     }
 
-    public Oportunidad Clonar() => (Oportunidad)MemberwiseClone();
+    public Oportunidad Clonar()
+    {
+        var copia = (Oportunidad)MemberwiseClone();
+        copia.Lineas = Lineas?.ToList();
+        return copia;
+    }
+}
+
+/// <summary>Producto de una oportunidad: artículo del catálogo (o texto libre), cantidad y precio unitario con IGV.</summary>
+public sealed record LineaOportunidad(Guid? ItemId, string Descripcion, decimal Cantidad, decimal PrecioUnitario)
+{
+    public decimal Total => Math.Round(Cantidad * PrecioUnitario, 2, MidpointRounding.AwayFromZero);
 }

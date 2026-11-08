@@ -40,10 +40,33 @@
                 </select>
             </div>
         }
+        <div class="field">
+            <label>@T("oportunidadmodal.productos_opcional")</label>
+            <ItemPicker OnSelected="AgregarProducto" Placeholder="@(T("oportunidadmodal.agrega_productos"))" />
+        </div>
+        @if (Valor.Lineas is { Count: > 0 } lineas)
+        {
+            <div class="opp-lines">
+                @for (var i = 0; i < lineas.Count; i++)
+                {
+                    var indice = i;
+                    var l = lineas[i];
+                    <div class="opp-line" @key="indice">
+                        <span class="t1">@l.Descripcion</span>
+                        <label class="opp-field"><span>@T("oportunidadmodal.cantidad")</span>
+                            <input class="control" type="number" min="0" step="any" value="@l.Cantidad" @onchange="e => CambiarLinea(indice, cantidad: e.Value)" /></label>
+                        <label class="opp-field"><span>@T("oportunidadmodal.precio")</span>
+                            <input class="control" type="number" min="0" step="0.01" value="@l.PrecioUnitario" @onchange="e => CambiarLinea(indice, precio: e.Value)" /></label>
+                        <strong class="amount">@Fmt.Amount(l.Total)</strong>
+                        <button class="btn btn-ghost icon-btn sm" @onclick="() => lineas.RemoveAt(indice)" aria-label="@(T("oportunidadmodal.quitar"))"><Icon Name="x" Size="16" /></button>
+                    </div>
+                }
+            </div>
+        }
         <div class="form-row three">
             <div class="field">
                 <label>@T("oportunidadmodal.monto_estimado", Fmt.Symbol(Fmt.Currency))</label>
-                <input class="control" type="number" min="0" step="0.01" @bind="Valor.Monto" />
+                <input class="control" type="number" min="0" step="0.01" disabled="@(Valor.Lineas is { Count: > 0 })" value="@MontoVisible" @onchange="e => Valor.Monto = decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var m) ? m : Valor.Monto" />
             </div>
             <div class="field">
                 <label>@T("oportunidadmodal.etapa")</label>
@@ -126,6 +149,32 @@
         _motivos = (await Crm.Clientes.ObtenerAjustesAsync()).Motivos;
         _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
         await CargarContactosAsync();
+        // La lista del pipeline no trae los productos: se cargan para no perderlos al guardar.
+        if (!Nueva && Valor.Lineas is null)
+            Valor.Lineas = (await Crm.Oportunidades.ObtenerAsync(Valor.Id))?.Lineas;
+    }
+
+    /// <summary>Con productos, el monto es su suma.</summary>
+    private decimal MontoVisible => Valor.Lineas is { Count: > 0 } l ? l.Sum(x => x.Total) : Valor.Monto;
+
+    private void AgregarProducto(ItemRow item)
+    {
+        Valor.Lineas ??= [];
+        var i = Valor.Lineas.FindIndex(l => l.ItemId == item.Id);
+        if (i >= 0)
+            Valor.Lineas[i] = Valor.Lineas[i] with { Cantidad = Valor.Lineas[i].Cantidad + 1 };
+        else
+            Valor.Lineas.Add(new LineaOportunidad(item.Id, item.Name, 1, item.Price));
+    }
+
+    private void CambiarLinea(int indice, object? cantidad = null, object? precio = null)
+    {
+        if (Valor.Lineas is not { } lineas || indice >= lineas.Count)
+            return;
+        static decimal? Leer(object? v) => decimal.TryParse(v?.ToString(), System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+        var l = lineas[indice];
+        lineas[indice] = l with { Cantidad = Leer(cantidad) ?? l.Cantidad, PrecioUnitario = Leer(precio) ?? l.PrecioUnitario };
     }
 
     private void ElegirEmbudo(ChangeEventArgs e)

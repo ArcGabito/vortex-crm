@@ -25,7 +25,7 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 
 | Evento | Contenido |
 |---|---|
-| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`) |
+| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`, `lead`) |
 | `crm.record.deleted` | `{ kind, id, updatedAt }` |
 
 - Cada equipo aplica lo que llega solo si es **más nuevo** que lo que tiene (`actualizado_en`): el último cambio gana y
@@ -40,6 +40,9 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 - La cotización usa el impuesto del país de la empresa (`TaxCatalog.For(country, defaultTaxRate)`): su nombre y tasa
   aparecen en pantalla, en el PDF y en WhatsApp. Tiene moneda propia (por defecto la de la empresa) y se redondea con
   sus decimales. `quote.accepted` y `order.created` viajan en esa moneda.
+- `deal.won` agrega `pipelineId` (el embudo) y `lines` (`itemId`, `description`, `quantity`, `unitPrice`) si la
+  oportunidad tiene productos. `crm.record.upserted` de una oportunidad trae `lineas`; sin ellas (`null`) los productos
+  no cambian.
 - `crm.record.upserted` agrega `moneda`, `responsableId` y `responsableNombre` en cotizaciones y oportunidades (los
   eventos anteriores, sin esos campos, se aplican igual).
 - Fase 2a: las oportunidades agregan `embudoId`, `etapaId` y `competidor`; los ajustes, `motivosPerdida`. Los registros

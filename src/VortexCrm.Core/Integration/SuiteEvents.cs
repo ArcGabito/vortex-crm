@@ -33,7 +33,11 @@ public sealed record OrderLine(Guid ItemId, decimal Quantity, decimal UnitPrice)
 public sealed record QuoteAccepted(
     Guid QuoteId, string? Number, Guid CustomerId, IReadOnlyList<OrderLine> Lines, decimal Total, string CurrencyCode);
 
-public sealed record DealWon(Guid DealId, Guid CustomerId, decimal Amount, string CurrencyCode, Guid? QuoteId);
+/// <summary><c>deal.won</c>. Extiende v1 con <c>pipelineId</c> y <c>lines</c> (los productos de la oportunidad, si los tiene).</summary>
+public sealed record DealWon(Guid DealId, Guid CustomerId, decimal Amount, string CurrencyCode, Guid? QuoteId, Guid? PipelineId = null,
+    IReadOnlyList<DealLine>? Lines = null);
+
+public sealed record DealLine(Guid? ItemId, string Description, decimal Quantity, decimal UnitPrice);
 
 /// <summary><c>order.created</c>. Extiende v1 con <c>quoteId</c>; los precios incluyen IGV como el precio de lista.</summary>
 public sealed record OrderCreated(
@@ -55,6 +59,7 @@ public static class CrmRecordKinds
     public const string Ajustes = "ajustes";
     public const string Embudo = "embudo";
     public const string Meta = "meta";
+    public const string Lead = "lead";
 }
 
 // ---------- Consumidos por el CRM ----------

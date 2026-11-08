@@ -33,8 +33,8 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 
 | # | Requisito | Estado | Fase |
 |---|---|---|---|
-| CRM-10 | Leads con origen, calificación y estado | Pendiente | 2 |
-| CRM-11 | Conversión de lead a cliente, contacto y oportunidad en un paso | Pendiente | 2 |
+| CRM-10 | Leads con origen, calificación y estado | Hecho | 2 |
+| CRM-11 | Conversión de lead a cliente, contacto y oportunidad en un paso | Hecho | 2 |
 | CRM-12 | Asignación automática de leads (por turno, territorio o carga) | Pendiente | 5 |
 | CRM-13 | Captura desde formularios web | Pendiente | 7 |
 
@@ -45,7 +45,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-20 | Pipeline con monto, cierre estimado y tasa de cierre | Hecho | — |
 | CRM-21 | Varios embudos con etapas, probabilidad y colores configurables | Hecho | 2 |
 | CRM-22 | Motivos de pérdida predefinidos y competidor | Hecho | 2 |
-| CRM-23 | Productos en la oportunidad (monto calculado) | Pendiente | 2 |
+| CRM-23 | Productos en la oportunidad (monto calculado) | Hecho | 2 |
 | CRM-24 | Pronóstico ponderado por mes y por vendedor | Hecho | 2 |
 | CRM-25 | Metas y cuotas por vendedor y equipo, con avance | Hecho | 2 |
 | CRM-26 | Alertas de oportunidades estancadas | Pendiente | 5 |
@@ -162,9 +162,12 @@ oportunidad; el pronóstico del mes coincide en dos equipos.
 
 **Estado (2026-11):** 2a hecha: embudos configurables (etapas con probabilidad, color y equivalencia al ciclo común,
 embudo por defecto y archivado), motivos de pérdida y competidor, metas por vendedor y equipo, pronóstico ponderado
-de los próximos meses y avance por vendedor, y sedes por usuario. Pruebas en `EmbudosTests`. **Pendiente (2b):** leads
-y conversión (CRM-10, CRM-11), productos en la oportunidad (CRM-23), responsable del cliente y duplicados (CRM-03,
-CRM-04).
+de los próximos meses y avance por vendedor, y sedes por usuario. Pruebas en `EmbudosTests`. 
+**Estado (2026-11), 2b:** hecha. Leads con origen, estado (nuevo, contactado, calificado, descartado con motivo,
+convertido) y responsable, replicados como `crm.record.upserted` (`lead`); la conversión crea en una transacción el
+cliente (o usa el que ya tiene su documento), el contacto y, si se pide, la oportunidad. Productos en la oportunidad: el
+monto es su suma y `deal.won` lleva `pipelineId` y `lines`. Pruebas en `LeadsTests`. **Pendiente (2c):** responsable del
+cliente y reasignación de cartera, duplicados (CRM-03, CRM-04), con el responsable comercial en `party` del hub.
 
 ## Fase 3: actividades y comunicación · M
 

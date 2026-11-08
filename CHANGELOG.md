@@ -8,6 +8,11 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Leads (fase 2b):** interesados con origen (web, referido, redes, evento, llamada), estado y responsable; se
+  califican, se descartan con motivo y se convierten en un paso en cliente (o se unen al que ya tiene su documento),
+  contacto y oportunidad. Pantalla Leads.
+- **Productos en la oportunidad:** artículos del catálogo con cantidad y precio; el monto es su suma y `deal.won` los
+  lleva (`lines`) junto con el embudo (`pipelineId`).
 - La anulación de un comprobante en el ERP (`invoice.voided`) queda en la actividad del cliente con su motivo y descuenta
   su monto de "Facturado".
 - **Celular (Android):** la app respeta las barras del sistema (estado y gestos) con íconos oscuros; el botón Atrás

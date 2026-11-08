@@ -1520,3 +1520,35 @@ table.data td { font-size: 13.5px; }
     .stat-value { flex-wrap: wrap; height: auto; }
     .stat-hint { white-space: normal; }
 }
+
+/* Casilla con su texto en una fila. */
+.check-row { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+
+/* Productos de la oportunidad: nombre, cantidad, precio, importe y quitar. */
+.opp-lines { display: flex; flex-direction: column; gap: 8px; }
+.opp-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 80px 100px 96px 34px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+}
+.opp-line .t1 { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opp-line .control { height: 36px; background: var(--surface); }
+.opp-line .amount { text-align: right; white-space: nowrap; }
+
+@media (max-width: 640px) {
+    .opp-line { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px; }
+    .opp-line .t1 { grid-column: 1 / -1; white-space: normal; }
+    .opp-line .amount { grid-column: 1 / 3; text-align: left; }
+}
+
+@media (max-width: 960px) {
+    .filters .field.full { width: 100%; }
+}
+.opp-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.opp-field > span { font-size: 11px; font-weight: 600; color: var(--text-3); }
+.opp-line { align-items: end; }
+.opp-line .t1, .opp-line .amount { align-self: center; }

@@ -1,0 +1,388 @@
+@page "/leads"
+@inherits CrmPage
+
+<SectionContent SectionName="page-title">@T("leads.leads")</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>@T("leads.leads")</h2>
+            <p>@T("leads.explica")</p>
+        </div>
+        @if (Session.Can(CrmPermissions.Sell))
+        {
+            <div><button class="btn btn-dark" @onclick="Nuevo"><Icon Name="plus" Size="18" />@T("leads.nuevo_lead")</button></div>
+        }
+    </div>
+
+    <div class="filters">
+        <div class="field search">
+            <label>@T("leads.buscar")</label>
+            <div class="input-icon">
+                <Icon Name="search" Size="16" />
+                <input class="control" placeholder="@(T("leads.nombre_empresa_documento"))" value="@_busqueda" @oninput="BuscarAsync" />
+            </div>
+        </div>
+        <div class="field full">
+            <label>@T("leads.estado")</label>
+            <div class="segmented">
+                @foreach (var (valor, texto) in Pestanas)
+                {
+                    <button class="@(_estado == valor ? "on" : "")" @onclick="() => FiltrarAsync(valor)">
+                        @texto@(valor != "" && _conteo.GetValueOrDefault(valor) is var n and > 0 ? $" ({n})" : "")
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (_leads.Count == 0 && !Loading)
+    {
+        <EmptyState Icon="target" Title="@(T("leads.no_hay_leads"))" Text="@(T("leads.no_hay_leads_explica"))" />
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>@T("leads.interesado")</th><th>@T("leads.origen")</th><th>@T("leads.contacto")</th><th>@T("leads.estado")</th><th>@T("leads.responsable")</th><th class="actions-col"></th></tr></thead>
+                <tbody>
+                    @foreach (var l in _leads)
+                    {
+                        var (texto, tono) = Estado(l);
+                        <tr @key="l.Id" style="cursor:pointer" @onclick="() => Editar(l)">
+                            <td>
+                                <div class="cell-main">
+                                    <Avatar Text="@l.Titulo" Size="34" />
+                                    <div class="two-line">
+                                        <span class="t1">@l.Titulo</span>
+                                        <span class="t2">@(l.Empresa is null ? l.Documento : l.Nombre)@(l.Empresa is not null && l.Documento is not null ? $" · {l.Documento}" : "")</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="muted">@Origen(l.Origen)</span></td>
+                            <td><span class="muted">@(l.Telefono ?? l.Email)</span></td>
+                            <td><StatusPill Text="@texto" Tone="@tono" /></td>
+                            <td><span class="muted">@l.ResponsableNombre</span></td>
+                            <td class="actions-col" @onclick:stopPropagation>
+                                @if (l.EstaAbierto && Session.Can(CrmPermissions.Sell))
+                                {
+                                    <KebabMenu>
+                                        @if (l.Estado == EstadosLead.Nuevo)
+                                        {
+                                            <button @onclick="() => CambiarAsync(l, EstadosLead.Contactado)"><Icon Name="phone" Size="18" />@T("leads.marcar_contactado")</button>
+                                        }
+                                        @if (l.Estado != EstadosLead.Calificado)
+                                        {
+                                            <button @onclick="() => CambiarAsync(l, EstadosLead.Calificado)"><Icon Name="check" Size="18" />@T("leads.calificar")</button>
+                                        }
+                                        <button @onclick="() => IniciarConversionAsync(l)"><Icon Name="arrows" Size="18" />@T("leads.convertir")</button>
+                                        <button class="danger" @onclick="() => IniciarDescarte(l)"><Icon Name="ban" Size="18" />@T("leads.descartar")</button>
+                                    </KebabMenu>
+                                }
+                                else if (l.Estado == EstadosLead.Descartado && Session.Can(CrmPermissions.Sell))
+                                {
+                                    <KebabMenu>
+                                        <button @onclick="() => CambiarAsync(l, EstadosLead.Nuevo)"><Icon Name="undo" Size="18" />@T("leads.reabrir")</button>
+                                    </KebabMenu>
+                                }
+                                else if (l.ClienteId is { } cliente)
+                                {
+                                    <a class="btn btn-ghost icon-btn sm" href="@($"clientes/{cliente}")" title="@(T("leads.ver_cliente"))"><Icon Name="briefcase" Size="16" /></a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (_editando is { } e)
+{
+    <Modal Title="@(_nuevo ? T("leads.nuevo_lead") : e.Titulo)" Subtitle="@(T("leads.se_comparte"))" Error="@_error" OnClose="() => _editando = null">
+        <ChildContent>
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("leads.nombre")</label>
+                    <input class="control" placeholder="@(T("leads.nombre_placeholder"))" @bind="e.Nombre" disabled="@(!Editable(e))" />
+                </div>
+                <div class="field">
+                    <label>@T("leads.empresa_opcional")</label>
+                    <input class="control" @bind="e.Empresa" disabled="@(!Editable(e))" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("leads.documento")</label>
+                    <div style="display:flex;gap:8px">
+                        <select class="select" style="max-width:96px" @bind="e.TipoDocumento" disabled="@(!Editable(e))">
+                            <option value="">—</option>
+                            <option value="RUC">RUC</option>
+                            <option value="DNI">DNI</option>
+                        </select>
+                        <input class="control" inputmode="numeric" @bind="e.Documento" @bind:after="BuscarDuplicadoAsync" disabled="@(!Editable(e))" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label>@T("leads.origen")</label>
+                    <select class="select" @bind="e.Origen" disabled="@(!Editable(e))">
+                        @foreach (var o in OrigenesLead.Todos)
+                        {
+                            <option value="@o">@Origen(o)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            @if (_duplicado is { } dup && Editable(e))
+            {
+                <div class="alert info"><Icon Name="briefcase" Size="18" /><span>@T("leads.ya_es_cliente", dup.Label)</span></div>
+            }
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("leads.celular")</label>
+                    <input class="control" type="tel" inputmode="tel" @bind="e.Telefono" disabled="@(!Editable(e))" />
+                </div>
+                <div class="field">
+                    <label>@T("leads.correo")</label>
+                    <input class="control" type="email" inputmode="email" @bind="e.Email" disabled="@(!Editable(e))" />
+                </div>
+            </div>
+            <div class="field">
+                <label>@T("leads.notas")</label>
+                <textarea class="control" rows="3" @bind="e.Notas" disabled="@(!Editable(e))"></textarea>
+            </div>
+            @if (e.Estado == EstadosLead.Descartado && e.MotivoDescarte is { } motivo)
+            {
+                <div class="alert warn"><Icon Name="ban" Size="18" /><span>@T("leads.descartado_por", motivo)</span></div>
+            }
+            @if (e.Estado == EstadosLead.Convertido)
+            {
+                <div class="alert info"><Icon Name="check" Size="18" /><span>@T("leads.convertido_el", Fmt.Date(e.ConvertidoEn ?? e.CreadoEn))</span></div>
+            }
+        </ChildContent>
+        <Footer>
+            @if (!_nuevo && Session.Can(CrmPermissions.Delete))
+            {
+                <button class="btn btn-danger" style="margin-right:auto" @onclick="() => EliminarAsync(e)"><Icon Name="trash" Size="16" />@T("leads.eliminar")</button>
+            }
+            <button class="btn" @onclick="() => _editando = null">@T("leads.cerrar")</button>
+            @if (Editable(e))
+            {
+                <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("leads.guardar")</button>
+            }
+        </Footer>
+    </Modal>
+}
+
+@if (_convirtiendo is { } c)
+{
+    <Modal Title="@(T("leads.convertir_lead"))" Subtitle="@c.Titulo" Error="@_error" OnClose="() => _convirtiendo = null">
+        <ChildContent>
+            <div class="alert info">
+                <Icon Name="briefcase" Size="18" />
+                <span>@(_duplicado is { } dup ? T("leads.se_usara_el_cliente", dup.Label) : T("leads.se_creara_el_cliente", c.Titulo))</span>
+            </div>
+            <label class="check-row">
+                <input type="checkbox" @bind="_crearOportunidad" />
+                <span>@T("leads.crear_oportunidad")</span>
+            </label>
+            @if (_crearOportunidad)
+            {
+                <div class="field">
+                    <label>@T("leads.titulo_oportunidad")</label>
+                    <input class="control" @bind="_titulo" />
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>@T("leads.monto_estimado", Fmt.Symbol(Fmt.Currency))</label>
+                        <input class="control" type="number" min="0" step="0.01" @bind="_monto" />
+                    </div>
+                    @if (_embudos.Count > 1)
+                    {
+                        <div class="field">
+                            <label>@T("leads.embudo")</label>
+                            <select class="select" @bind="_embudoId">
+                                @foreach (var em in _embudos)
+                                {
+                                    <option value="@em.Id">@em.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                </div>
+            }
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _convirtiendo = null">@T("leads.cancelar")</button>
+            <button class="btn btn-dark" disabled="@_busy" @onclick="ConvertirAsync"><Icon Name="arrows" Size="16" />@T("leads.convertir")</button>
+        </Footer>
+    </Modal>
+}
+
+@if (_descartando is { } d)
+{
+    <Modal Title="@(T("leads.descartar_lead"))" Subtitle="@d.Titulo" Size="sm" Error="@_error" OnClose="() => _descartando = null">
+        <ChildContent>
+            <div class="field">
+                <label>@T("leads.motivo")</label>
+                <input class="control" placeholder="@(T("leads.motivo_placeholder"))" @bind="_motivo" />
+            </div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _descartando = null">@T("leads.cancelar")</button>
+            <button class="btn btn-danger" disabled="@_busy" @onclick="DescartarAsync">@T("leads.descartar")</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private static readonly (string Valor, string Texto)[] Pestanas =
+    [
+        ("", T("leads.abiertos")), (EstadosLead.Nuevo, T("leads.estado.nuevo")), (EstadosLead.Contactado, T("leads.estado.contactado")),
+        (EstadosLead.Calificado, T("leads.estado.calificado")), (EstadosLead.Convertido, T("leads.estado.convertido")),
+        (EstadosLead.Descartado, T("leads.estado.descartado")),
+    ];
+
+    private IReadOnlyList<Lead> _leads = [];
+    private IReadOnlyDictionary<string, int> _conteo = new Dictionary<string, int>();
+    private string _busqueda = "", _estado = "";
+    private CancellationTokenSource? _debounce;
+
+    private Lead? _editando, _convirtiendo, _descartando;
+    private Option? _duplicado;
+    private IReadOnlyList<Embudo> _embudos = [];
+    private Guid? _embudoId;
+    private bool _nuevo, _busy, _crearOportunidad = true;
+    private string? _titulo, _motivo, _error;
+    private decimal _monto;
+
+    protected override async Task LoadAsync()
+    {
+        _conteo = await Crm.Leads.ContarAsync();
+        var lista = await Crm.Leads.ListarAsync(_busqueda, _estado == "" ? null : _estado);
+        // "Abiertos": nuevos, contactados y calificados.
+        _leads = _estado == "" ? lista.Where(l => l.EstaAbierto).ToList() : lista;
+    }
+
+    private static string Origen(string origen) => T($"lead.origen.{origen}");
+
+    private static (string, string) Estado(Lead l) => (T($"leads.estado.{l.Estado}"), l.Estado switch
+    {
+        EstadosLead.Nuevo => "accent",
+        EstadosLead.Contactado => "info",
+        EstadosLead.Calificado => "warn",
+        EstadosLead.Convertido => "good",
+        _ => "neutral",
+    });
+
+    private bool Editable(Lead l) => l.EstaAbierto && Session.Can(CrmPermissions.Sell);
+
+    private async Task BuscarAsync(ChangeEventArgs e)
+    {
+        _busqueda = e.Value?.ToString() ?? "";
+        _debounce?.Cancel();
+        _debounce = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(220, _debounce.Token);
+            await ReloadAsync();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task FiltrarAsync(string estado)
+    {
+        _estado = estado;
+        await ReloadAsync();
+    }
+
+    private void Nuevo()
+    {
+        (_nuevo, _error, _duplicado) = (true, null, null);
+        _editando = new Lead { CreadoEn = DateTimeOffset.UtcNow };
+    }
+
+    private async Task Editar(Lead l)
+    {
+        (_nuevo, _error) = (false, null);
+        _editando = l.Clonar();
+        _duplicado = await Crm.Leads.ClienteConDocumentoAsync(l.Documento);
+    }
+
+    private async Task BuscarDuplicadoAsync() => _duplicado = await Crm.Leads.ClienteConDocumentoAsync(_editando?.Documento);
+
+    private async Task GuardarAsync()
+    {
+        if (_editando is not { } lead)
+            return;
+        _busy = true;
+        _error = await TryAsync(() => Crm.Leads.GuardarAsync(lead), T("leads.lead_guardado"));
+        _busy = false;
+        if (_error is null)
+            _editando = null;
+    }
+
+    private Task CambiarAsync(Lead l, string estado) =>
+        RunAsync(() => Crm.Leads.CambiarEstadoAsync(l.Id, estado), T("leads.lead_actualizado"));
+
+    private async Task IniciarConversionAsync(Lead l)
+    {
+        _error = null;
+        _embudos = await Crm.Embudos.ListarAsync();
+        _embudoId = _embudos.FirstOrDefault(e => e.PorDefecto)?.Id ?? _embudos.FirstOrDefault()?.Id;
+        _duplicado = await Crm.Leads.ClienteConDocumentoAsync(l.Documento);
+        (_crearOportunidad, _titulo, _monto) = (true, l.Titulo, 0);
+        _convirtiendo = l;
+    }
+
+    private async Task ConvertirAsync()
+    {
+        if (_convirtiendo is not { } lead)
+            return;
+        _busy = true;
+        ResultadoConversion? r = null;
+        var embudo = _embudos.FirstOrDefault(e => e.Id == _embudoId);
+        _error = await TryAsync(async () => r = await Crm.Leads.ConvertirAsync(lead.Id, new ConversionLead(_crearOportunidad, _titulo, _monto,
+            embudo is { EsPredeterminado: false } ? embudo.Id : null)));
+        _busy = false;
+        if (_error is null && r is not null)
+        {
+            _convirtiendo = null;
+            Toasts.Success(r.ClienteNuevo ? T("leads.convertido_nuevo") : T("leads.convertido_existente"));
+            Nav.NavigateTo($"clientes/{r.ClienteId}");
+        }
+    }
+
+    private void IniciarDescarte(Lead l)
+    {
+        (_error, _motivo) = (null, null);
+        _descartando = l;
+    }
+
+    private async Task DescartarAsync()
+    {
+        if (_descartando is not { } lead)
+            return;
+        _busy = true;
+        _error = await TryAsync(() => Crm.Leads.CambiarEstadoAsync(lead.Id, EstadosLead.Descartado, _motivo), T("leads.lead_descartado"));
+        _busy = false;
+        if (_error is null)
+            _descartando = null;
+    }
+
+    private async Task EliminarAsync(Lead l)
+    {
+        _error = await TryAsync(() => Crm.Leads.EliminarAsync(l.Id), T("leads.lead_eliminado"));
+        if (_error is null)
+            _editando = null;
+    }
+
+    public override void Dispose()
+    {
+        _debounce?.Cancel();
+        base.Dispose();
+    }
+}

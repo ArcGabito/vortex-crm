@@ -160,5 +160,19 @@ internal static class Schema
             actualizado_en TEXT NOT NULL);
         CREATE INDEX ix_metas_mes ON metas (mes);
         """,
+        // 4: leads (interesados que aún no son clientes, con origen y conversión) y productos de la oportunidad. Ambos son
+        // registros del CRM: se replican con crm.record.upserted y gana el más nuevo.
+        """
+        CREATE TABLE leads (
+            id TEXT PRIMARY KEY, nombre TEXT NOT NULL, empresa TEXT, tipo_documento TEXT, documento TEXT, telefono TEXT, email TEXT,
+            origen TEXT NOT NULL, estado TEXT NOT NULL, notas TEXT, motivo_descarte TEXT, responsable_id TEXT, responsable_nombre TEXT,
+            cliente_id TEXT, contacto_id TEXT, oportunidad_id TEXT, creado_en TEXT NOT NULL, convertido_en TEXT,
+            actualizado_en TEXT NOT NULL);
+        CREATE INDEX ix_leads_estado ON leads (estado, creado_en);
+
+        CREATE TABLE oportunidad_lineas (
+            oportunidad_id TEXT NOT NULL, linea INTEGER NOT NULL, item_id TEXT, descripcion TEXT NOT NULL, cantidad REAL NOT NULL,
+            precio_unitario REAL NOT NULL, PRIMARY KEY (oportunidad_id, linea));
+        """,
     ];
 }
