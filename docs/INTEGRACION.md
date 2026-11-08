@@ -13,10 +13,14 @@ Este documento resume qué hace el CRM con cada dato y evento, y cómo trabajan 
 
 | Dato | En el CRM | Altas/cambios desde el CRM |
 |---|---|---|
-| Clientes (`party`) | Empresas y personas a las que se vende; su dirección va en la cotización | Alta |
+| Clientes (`party`) | Empresas y personas a las que se vende; su dirección va en la cotización. El responsable comercial va en el bloque `account` | Alta; responsable (`account`) y desactivar el duplicado al fusionar |
 | Artículos (`item`) | Productos y servicios para cotizar | Sí |
 | Sedes (`site`) | Sede que emite la cotización (su dirección va en el PDF) | Alta |
 | Empresa (`company`) | Nombre, RUC, dirección, teléfono y correo del encabezado del PDF; moneda | No |
+
+Al cambiar el responsable o desactivar un duplicado, el CRM devuelve al hub el cliente completo tal como lo recibió (para
+no borrar lo que no maneja) y sin el bloque `credit`, que es del ERP: en un PUT, el bloque que no se manda queda como
+estaba.
 
 ## Datos propios del CRM
 

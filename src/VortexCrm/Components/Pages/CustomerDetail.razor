@@ -13,6 +13,22 @@
                 <div>
                     <h2>@c.DisplayName</h2>
                     <p>@(c.DocumentNumber is null ? "" : $"{c.DocumentType} {c.DocumentNumber} · ")@(c.FullAddress ?? T("customerdetail.sin_direccion"))</p>
+                    <div class="owner-line">
+                        <Icon Name="user" Size="15" />
+                        <span>@T("customerdetail.responsable", c.OwnerName ?? T("customerdetail.sin_responsable"))</span>
+                        @if (Session.Can(CrmPermissions.AssignCustomers))
+                        {
+                            <button class="link-btn" @onclick="AbrirAsignar">@T("customerdetail.cambiar")</button>
+                        }
+                        else if (c.OwnerId is null && Session.Can(CrmPermissions.Sell))
+                        {
+                            <button class="link-btn" @onclick="() => AsignarAsync(Session.UserId, Session.UserName)">@T("customerdetail.tomar_cliente")</button>
+                        }
+                        else if (c.OwnerId is { } duenio && duenio == Session.UserId)
+                        {
+                            <button class="link-btn" @onclick="() => AsignarAsync(null, null)">@T("customerdetail.soltar")</button>
+                        }
+                    </div>
                 </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -187,6 +203,28 @@ else if (!Loading)
     <ContactoModal Valor="k2" Nuevo="_nuevo" OnClose="() => _contacto = null" OnSaved="CerradoAsync" />
 }
 
+@if (_asignar)
+{
+    <Modal Title="@(T("customerdetail.responsable_del_cliente"))" Subtitle="@_ficha?.Cliente.DisplayName" Size="sm" OnClose="() => _asignar = false">
+        <ChildContent>
+            <div class="field">
+                <label>@T("customerdetail.lo_atiende")</label>
+                <select class="select" @bind="_responsable">
+                    <option value="">@T("customerdetail.sin_responsable")</option>
+                    @foreach (var v in _vendedores)
+                    {
+                        <option value="@v.Id">@v.Nombre</option>
+                    }
+                </select>
+            </div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _asignar = false">@T("customerdetail.cancelar")</button>
+            <button class="btn btn-dark" @onclick="() => AsignarAsync(_responsable, _vendedores.FirstOrDefault(v => v.Id == _responsable)?.Nombre)">@T("customerdetail.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -194,7 +232,23 @@ else if (!Loading)
     private Oportunidad? _oportunidad;
     private Tarea? _tarea;
     private Contacto? _contacto;
-    private bool _nuevo;
+    private bool _nuevo, _asignar;
+    private IReadOnlyList<Vendedor> _vendedores = [];
+    private Guid? _responsable;
+
+    private async Task AbrirAsignar()
+    {
+        _vendedores = await Crm.Cartera.VendedoresAsync();
+        _responsable = _ficha?.Cliente.OwnerId;
+        _asignar = true;
+    }
+
+    private async Task AsignarAsync(Guid? id, string? nombre)
+    {
+        _asignar = false;
+        await RunAsync(() => Crm.Cartera.AsignarAsync(Id, id, nombre), T("customerdetail.responsable_guardado"));
+        await ReloadAsync();
+    }
 
     protected override async Task LoadAsync() => _ficha = await Crm.Clientes.FichaAsync(Id);
 

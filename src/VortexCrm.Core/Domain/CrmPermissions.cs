@@ -30,6 +30,12 @@ public static class CrmPermissions
 
     public const string ViewAudit = "audit.view";
 
+    /// <summary>Asignar el responsable de cualquier cliente y reasignar carteras (un vendedor solo toma clientes sin responsable).</summary>
+    public const string AssignCustomers = "customer.assign";
+
+    /// <summary>Fusionar clientes duplicados.</summary>
+    public const string MergeCustomers = "customer.merge";
+
     public const string Seller = "vendedor";
     public const string SalesManager = "gerente_ventas";
     public const string ReadOnly = "consulta";
@@ -37,12 +43,14 @@ public static class CrmPermissions
     public static readonly PermissionMatrix Matrix = PermissionMatrix.Create(Seller,
         (ReadOnly, []),
         (Seller, [Sell, CreateCustomer]),
-        (SalesManager, [Sell, CreateCustomer, EditAny, Delete, EditSettings, ViewAudit]));
+        (SalesManager, [Sell, CreateCustomer, EditAny, Delete, EditSettings, ViewAudit, AssignCustomers, MergeCustomers]));
 
     public static string Describe(string permission) => permission switch
     {
         Sell => T("permiso.sell"),
         EditAny => T("permiso.editany"),
+        AssignCustomers => T("permiso.assigncustomers"),
+        MergeCustomers => T("permiso.mergecustomers"),
         Delete => T("permiso.delete"),
         CreateCustomer => T("permiso.createcustomer"),
         EditCatalog => T("permiso.editcatalog"),

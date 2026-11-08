@@ -23,8 +23,8 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 |---|---|---|---|
 | CRM-01 | Empresas y personas del hub con contactos | Hecho | — |
 | CRM-02 | Ficha de 360° con la actividad de la suite (ventas, comprobantes, pagos, despachos) | Hecho | — |
-| CRM-03 | Responsable comercial del cliente y reasignación de cartera | Pendiente | 2 |
-| CRM-04 | Detección y fusión de duplicados | Pendiente | 2 |
+| CRM-03 | Responsable comercial del cliente y reasignación de cartera | Hecho | 2c |
+| CRM-04 | Detección y fusión de duplicados | Hecho | 2c |
 | CRM-05 | Segmentos y etiquetas, con listas guardadas | Pendiente | 5 |
 | CRM-06 | Campos personalizados en clientes, oportunidades y cotizaciones | Pendiente | 5 |
 | CRM-07 | Jerarquía de empresas (matriz y sucursales) | Pendiente | 5 |
@@ -166,8 +166,13 @@ de los próximos meses y avance por vendedor, y sedes por usuario. Pruebas en `E
 **Estado (2026-11), 2b:** hecha. Leads con origen, estado (nuevo, contactado, calificado, descartado con motivo,
 convertido) y responsable, replicados como `crm.record.upserted` (`lead`); la conversión crea en una transacción el
 cliente (o usa el que ya tiene su documento), el contacto y, si se pide, la oportunidad. Productos en la oportunidad: el
-monto es su suma y `deal.won` lleva `pipelineId` y `lines`. Pruebas en `LeadsTests`. **Pendiente (2c):** responsable del
-cliente y reasignación de cartera, duplicados (CRM-03, CRM-04), con el responsable comercial en `party` del hub.
+monto es su suma y `deal.won` lleva `pipelineId` y `lines`. Pruebas en `LeadsTests`.
+**Estado (2026-11), 2c:** hecha. Responsable del cliente en el `party` del hub (bloque `account`): un vendedor toma un
+cliente libre o suelta uno suyo; el gerente asigna a cualquiera y reasigna la cartera de un vendedor (clientes y sus
+oportunidades abiertas). Filtros "Mis clientes" y "Sin responsable". Duplicados por documento, nombre normalizado (sin
+tildes ni S.A.C.), correo o teléfono, sin juntar documentos distintos; fusionar pasa contactos, oportunidades,
+cotizaciones, tareas y leads al que se queda y desactiva el otro en el hub con una nota. Pruebas en `CarteraTests`.
+El segmento del cliente queda para la fase 5 (CRM-05).
 
 ## Fase 3: actividades y comunicación · M
 

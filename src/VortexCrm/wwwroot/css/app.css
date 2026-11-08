@@ -1556,3 +1556,14 @@ table.data td { font-size: 13.5px; }
 @media (max-width: 640px) {
     .topbar .spacer { display: none; }
 }
+
+/* ---------- Cartera: responsable y duplicados ---------- */
+
+.owner-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 13.5px; color: var(--text-2); }
+.dup-group { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.dup-group:last-child { border-bottom: 0; }
+.dup-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.dup-head .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dup-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; min-width: 0; }
+.dup-row .two-line { flex: 1; min-width: 0; }
+.dup-row input { accent-color: var(--accent); }
