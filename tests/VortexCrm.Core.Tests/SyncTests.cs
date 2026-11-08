@@ -142,4 +142,26 @@ public sealed class SyncTests : IAsyncLifetime
         Assert.Contains(actividad, x => x.Titulo == "Factura F001-000045" && x.Monto == 1180m);
         Assert.Contains(actividad, x => x.Detalle == "Olva · guía OLV-1");
     }
+
+    [Fact]
+    public async Task La_anulacion_de_un_comprobante_queda_en_la_historia_del_cliente()
+    {
+        var c = _a.Customer;
+        await _a.Crm.SyncHandlers.HandleInvoiceIssuedAsync(TestWorkspace.Event(SuiteEvents.InvoiceIssued,
+            new { invoiceId = Guid.NewGuid(), number = "F001-000045", customerId = c, total = 1180m, currencyCode = "PEN", kind = "factura" }, "ERP"));
+        var anulacion = TestWorkspace.Event(SuiteEvents.InvoiceVoided,
+            new { invoiceId = Guid.NewGuid(), number = "F001-000045", reason = "RUC equivocado", customerId = c }, "ERP");
+        await _a.Crm.SyncHandlers.HandleInvoiceVoidedAsync(anulacion);
+        await _a.Crm.SyncHandlers.HandleInvoiceVoidedAsync(anulacion);   // repetido: una sola vez
+        await _a.Crm.SyncHandlers.HandleInvoiceVoidedAsync(TestWorkspace.Event(SuiteEvents.InvoiceVoided,
+            new { invoiceId = Guid.NewGuid(), number = "B001-000001", reason = "Error" }, "ERP"));   // sin cliente: no aplica
+
+        var lista = (await _a.Crm.Clientes.FichaAsync(c))!.Actividad;
+        Assert.Equal(2, lista.Count);
+        Assert.Equal(0m, lista.Where(a => a.Tipo == "comprobante").Sum(a => a.Monto ?? 0));   // "Facturado" ya no lo cuenta
+        var actividad = lista.Single(a => a.Monto < 0);
+        Assert.Equal(-1180m, actividad.Monto);
+        Assert.Equal("Comprobante F001-000045 anulado", actividad.Titulo);
+        Assert.Equal("RUC equivocado", actividad.Detalle);
+    }
 }

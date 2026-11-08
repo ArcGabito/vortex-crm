@@ -44,6 +44,7 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
         .OnEvent(SuiteEvents.SaleCompleted, HandleSaleCompletedAsync)
         .OnEvent(SuiteEvents.InvoiceIssued, HandleInvoiceIssuedAsync)
         .OnEvent(SuiteEvents.PaymentReceived, HandlePaymentReceivedAsync)
+        .OnEvent(SuiteEvents.InvoiceVoided, HandleInvoiceVoidedAsync)
         .OnEvent(SuiteEvents.ShipmentDispatched, HandleShipmentDispatchedAsync);
 
     // ---------- Otros equipos del CRM ----------
@@ -103,6 +104,23 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
                 return "cobro sin cliente";
             await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Cobro, T("actividad.pago_recibido", p.Number).Trim(),
                 e.SubjectId is null ? null : $"Comprobante {e.SubjectId}", p.Amount, p.CurrencyCode, e.Source, e.OccurredAt);
+            return null;
+        }, ct);
+
+    /// <summary>Comprobante anulado en el ERP: queda en la historia del cliente con su motivo.</summary>
+    public Task HandleInvoiceVoidedAsync(VortexEvent e, CancellationToken ct = default) =>
+        ApplyOnceAsync<InvoiceVoided>(e, async (v, c, tx) =>
+        {
+            if (v.CustomerId is not { } cliente)
+                return "anulación sin cliente";
+            // Con el monto del comprobante en negativo, para que "Facturado" deje de contarlo.
+            var original = v.Number is null ? null : await c.FirstOrDefaultAsync("""
+                SELECT monto, moneda FROM actividad
+                WHERE cliente_id = $cliente AND tipo = $tipo AND monto > 0 AND titulo LIKE $like ORDER BY ocurrido_en DESC LIMIT 1
+                """, r => new { Monto = r.DecOrNull("monto"), Moneda = r.StrOrNull("moneda") }, tx,
+                ("$cliente", cliente), ("$tipo", TiposActividad.Comprobante), ("$like", "% " + v.Number));
+            await ServicioClientes.RegistrarActividadAsync(c, tx, e.Id, cliente, TiposActividad.Comprobante,
+                T("actividad.comprobante_anulado", v.Number ?? e.SubjectId).Trim(), v.Reason, -original?.Monto, original?.Moneda, e.Source, e.OccurredAt);
             return null;
         }, ct);
 

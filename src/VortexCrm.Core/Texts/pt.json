@@ -1,6 +1,7 @@
 {
   "actividad.boleta": "Cupom",
   "actividad.compra_en_caja": "Compra no caixa {0}",
+  "actividad.comprobante_anulado": "Documento {0} cancelado",
   "actividad.factura": "Fatura",
   "actividad.guia": "guia {0}",
   "actividad.pago_recibido": "Pagamento recebido {0}",

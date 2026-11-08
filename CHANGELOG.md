@@ -8,6 +8,8 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- La anulación de un comprobante en el ERP (`invoice.voided`) queda en la actividad del cliente con su motivo y descuenta
+  su monto de "Facturado".
 - **Celular (Android):** la app respeta las barras del sistema (estado y gestos) con íconos oscuros; el botón Atrás
   cierra el diálogo o el menú abiertos y vuelve a la página anterior en vez de cerrar la app; las tablas se ven como
   tarjetas y las pestañas que no caben se deslizan; en pantallas táctiles no se abre el teclado solo. El negro de la
@@ -63,3 +65,6 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
   administrador: los cuatro sistemas de la suite usan solamente el hub.
 - Consulta de RUC/DNI de prueba y catálogo de ubigeos del INEI.
 - Workflow de publicación para Windows anterior.
+
+### Fixed
+- Celular: los diálogos y los indicadores ya no se salen de la pantalla; el editor de líneas pasa a dos filas.

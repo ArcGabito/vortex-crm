@@ -1,6 +1,7 @@
 {
   "actividad.boleta": "Boleta",
   "actividad.compra_en_caja": "Compra en caja {0}",
+  "actividad.comprobante_anulado": "Comprobante {0} anulado",
   "actividad.factura": "Factura",
   "actividad.guia": "guía {0}",
   "actividad.pago_recibido": "Pago recibido {0}",

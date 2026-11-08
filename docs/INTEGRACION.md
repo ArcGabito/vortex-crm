@@ -74,6 +74,7 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 | `sale.completed` (POS) | Compra en caja en la actividad del cliente (si la venta tiene cliente) |
 | `invoice.issued` (ERP) | Comprobante en la actividad del cliente (y en "Facturado" de su ficha) |
 | `payment.received` (ERP) | Pago en la actividad del cliente (y en "Pagado") |
+| `invoice.voided` (ERP) | "Comprobante … anulado" con el motivo y el monto en negativo en la actividad del cliente: "Facturado" deja de contarlo (desde que el ERP envía `customerId`) |
 | `shipment.dispatched` (WMS) | Despacho con transportista y guía en la actividad del cliente |
 
 Cada evento se aplica una sola vez (`processed_events`); `schemaVersion` distinto de 1 o `data` ilegible se registran
