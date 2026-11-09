@@ -62,7 +62,9 @@ internal static class Registros
     public sealed record TareaDatos(
         Guid Id, string Titulo, string Tipo, DateOnly Fecha, TimeOnly? Hora, int? AvisarMinutosAntes, Guid? ClienteId,
         Guid? ContactoId, Guid? OportunidadId, Guid? ResponsableId, string? ResponsableNombre, string? Notas,
-        DateTimeOffset CreadoEn, DateTimeOffset? CompletadaEn);
+        DateTimeOffset CreadoEn, DateTimeOffset? CompletadaEn, string? Origen = null);
+
+    public sealed record DisparoDatos(Guid Id, Guid ReglaId, Guid RegistroId, DateTimeOffset CreadoEn);
 
     public sealed record AjustesDatos(string ModoIgv, string? Condiciones, IReadOnlyList<string>? MotivosPerdida = null,
         decimal? DescuentoMaximo = null);
@@ -183,13 +185,13 @@ internal static class Registros
                 var t = data.Deserialize<TareaDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
                     INSERT OR REPLACE INTO tareas (id, titulo, tipo, fecha, hora, avisar_minutos_antes, cliente_id, contacto_id, oportunidad_id,
-                                                   responsable_id, responsable_nombre, notas, creado_en, completada_en, actualizado_en)
+                                                   responsable_id, responsable_nombre, notas, creado_en, completada_en, actualizado_en, origen)
                     VALUES ($id, $titulo, $tipo, $fecha, $hora, $avisar, $cliente, $contacto, $oportunidad, $responsable, $responsableNombre,
-                            $notas, $creado, $completada, $actualizado)
+                            $notas, $creado, $completada, $actualizado, $origen)
                     """, tx, ("$id", t.Id), ("$titulo", t.Titulo), ("$tipo", t.Tipo), ("$fecha", Fecha(t.Fecha)), ("$hora", t.Hora?.ToString("HH:mm", CultureInfo.InvariantCulture)),
                     ("$avisar", t.AvisarMinutosAntes), ("$cliente", t.ClienteId), ("$contacto", t.ContactoId), ("$oportunidad", t.OportunidadId),
                     ("$responsable", t.ResponsableId), ("$responsableNombre", t.ResponsableNombre), ("$notas", t.Notas), ("$creado", t.CreadoEn),
-                    ("$completada", t.CompletadaEn), ("$actualizado", actualizado));
+                    ("$completada", t.CompletadaEn), ("$actualizado", actualizado), ("$origen", t.Origen));
                 return true;
 
             case CrmRecordKinds.Ajustes:
@@ -253,6 +255,20 @@ internal static class Registros
                     """, tx, ("$id", pc.Id), ("$nombre", pc.Nombre), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
                 return true;
 
+            case CrmRecordKinds.Regla or CrmRecordKinds.Secuencia or CrmRecordKinds.AsignacionLeads:
+                await c.ExecAsync($"INSERT OR REPLACE INTO {Tabla(kind)} (id, datos, actualizado_en) VALUES ($id, $datos, $actualizado)", tx,
+                    ("$id", data.GetProperty("id").GetGuid()), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
+                return true;
+
+            case CrmRecordKinds.Disparo:
+                var dp = data.Deserialize<DisparoDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO disparos (id, regla_id, registro_id, creado_en, actualizado_en)
+                    VALUES ($id, $regla, $registro, $creado, $actualizado)
+                    """, tx, ("$id", dp.Id), ("$regla", dp.ReglaId), ("$registro", dp.RegistroId), ("$creado", dp.CreadoEn),
+                    ("$actualizado", actualizado));
+                return true;
+
             case CrmRecordKinds.Plantilla:
                 var pl = data.Deserialize<PlantillaDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
@@ -294,6 +310,10 @@ internal static class Registros
         CrmRecordKinds.Interaccion => "interacciones",
         CrmRecordKinds.Plantilla => "plantillas",
         CrmRecordKinds.PlantillaCotizacion => "plantillas_cotizacion",
+        CrmRecordKinds.Regla => "reglas",
+        CrmRecordKinds.Secuencia => "secuencias",
+        CrmRecordKinds.AsignacionLeads => "configuracion",
+        CrmRecordKinds.Disparo => "disparos",
         _ => null,
     };
 
@@ -376,7 +396,7 @@ internal static class Registros
 
     public static TareaDatos Datos(Tarea t) =>
         new(t.Id, t.Titulo.Trim(), t.Tipo.ToString(), t.Fecha, t.Hora, t.AvisarMinutosAntes, t.ClienteId, t.ContactoId, t.OportunidadId,
-            t.ResponsableId, t.ResponsableNombre, Limpio(t.Notas), t.CreadoEn, t.CompletadaEn);
+            t.ResponsableId, t.ResponsableNombre, Limpio(t.Notas), t.CreadoEn, t.CompletadaEn, t.Origen);
 
     public static Contacto LeerContacto(SqliteDataReader r) => new()
     {
@@ -420,7 +440,7 @@ internal static class Registros
         AvisarMinutosAntes = r.IsDBNull(r.GetOrdinal("avisar_minutos_antes")) ? null : r.Int("avisar_minutos_antes"),
         ClienteId = r.GuidOrNull("cliente_id"), ContactoId = r.GuidOrNull("contacto_id"), OportunidadId = r.GuidOrNull("oportunidad_id"),
         ResponsableId = r.GuidOrNull("responsable_id"), ResponsableNombre = r.StrOrNull("responsable_nombre"), Notas = r.StrOrNull("notas"),
-        CreadoEn = r.Time("creado_en"), CompletadaEn = r.TimeOrNull("completada_en"),
+        CreadoEn = r.Time("creado_en"), CompletadaEn = r.TimeOrNull("completada_en"), Origen = r.StrOrNull("origen"),
     };
 
     public static string? Fecha(DateOnly? fecha) => fecha?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

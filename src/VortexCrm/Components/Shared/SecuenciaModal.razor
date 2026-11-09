@@ -1,0 +1,80 @@
+@inject AppSession Session
+@inject Toasts Toasts
+@using VortexCrm.Core.Domain.Automatizacion
+
+@* Inicia una secuencia de seguimiento sobre una oportunidad o un lead: crea sus tareas, cada una para su día. *@
+<Modal Title="@(T("secuenciamodal.iniciar_secuencia"))" Subtitle="@Nombre" Size="sm" Error="@_error" OnClose="OnClose">
+    <ChildContent>
+        @if (_secuencias.Count == 0)
+        {
+            <p class="muted" style="margin:0">@T("secuenciamodal.sin_secuencias")</p>
+        }
+        else
+        {
+            <div class="field">
+                <label>@T("secuenciamodal.secuencia")</label>
+                <select class="select" @bind="_elegida">
+                    @foreach (var s in _secuencias)
+                    {
+                        <option value="@s.Id">@s.Nombre (@s.Pasos.Count)</option>
+                    }
+                </select>
+            </div>
+            @if (_secuencias.FirstOrDefault(s => s.Id == _elegida) is { } sec)
+            {
+                <ol class="muted" style="font-size:13px;margin:0;padding-left:18px">
+                    @foreach (var paso in sec.Pasos)
+                    {
+                        <li>@T("automatizacion.dia_n", paso.Dia) · @paso.Tipo.Nombre() · @paso.Titulo</li>
+                    }
+                </ol>
+            }
+        }
+    </ChildContent>
+    <Footer>
+        <button class="btn" @onclick="OnClose">@T("secuenciamodal.cancelar")</button>
+        <button class="btn btn-dark" disabled="@(_busy || _secuencias.Count == 0)" @onclick="IniciarAsync"><Icon Name="play" Size="16" />@T("secuenciamodal.iniciar")</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public Guid? OportunidadId { get; set; }
+    [Parameter] public Guid? LeadId { get; set; }
+    [Parameter] public string? Nombre { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnStarted { get; set; }
+
+    private CrmWorkspace Crm => Session.Workspace!;
+    private IReadOnlyList<Secuencia> _secuencias = [];
+    private Guid _elegida;
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _secuencias = await Crm.Automatizacion.SecuenciasAsync();
+        _elegida = _secuencias.FirstOrDefault()?.Id ?? Guid.Empty;
+    }
+
+    private async Task IniciarAsync()
+    {
+        _busy = true;
+        var creadas = 0;
+        try
+        {
+            creadas = await Crm.Automatizacion.IniciarSecuenciaAsync(_elegida, OportunidadId, LeadId);
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        _busy = false;
+        if (_error is null)
+        {
+            Toasts.Success(T("secuenciamodal.iniciada", creadas));
+            Session.NotifyLocalChange();
+            await OnStarted.InvokeAsync();
+            await OnClose.InvokeAsync();
+        }
+    }
+}

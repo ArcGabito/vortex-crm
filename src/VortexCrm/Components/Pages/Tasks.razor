@@ -115,7 +115,7 @@
                 <input type="checkbox" checked="@t.Completada" @onchange="() => AlternarAsync(t)" aria-label="Hecha" />
                 <div class="stat-icon" style="width:32px;height:32px;border-radius:10px"><Icon Name="@Fmt.TaskIcon(t.Tipo)" Size="15" /></div>
                 <div class="two-line" style="cursor:pointer;flex:1" @onclick="() => Editar(t)">
-                    <span class="t1">@t.Titulo</span>
+                    <span class="t1">@t.Titulo@if (t.EsAutomatica) {<span class="auto-tag">@T("tasks.automatica")</span>}</span>
                     <span class="t2">@(string.Join(" · ", new[] { v.Cliente, v.Oportunidad, _soloMias ? null : t.ResponsableNombre }.Where(x => !string.IsNullOrWhiteSpace(x))))</span>
                 </div>
                 <span class="when @(t.EstaVencida(Fmt.Today) ? "warn-text" : "muted")">

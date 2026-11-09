@@ -45,7 +45,10 @@
                         <label>@T("settings.motivos_de_perdida")</label>
                         <textarea class="control" rows="5" placeholder="@(T("settings.un_motivo_por_linea"))" @bind="_motivos"></textarea>
                     </div>
-                    <a class="btn btn-sm" style="align-self:flex-start" href="embudos"><Icon Name="layers" Size="16" />@T("settings.embudos_de_venta")</a>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <a class="btn btn-sm" href="embudos"><Icon Name="layers" Size="16" />@T("settings.embudos_de_venta")</a>
+                        <a class="btn btn-sm" href="automatizacion"><Icon Name="play" Size="16" />@T("automatizacion.titulo")</a>
+                    </div>
                     @if (Recordatorios.Disponible)
                     {
                         <button class="btn btn-sm" style="align-self:flex-start" @onclick="PermisoAsync"><Icon Name="bell" Size="16" />@T("settings.permitir_avisos_de_tareas")</button>

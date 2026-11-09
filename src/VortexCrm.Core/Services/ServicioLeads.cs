@@ -65,6 +65,13 @@ public sealed class ServicioLeads(CrmDatabase db, ICrmContext context, TimeProvi
                 // El estado y lo de la conversión solo los cambia este servicio.
                 lead.CambiarEstado(anterior.Estado, anterior.MotivoDescarte);
             }
+            if (anterior is null)
+                lead.CreadoEn = now;
+            else
+                lead.CreadoEn = anterior.CreadoEn;
+            // Un lead nuevo sin responsable se reparte según la asignación automática (CRM-12); si no hay, queda para quien lo registra.
+            if (anterior is null && lead.ResponsableId is null && await ServicioAutomatizacion.ElegirVendedorAsync(c, tx) is { } vendedor)
+                (lead.ResponsableId, lead.ResponsableNombre) = (vendedor.Id, vendedor.Nombre);
             lead.ResponsableId ??= Context.UserId;
             lead.ResponsableNombre ??= Context.UserName;
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Lead, lead.Id, Registros.Datos(lead));

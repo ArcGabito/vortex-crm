@@ -1,0 +1,366 @@
+@page "/automatizacion"
+@inherits CrmPage
+@using VortexCrm.Core.Domain.Automatizacion
+
+<SectionContent SectionName="page-title">@T("automatizacion.titulo")</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>@T("automatizacion.titulo")</h2>
+            <p>@T("automatizacion.explica")</p>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@T("automatizacion.reglas")</h3>
+                        <div class="sub">@T("automatizacion.reglas_explica")</div>
+                    </div>
+                    @if (_puedeEditar)
+                    {
+                        <button class="btn btn-dark btn-sm" @onclick="NuevaRegla"><Icon Name="plus" Size="16" />@T("automatizacion.nueva_regla")</button>
+                    }
+                </div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:4px">
+                    @foreach (var r in _reglas)
+                    {
+                        <div class="list-row rule-row @(r.Activa ? "" : "off")" @key="r.Id">
+                            <div class="two-line" style="flex:1;min-width:0">
+                                <span class="t1">@r.Nombre</span>
+                                <span class="t2">@Describir(r)</span>
+                            </div>
+                            @if (!r.Activa)
+                            {
+                                <StatusPill Text="@(T("automatizacion.apagada"))" Tone="neutral" />
+                            }
+                            @if (_puedeEditar)
+                            {
+                                <KebabMenu>
+                                    <button @onclick="() => EditarRegla(r)"><Icon Name="edit" Size="18" />@T("automatizacion.editar")</button>
+                                    <button @onclick="() => AlternarAsync(r)"><Icon Name="@(r.Activa ? "ban" : "play")" Size="18" />@(r.Activa ? T("automatizacion.apagar") : T("automatizacion.encender"))</button>
+                                    <button class="danger" @onclick="() => EliminarReglaAsync(r)"><Icon Name="trash" Size="18" />@T("automatizacion.eliminar")</button>
+                                </KebabMenu>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@T("automatizacion.asignacion_leads")</h3>
+                        <div class="sub">@T("automatizacion.asignacion_explica")</div>
+                    </div>
+                    <button class="btn btn-dark btn-sm" disabled="@(_busy || !_puedeEditar)" @onclick="GuardarAsignacionAsync">@T("automatizacion.guardar")</button>
+                </div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+                    <div class="field">
+                        <label>@T("automatizacion.modo")</label>
+                        <select class="select" disabled="@(!_puedeEditar)" @bind="_modo">
+                            @foreach (var m in Enum.GetValues<ModoAsignacion>())
+                            {
+                                <option value="@m">@T("enum.asignacion." + m.ToString().ToLowerInvariant())</option>
+                            }
+                        </select>
+                    </div>
+                    @if (_modo != ModoAsignacion.Ninguna)
+                    {
+                        <div class="field">
+                            <label>@T("automatizacion.entre_quienes")</label>
+                            @foreach (var v in _vendedores)
+                            {
+                                <label class="check-row" @key="v.Id">
+                                    <input type="checkbox" disabled="@(!_puedeEditar)" checked="@_elegidos.Contains(v.Id)" @onchange="e => Elegir(v.Id, e.Value is true)" />
+                                    <span>@v.Nombre</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="align-self:start">
+            <div class="card-head">
+                <div>
+                    <h3>@T("automatizacion.secuencias")</h3>
+                    <div class="sub">@T("automatizacion.secuencias_explica")</div>
+                </div>
+                @if (_puedeEditar)
+                {
+                    <button class="btn btn-dark btn-sm" @onclick="NuevaSecuencia"><Icon Name="plus" Size="16" />@T("automatizacion.nueva_secuencia")</button>
+                }
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+                @if (_secuencias.Count == 0)
+                {
+                    <p class="muted" style="margin:0">@T("automatizacion.sin_secuencias")</p>
+                }
+                @foreach (var s in _secuencias)
+                {
+                    <div class="sequence" @key="s.Id">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <b style="flex:1">@s.Nombre</b>
+                            @if (_puedeEditar)
+                            {
+                                <button class="btn btn-sm btn-ghost" @onclick="() => EditarSecuencia(s)">@T("automatizacion.editar")</button>
+                                <button class="btn btn-ghost icon-btn sm" @onclick="() => EliminarSecuenciaAsync(s)" aria-label="@(T("automatizacion.eliminar"))"><Icon Name="trash" Size="16" /></button>
+                            }
+                        </div>
+                        <ol>
+                            @foreach (var p in s.Pasos)
+                            {
+                                <li><span class="muted">@T("automatizacion.dia_n", p.Dia)</span> · @p.Tipo.Nombre() · @p.Titulo</li>
+                            }
+                        </ol>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_regla is { } rg)
+{
+    <Modal Title="@(_reglaNueva ? T("automatizacion.nueva_regla") : rg.Nombre)" Subtitle="@(T("automatizacion.se_comparte"))" Error="@_error" OnClose="() => _regla = null">
+        <ChildContent>
+            <div class="field">
+                <label>@T("automatizacion.nombre")</label>
+                <input class="control" @bind="rg.Nombre" />
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("automatizacion.cuando")</label>
+                    <select class="select" @bind="rg.Disparador">
+                        @foreach (var d in Enum.GetValues<DisparadorRegla>())
+                        {
+                            <option value="@d">@Regla.NombreDisparador(d)</option>
+                        }
+                    </select>
+                </div>
+                <div class="field" style="max-width:140px">
+                    <label>@T("automatizacion.dias")</label>
+                    <input class="control" type="number" min="0" max="365" @bind="rg.Dias" />
+                </div>
+            </div>
+            <div class="field">
+                <label>@T("automatizacion.entonces")</label>
+                <select class="select" @bind="rg.Accion">
+                    <option value="@AccionRegla.CrearTarea">@T("enum.accion.creartarea")</option>
+                    <option value="@AccionRegla.IniciarSecuencia">@T("enum.accion.iniciarsecuencia")</option>
+                </select>
+            </div>
+            @if (rg.Accion == AccionRegla.CrearTarea)
+            {
+                <div class="field">
+                    <label>@T("automatizacion.titulo_tarea")</label>
+                    <input class="control" placeholder="@(T("automatizacion.titulo_tarea_ej"))" @bind="rg.TituloTarea" />
+                    <span class="hint">@T("automatizacion.registro_explica")</span>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>@T("automatizacion.tipo")</label>
+                        <select class="select" @bind="rg.TipoTarea">
+                            @foreach (var t in TiposTarea.Todos)
+                            {
+                                <option value="@t">@t.Nombre()</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field" style="max-width:180px">
+                        <label>@T("automatizacion.vence_en_dias")</label>
+                        <input class="control" type="number" min="0" max="365" @bind="rg.DiasParaVencer" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="field">
+                    <label>@T("automatizacion.secuencia")</label>
+                    <select class="select" @bind="rg.SecuenciaId">
+                        <option value="">@T("automatizacion.elige_secuencia")</option>
+                        @foreach (var s in _secuencias)
+                        {
+                            <option value="@s.Id">@s.Nombre</option>
+                        }
+                    </select>
+                </div>
+            }
+            <label class="check-row"><input type="checkbox" @bind="rg.Activa" /><span>@T("automatizacion.activa")</span></label>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _regla = null">@T("automatizacion.cancelar")</button>
+            <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarReglaAsync">@T("automatizacion.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
+@if (_secuencia is { } sq)
+{
+    <Modal Title="@(_secuenciaNueva ? T("automatizacion.nueva_secuencia") : sq.Nombre)" Subtitle="@(T("automatizacion.se_comparte"))" Size="lg" Error="@_error" OnClose="() => _secuencia = null">
+        <ChildContent>
+            <div class="field">
+                <label>@T("automatizacion.nombre")</label>
+                <input class="control" placeholder="@(T("automatizacion.secuencia_ej"))" @bind="sq.Nombre" />
+            </div>
+            <div class="lines">
+                @for (var i = 0; i < _pasos.Count; i++)
+                {
+                    var paso = _pasos[i];
+                    <div class="line sequence-step" @key="paso">
+                        <input class="control" type="number" min="0" max="365" @bind="paso.Dia" aria-label="@(T("automatizacion.dia"))" title="@(T("automatizacion.dia"))" />
+                        <select class="select" @bind="paso.Tipo" aria-label="@(T("automatizacion.tipo"))">
+                            @foreach (var t in TiposTarea.Todos)
+                            {
+                                <option value="@t">@t.Nombre()</option>
+                            }
+                        </select>
+                        <input class="control" placeholder="@(T("automatizacion.titulo_tarea"))" @bind="paso.Titulo" />
+                        <button class="btn btn-ghost icon-btn sm" @onclick="() => _pasos.Remove(paso)" aria-label="@(T("automatizacion.quitar"))"><Icon Name="x" Size="16" /></button>
+                    </div>
+                }
+            </div>
+            <button class="btn btn-sm" style="align-self:flex-start" @onclick="() => _pasos.Add(new PasoEditable { Dia = _pasos.Count == 0 ? 0 : _pasos.Max(x => x.Dia) + 2 })"><Icon Name="plus" Size="16" />@T("automatizacion.agregar_paso")</button>
+            <span class="hint">@T("automatizacion.registro_explica")</span>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _secuencia = null">@T("automatizacion.cancelar")</button>
+            <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarSecuenciaAsync">@T("automatizacion.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private IReadOnlyList<Regla> _reglas = [];
+    private IReadOnlyList<Secuencia> _secuencias = [];
+    private IReadOnlyList<Vendedor> _vendedores = [];
+    private HashSet<Guid> _elegidos = [];
+    private ModoAsignacion _modo;
+    private bool _asignacionCargada, _busy, _reglaNueva, _secuenciaNueva;
+    private Regla? _regla;
+    private Secuencia? _secuencia;
+    private List<PasoEditable> _pasos = [];
+    private string? _error;
+
+    private bool _puedeEditar => Session.Can(CrmPermissions.EditSettings);
+
+    private sealed class PasoEditable
+    {
+        public int Dia { get; set; }
+        public TipoTarea Tipo { get; set; } = TipoTarea.Llamada;
+        public string Titulo { get; set; } = "";
+    }
+
+    protected override async Task LoadAsync()
+    {
+        _reglas = await Crm.Automatizacion.ReglasAsync();
+        _secuencias = await Crm.Automatizacion.SecuenciasAsync();
+        var vendedores = (await Crm.Cartera.VendedoresAsync()).ToList();
+        if (!_asignacionCargada)
+        {
+            var asignacion = await Crm.Automatizacion.AsignacionAsync();
+            _modo = asignacion.Modo;
+            _elegidos = asignacion.Vendedores.Select(v => v.Id).ToHashSet();
+            // Un vendedor elegido que todavía no aparece como responsable de nada sigue en la lista.
+            vendedores.AddRange(asignacion.Vendedores.Where(v => vendedores.All(x => x.Id != v.Id)));
+            _asignacionCargada = true;
+        }
+        _vendedores = vendedores;
+    }
+
+    private string Describir(Regla r)
+    {
+        var cuando = $"{Regla.NombreDisparador(r.Disparador)} {Fmt.Count(r.Dias, T("count.dia"), T("count.dias"))}";
+        var entonces = r.Accion == AccionRegla.IniciarSecuencia
+            ? T("automatizacion.inicia", _secuencias.FirstOrDefault(s => s.Id == r.SecuenciaId)?.Nombre ?? "?")
+            : T("automatizacion.crea_tarea", r.Titulo("…"));
+        return $"{cuando} → {entonces}";
+    }
+
+    private void NuevaRegla() => (_regla, _reglaNueva, _error) = (new Regla { Nombre = "", TituloTarea = null }, true, null);
+
+    private void EditarRegla(Regla r) => (_regla, _reglaNueva, _error) = (new Regla
+    {
+        Id = r.Id, Nombre = r.Nombre, Disparador = r.Disparador, Dias = r.Dias, Accion = r.Accion, TituloTarea = r.TituloTarea,
+        TipoTarea = r.TipoTarea, DiasParaVencer = r.DiasParaVencer, SecuenciaId = r.SecuenciaId, Activa = r.Activa,
+    }, false, null);
+
+    private async Task GuardarReglaAsync()
+    {
+        _busy = true;
+        _error = await TryAsync(() => Crm.Automatizacion.GuardarReglaAsync(_regla!), T("automatizacion.regla_guardada"));
+        _busy = false;
+        if (_error is null)
+        {
+            _regla = null;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task AlternarAsync(Regla r)
+    {
+        EditarRegla(r);
+        _regla!.Activa = !r.Activa;
+        await RunAsync(() => Crm.Automatizacion.GuardarReglaAsync(_regla));
+        _regla = null;
+        await ReloadAsync();
+    }
+
+    private async Task EliminarReglaAsync(Regla r)
+    {
+        await RunAsync(() => Crm.Automatizacion.EliminarReglaAsync(r.Id), T("automatizacion.regla_eliminada"));
+        await ReloadAsync();
+    }
+
+    private void NuevaSecuencia()
+    {
+        (_secuencia, _secuenciaNueva, _error) = (new Secuencia(), true, null);
+        _pasos = [new PasoEditable { Dia = 0, Tipo = TipoTarea.Llamada }, new PasoEditable { Dia = 3, Tipo = TipoTarea.WhatsApp }];
+    }
+
+    private void EditarSecuencia(Secuencia s)
+    {
+        (_secuencia, _secuenciaNueva, _error) = (new Secuencia { Id = s.Id, Nombre = s.Nombre }, false, null);
+        _pasos = s.Pasos.Select(p => new PasoEditable { Dia = p.Dia, Tipo = p.Tipo, Titulo = p.Titulo }).ToList();
+    }
+
+    private async Task GuardarSecuenciaAsync()
+    {
+        _secuencia!.Pasos = _pasos.Select(p => new PasoSecuencia(p.Dia, p.Tipo, p.Titulo)).ToList();
+        _busy = true;
+        _error = await TryAsync(() => Crm.Automatizacion.GuardarSecuenciaAsync(_secuencia), T("automatizacion.secuencia_guardada"));
+        _busy = false;
+        if (_error is null)
+        {
+            _secuencia = null;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task EliminarSecuenciaAsync(Secuencia s)
+    {
+        await RunAsync(() => Crm.Automatizacion.EliminarSecuenciaAsync(s.Id), T("automatizacion.secuencia_eliminada"));
+        await ReloadAsync();
+    }
+
+    private void Elegir(Guid id, bool elegido)
+    {
+        if (elegido)
+            _elegidos.Add(id);
+        else
+            _elegidos.Remove(id);
+    }
+
+    private async Task GuardarAsignacionAsync()
+    {
+        _busy = true;
+        var vendedores = _vendedores.Where(v => _elegidos.Contains(v.Id)).ToList();
+        await RunAsync(() => Crm.Automatizacion.GuardarAsignacionAsync(new AsignacionLeads(_modo, vendedores)), T("automatizacion.asignacion_guardada"));
+        _busy = false;
+    }
+}
