@@ -45,7 +45,9 @@ internal static class Registros
         Guid Id, string? Numero, Guid? ClienteId, Guid? ContactoId, Guid? OportunidadId, Guid? SedeId, DateOnly FechaEmision,
         DateOnly ValidaHasta, string ModoIgv, string? Condiciones, string Estado, Guid? PedidoId, DateTimeOffset CreadoEn,
         IReadOnlyList<LineaDatos> Lineas, string Moneda = "PEN", Guid? ResponsableId = null, string? ResponsableNombre = null,
-        int Version = 1, Guid? VersionDe = null, string? AprobadaPor = null, DateTimeOffset? AprobadaEn = null, decimal? DescuentoAprobado = null);
+        int Version = 1, Guid? VersionDe = null, string? AprobadaPor = null, DateTimeOffset? AprobadaEn = null, decimal? DescuentoAprobado = null,
+        Guid? EnlaceId = null, string? EnlaceUrl = null, string? FirmadaPor = null, string? FirmadaCorreo = null, DateTimeOffset? FirmadaEn = null,
+        string? RespuestaCliente = null);
 
     /// <summary>Plantilla de cotización: se guarda entera (líneas incluidas) como JSON.</summary>
     public sealed record PlantillaCotizacionDatos(Guid Id, string Nombre, string? ModoIgv, string? Condiciones, int? DiasValidez,
@@ -150,17 +152,20 @@ internal static class Registros
                     INSERT OR REPLACE INTO cotizaciones (id, numero, cliente_id, contacto_id, oportunidad_id, sede_id, fecha_emision, valida_hasta,
                                                          modo_igv, condiciones, estado, pedido_id, creado_en, moneda, responsable_id,
                                                          responsable_nombre, actualizado_en, version, version_de, aprobada_por, aprobada_en,
-                                                         descuento_aprobado)
+                                                         descuento_aprobado, enlace_id, enlace_url, firmada_por, firmada_correo,
+                                                         firmada_en, respuesta_cliente)
                     VALUES ($id, $numero, $cliente, $contacto, $oportunidad, $sede, $emision, $valida, $modo, $condiciones, $estado, $pedido,
                             $creado, $moneda, $responsable, $responsableNombre, $actualizado, $version, $versionDe, $aprobadaPor, $aprobadaEn,
-                            $descuentoAprobado)
+                            $descuentoAprobado, $enlace, $enlaceUrl, $firmadaPor, $firmadaCorreo, $firmadaEn, $respuesta)
                     """, tx, ("$id", co.Id), ("$numero", co.Numero), ("$cliente", co.ClienteId), ("$contacto", co.ContactoId),
                     ("$oportunidad", co.OportunidadId), ("$sede", co.SedeId), ("$emision", Fecha(co.FechaEmision)), ("$valida", Fecha(co.ValidaHasta)),
                     ("$modo", co.ModoIgv), ("$condiciones", co.Condiciones), ("$estado", co.Estado), ("$pedido", co.PedidoId),
                     ("$creado", co.CreadoEn), ("$moneda", co.Moneda ?? "PEN"), ("$responsable", co.ResponsableId),
                     ("$responsableNombre", co.ResponsableNombre), ("$actualizado", actualizado), ("$version", co.Version < 1 ? 1 : co.Version),
                     ("$versionDe", co.VersionDe), ("$aprobadaPor", co.AprobadaPor), ("$aprobadaEn", co.AprobadaEn),
-                    ("$descuentoAprobado", co.DescuentoAprobado));
+                    ("$descuentoAprobado", co.DescuentoAprobado), ("$enlace", co.EnlaceId), ("$enlaceUrl", co.EnlaceUrl),
+                    ("$firmadaPor", co.FirmadaPor), ("$firmadaCorreo", co.FirmadaCorreo), ("$firmadaEn", co.FirmadaEn),
+                    ("$respuesta", co.RespuestaCliente));
                 await c.ExecAsync("DELETE FROM cotizacion_lineas WHERE cotizacion_id = $id", tx, ("$id", co.Id));
                 var n = 0;
                 foreach (var l in co.Lineas ?? [])
@@ -335,7 +340,8 @@ internal static class Registros
         new(c.Id, c.Numero, c.ClienteId, c.ContactoId, c.OportunidadId, c.SedeId, c.FechaEmision, c.ValidaHasta, c.ModoIgv.ToString(),
             Limpio(c.Condiciones), c.Estado.ToString(), c.PedidoId, c.CreadoEn,
             c.Lineas.Where(l => !l.EstaVacia).Select(DatosLinea).ToList(),
-            c.Moneda, c.ResponsableId, c.ResponsableNombre, c.Version, c.VersionDe, c.AprobadaPor, c.AprobadaEn, c.DescuentoAprobado);
+            c.Moneda, c.ResponsableId, c.ResponsableNombre, c.Version, c.VersionDe, c.AprobadaPor, c.AprobadaEn, c.DescuentoAprobado,
+            c.EnlaceId, c.EnlaceUrl, c.FirmadaPor, c.FirmadaCorreo, c.FirmadaEn, c.RespuestaCliente);
 
     public static LineaDatos DatosLinea(LineaCotizacion l) =>
         new(l.ItemId, l.Descripcion.Trim(), l.Unidad, l.Cantidad, l.PrecioUnitario, l.PrecioLista, l.Opcional);
@@ -397,6 +403,8 @@ internal static class Registros
         Moneda = r.Str("moneda"), ResponsableId = r.GuidOrNull("responsable_id"), ResponsableNombre = r.StrOrNull("responsable_nombre"),
         Version = r.Int("version"), VersionDe = r.GuidOrNull("version_de"), AprobadaPor = r.StrOrNull("aprobada_por"),
         AprobadaEn = r.TimeOrNull("aprobada_en"), DescuentoAprobado = r.DecOrNull("descuento_aprobado"),
+        EnlaceId = r.GuidOrNull("enlace_id"), EnlaceUrl = r.StrOrNull("enlace_url"), FirmadaPor = r.StrOrNull("firmada_por"),
+        FirmadaCorreo = r.StrOrNull("firmada_correo"), FirmadaEn = r.TimeOrNull("firmada_en"), RespuestaCliente = r.StrOrNull("respuesta_cliente"),
     };
 
     public static LineaCotizacion LeerLinea(SqliteDataReader r) => new()

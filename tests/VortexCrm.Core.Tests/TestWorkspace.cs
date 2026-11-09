@@ -86,6 +86,49 @@ public sealed class TestWorkspace(string deviceTag = "TEST", Guid? userId = null
         public IReadOnlyList<Guid> SiteIds { get; set; } = [];
         public string Role { get; set; } = role;
         public bool Can(string permission) => CrmPermissions.Matrix.Can(Role, "User", permission);
+
+        /// <summary>Hub de enlaces en memoria; null simula estar sin conexión.</summary>
+        public FakeEnlaces? Hub { get; set; } = new();
+        public IEnlacesPublicos? Enlaces => Hub;
+    }
+}
+
+/// <summary>Enlaces públicos del hub en memoria: uno por documento, misma URL al pedirlo otra vez.</summary>
+public sealed class FakeEnlaces : IEnlacesPublicos
+{
+    public Dictionary<Guid, (VortexPublicLink Link, VortexPublicLinkRequest Request)> PorDocumento { get; } = [];
+    public bool SinConexion { get; set; }
+
+    public Task<VortexPublicLink> CrearAsync(VortexPublicLinkRequest enlace, CancellationToken ct = default)
+    {
+        if (SinConexion)
+            throw new HttpRequestException("sin conexión");
+        var link = PorDocumento.TryGetValue(enlace.DocumentId, out var actual)
+            ? actual.Link with { ExpiresAt = enlace.ExpiresAt, Status = actual.Link.Status == VortexPublicLinkStatus.Revoked ? VortexPublicLinkStatus.Open : actual.Link.Status }
+            : new VortexPublicLink(Guid.NewGuid(), $"https://hub.test/p/{Guid.NewGuid():N}", enlace.DocumentType, enlace.DocumentId,
+                enlace.Document.Number, enlace.Language ?? "es", VortexPublicLinkStatus.Open, enlace.ExpiresAt, DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow, 0, null, null, null, null, null, null, null);
+        PorDocumento[enlace.DocumentId] = (link, enlace);
+        return Task.FromResult(link);
+    }
+
+    public Task<VortexPublicLink?> ObtenerAsync(Guid id, CancellationToken ct = default) =>
+        Task.FromResult(PorDocumento.Values.Select(v => v.Link).FirstOrDefault(l => l.Id == id));
+
+    public Task RetirarAsync(Guid id, CancellationToken ct = default)
+    {
+        var (doc, actual) = PorDocumento.First(p => p.Value.Link.Id == id);
+        PorDocumento[doc] = (actual.Link with { Status = VortexPublicLinkStatus.Revoked }, actual.Request);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>El evento que publicaría el hub cuando el cliente responde.</summary>
+    public VortexEvent Responder(Guid documentId, bool aceptar, string firmante = "Rosa Quispe", string? comentario = null)
+    {
+        var (link, _) = PorDocumento[documentId];
+        var data = new VortexPublicLinkResponded(link.Id, "CRM", "quote", documentId, link.DocumentNumber,
+            aceptar ? "accepted" : "rejected", DateTimeOffset.UtcNow, firmante, "rosa@bodega.pe", comentario);
+        return TestWorkspace.Event(aceptar ? VortexHubEvents.PublicLinkAccepted : VortexHubEvents.PublicLinkRejected, data, source: "HUB");
     }
 }
 

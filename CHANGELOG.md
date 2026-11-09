@@ -8,6 +8,10 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Aceptación en línea (fase 4b):** enlace público del hub para que el cliente revise la cotización y la acepte con su
+  firma o la rechace, sin usuario. Al aceptarla, la cotización queda Aceptada con el firmante, gana su oportunidad y el
+  pedido llega al ERP solo. El enlace va en el mensaje de WhatsApp y del correo; la pantalla muestra si el cliente lo
+  abrió y su firma.
 - **Cotizaciones empresariales (fase 4a):** precio de lista desde las listas de precios del hub (la del cliente o la de
   la sede, con escalas por cantidad) y descuento de cada línea contra ese precio. Descuento máximo del vendedor en los
   ajustes: la cotización que lo pasa no se envía sin la aprobación del gerente (filtro "Por aprobar"). Versiones de una

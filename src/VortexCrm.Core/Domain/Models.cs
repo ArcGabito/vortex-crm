@@ -25,6 +25,20 @@ public interface ICrmContext
 
     /// <summary>Si el usuario puede hacer la acción (<see cref="CrmPermissions"/>).</summary>
     bool Can(string permission);
+
+    /// <summary>Enlaces públicos del hub (para que el cliente acepte la cotización); null sin sesión con el hub.</summary>
+    IEnlacesPublicos? Enlaces => null;
+}
+
+/// <summary>
+/// Enlaces públicos firmados del hub (<c>api/public-links</c>): necesitan conexión. La app los implementa con el SDK;
+/// lanzan <see cref="VortexApi.Client.VortexApiException"/> o <see cref="HttpRequestException"/> si el hub no responde.
+/// </summary>
+public interface IEnlacesPublicos
+{
+    Task<VortexApi.Client.VortexPublicLink> CrearAsync(VortexApi.Client.VortexPublicLinkRequest enlace, CancellationToken ct = default);
+    Task<VortexApi.Client.VortexPublicLink?> ObtenerAsync(Guid id, CancellationToken ct = default);
+    Task RetirarAsync(Guid id, CancellationToken ct = default);
 }
 
 /// <summary>Dato inválido o regla de negocio incumplida: se muestra tal cual al usuario.</summary>
