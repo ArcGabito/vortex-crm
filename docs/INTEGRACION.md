@@ -13,10 +13,11 @@ Este documento resume qué hace el CRM con cada dato y evento, y cómo trabajan 
 
 | Dato | En el CRM | Altas/cambios desde el CRM |
 |---|---|---|
-| Clientes (`party`) | Empresas y personas a las que se vende; su dirección va en la cotización. El responsable comercial va en el bloque `account` | Alta; responsable (`account`) y desactivar el duplicado al fusionar |
+| Clientes (`party`) | Empresas y personas a las que se vende; su dirección va en la cotización. El responsable comercial va en el bloque `account`; la lista de precios del cliente, en `credit.priceListId` | Alta; responsable (`account`) y desactivar el duplicado al fusionar |
 | Artículos (`item`) | Productos y servicios para cotizar | Sí |
 | Sedes (`site`) | Sede que emite la cotización (su dirección va en el PDF) | Alta |
 | Empresa (`company`) | Nombre, RUC, dirección, teléfono y correo del encabezado del PDF; moneda | No |
+| Listas de precios (`price_list`) | Precio de lista de cada línea de la cotización (la del cliente o la de la sede, vigente y en la moneda de la cotización, con escalas por cantidad) | No (las mantiene el ERP) |
 
 Al cambiar el responsable o desactivar un duplicado, el CRM devuelve al hub el cliente completo tal como lo recibió (para
 no borrar lo que no maneja) y sin el bloque `credit`, que es del ERP: en un PUT, el bloque que no se manda queda como
@@ -29,7 +30,7 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 
 | Evento | Contenido |
 |---|---|
-| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`, `lead`, `interaccion`, `plantilla`) |
+| `crm.record.upserted` | `{ kind, id, updatedAt, data }`: la versión completa del registro (`contacto`, `oportunidad`, `cotizacion`, `tarea`, `ajustes`, `embudo`, `meta`, `lead`, `interaccion`, `plantilla`, `plantilla_cotizacion`) |
 | `crm.record.deleted` | `{ kind, id, updatedAt }` |
 
 - Cada equipo aplica lo que llega solo si es **más nuevo** que lo que tiene (`actualizado_en`): el último cambio gana y
@@ -53,6 +54,11 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
   nuevos `embudo` (`nombre`, `etapas` con `id`, `nombre`, `equivale`, `probabilidad` y `color`, `porDefecto`,
   `archivado`) y `meta` (`mes`, `responsableId`, `responsableNombre`, `monto`) siguen la misma regla: gana el más nuevo.
   Un equipo con una versión anterior del CRM ignora los tipos que no conoce.
+- Fase 4a: las cotizaciones agregan `version`, `versionDe` (Id de la primera versión), `aprobadaPor`, `aprobadaEn` y
+  `descuentoAprobado`, y el estado `Reemplazada`; sus líneas, `precioLista` y `opcional`. Los ajustes agregan
+  `descuentoMaximo`. Registro nuevo `plantilla_cotizacion` (`nombre`, `modoIgv`, `condiciones`, `diasValidez`, `lineas`).
+  `quote.accepted` y `order.created` llevan solo las líneas que no son opcionales; el pedido de una versión se numera
+  `PED-…-V2`.
 - Sedes por usuario: con sedes asignadas en el hub (`Access.SiteIds`), las cotizaciones solo salen de esas sedes.
 - Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
   todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos

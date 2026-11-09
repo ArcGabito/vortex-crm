@@ -38,12 +38,18 @@ internal static class Registros
         string Estado, string? Notas, string? MotivoDescarte, Guid? ResponsableId, string? ResponsableNombre, Guid? ClienteId,
         Guid? ContactoId, Guid? OportunidadId, DateTimeOffset CreadoEn, DateTimeOffset? ConvertidoEn);
 
-    public sealed record LineaDatos(Guid? ItemId, string Descripcion, string Unidad, decimal Cantidad, decimal PrecioUnitario);
+    public sealed record LineaDatos(Guid? ItemId, string Descripcion, string Unidad, decimal Cantidad, decimal PrecioUnitario,
+        decimal? PrecioLista = null, bool Opcional = false);
 
     public sealed record CotizacionDatos(
         Guid Id, string? Numero, Guid? ClienteId, Guid? ContactoId, Guid? OportunidadId, Guid? SedeId, DateOnly FechaEmision,
         DateOnly ValidaHasta, string ModoIgv, string? Condiciones, string Estado, Guid? PedidoId, DateTimeOffset CreadoEn,
-        IReadOnlyList<LineaDatos> Lineas, string Moneda = "PEN", Guid? ResponsableId = null, string? ResponsableNombre = null);
+        IReadOnlyList<LineaDatos> Lineas, string Moneda = "PEN", Guid? ResponsableId = null, string? ResponsableNombre = null,
+        int Version = 1, Guid? VersionDe = null, string? AprobadaPor = null, DateTimeOffset? AprobadaEn = null, decimal? DescuentoAprobado = null);
+
+    /// <summary>Plantilla de cotización: se guarda entera (líneas incluidas) como JSON.</summary>
+    public sealed record PlantillaCotizacionDatos(Guid Id, string Nombre, string? ModoIgv, string? Condiciones, int? DiasValidez,
+        IReadOnlyList<LineaDatos> Lineas);
 
     public sealed record InteraccionDatos(
         Guid Id, Guid? ClienteId, Guid? ContactoId, Guid? OportunidadId, Guid? TareaId, string Tipo, DateTimeOffset Fecha, string Resumen,
@@ -56,7 +62,8 @@ internal static class Registros
         Guid? ContactoId, Guid? OportunidadId, Guid? ResponsableId, string? ResponsableNombre, string? Notas,
         DateTimeOffset CreadoEn, DateTimeOffset? CompletadaEn);
 
-    public sealed record AjustesDatos(string ModoIgv, string? Condiciones, IReadOnlyList<string>? MotivosPerdida = null);
+    public sealed record AjustesDatos(string ModoIgv, string? Condiciones, IReadOnlyList<string>? MotivosPerdida = null,
+        decimal? DescuentoMaximo = null);
 
     public sealed record EtapaDatos(Guid Id, string Nombre, string Equivale, int Probabilidad, string? Color);
 
@@ -142,23 +149,28 @@ internal static class Registros
                 await c.ExecAsync("""
                     INSERT OR REPLACE INTO cotizaciones (id, numero, cliente_id, contacto_id, oportunidad_id, sede_id, fecha_emision, valida_hasta,
                                                          modo_igv, condiciones, estado, pedido_id, creado_en, moneda, responsable_id,
-                                                         responsable_nombre, actualizado_en)
+                                                         responsable_nombre, actualizado_en, version, version_de, aprobada_por, aprobada_en,
+                                                         descuento_aprobado)
                     VALUES ($id, $numero, $cliente, $contacto, $oportunidad, $sede, $emision, $valida, $modo, $condiciones, $estado, $pedido,
-                            $creado, $moneda, $responsable, $responsableNombre, $actualizado)
+                            $creado, $moneda, $responsable, $responsableNombre, $actualizado, $version, $versionDe, $aprobadaPor, $aprobadaEn,
+                            $descuentoAprobado)
                     """, tx, ("$id", co.Id), ("$numero", co.Numero), ("$cliente", co.ClienteId), ("$contacto", co.ContactoId),
                     ("$oportunidad", co.OportunidadId), ("$sede", co.SedeId), ("$emision", Fecha(co.FechaEmision)), ("$valida", Fecha(co.ValidaHasta)),
                     ("$modo", co.ModoIgv), ("$condiciones", co.Condiciones), ("$estado", co.Estado), ("$pedido", co.PedidoId),
                     ("$creado", co.CreadoEn), ("$moneda", co.Moneda ?? "PEN"), ("$responsable", co.ResponsableId),
-                    ("$responsableNombre", co.ResponsableNombre), ("$actualizado", actualizado));
+                    ("$responsableNombre", co.ResponsableNombre), ("$actualizado", actualizado), ("$version", co.Version < 1 ? 1 : co.Version),
+                    ("$versionDe", co.VersionDe), ("$aprobadaPor", co.AprobadaPor), ("$aprobadaEn", co.AprobadaEn),
+                    ("$descuentoAprobado", co.DescuentoAprobado));
                 await c.ExecAsync("DELETE FROM cotizacion_lineas WHERE cotizacion_id = $id", tx, ("$id", co.Id));
                 var n = 0;
                 foreach (var l in co.Lineas ?? [])
                 {
                     await c.ExecAsync("""
-                        INSERT INTO cotizacion_lineas (cotizacion_id, linea, item_id, descripcion, unidad, cantidad, precio_unitario)
-                        VALUES ($id, $n, $item, $descripcion, $unidad, $cantidad, $precio)
+                        INSERT INTO cotizacion_lineas (cotizacion_id, linea, item_id, descripcion, unidad, cantidad, precio_unitario,
+                                                       precio_lista, opcional)
+                        VALUES ($id, $n, $item, $descripcion, $unidad, $cantidad, $precio, $lista, $opcional)
                         """, tx, ("$id", co.Id), ("$n", ++n), ("$item", l.ItemId), ("$descripcion", l.Descripcion), ("$unidad", l.Unidad),
-                        ("$cantidad", l.Cantidad), ("$precio", l.PrecioUnitario));
+                        ("$cantidad", l.Cantidad), ("$precio", l.PrecioUnitario), ("$lista", l.PrecioLista), ("$opcional", l.Opcional));
                 }
                 return true;
 
@@ -178,9 +190,9 @@ internal static class Registros
             case CrmRecordKinds.Ajustes:
                 var a = data.Deserialize<AjustesDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
-                    INSERT OR REPLACE INTO ajustes (id, modo_igv, condiciones, motivos_perdida, actualizado_en)
-                    VALUES (1, $modo, $condiciones, $motivos, $actualizado)
-                    """, tx, ("$modo", a.ModoIgv), ("$condiciones", a.Condiciones),
+                    INSERT OR REPLACE INTO ajustes (id, modo_igv, condiciones, motivos_perdida, actualizado_en, descuento_maximo)
+                    VALUES (1, $modo, $condiciones, $motivos, $actualizado, $descuento)
+                    """, tx, ("$modo", a.ModoIgv), ("$condiciones", a.Condiciones), ("$descuento", a.DescuentoMaximo),
                     ("$motivos", a.MotivosPerdida is { Count: > 0 } m ? JsonSerializer.Serialize(m) : null), ("$actualizado", actualizado));
                 return true;
 
@@ -229,6 +241,13 @@ internal static class Registros
                     ("$responsable", it.ResponsableId), ("$nombre", it.ResponsableNombre), ("$creado", it.CreadoEn), ("$actualizado", actualizado));
                 return true;
 
+            case CrmRecordKinds.PlantillaCotizacion:
+                var pc = data.Deserialize<PlantillaCotizacionDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO plantillas_cotizacion (id, nombre, datos, actualizado_en) VALUES ($id, $nombre, $datos, $actualizado)
+                    """, tx, ("$id", pc.Id), ("$nombre", pc.Nombre), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
+                return true;
+
             case CrmRecordKinds.Plantilla:
                 var pl = data.Deserialize<PlantillaDatos>(VortexJson.Options)!;
                 await c.ExecAsync("""
@@ -269,6 +288,7 @@ internal static class Registros
         CrmRecordKinds.Lead => "leads",
         CrmRecordKinds.Interaccion => "interacciones",
         CrmRecordKinds.Plantilla => "plantillas",
+        CrmRecordKinds.PlantillaCotizacion => "plantillas_cotizacion",
         _ => null,
     };
 
@@ -314,8 +334,17 @@ internal static class Registros
     public static CotizacionDatos Datos(Cotizacion c) =>
         new(c.Id, c.Numero, c.ClienteId, c.ContactoId, c.OportunidadId, c.SedeId, c.FechaEmision, c.ValidaHasta, c.ModoIgv.ToString(),
             Limpio(c.Condiciones), c.Estado.ToString(), c.PedidoId, c.CreadoEn,
-            c.Lineas.Where(l => !l.EstaVacia).Select(l => new LineaDatos(l.ItemId, l.Descripcion.Trim(), l.Unidad, l.Cantidad, l.PrecioUnitario)).ToList(),
-            c.Moneda, c.ResponsableId, c.ResponsableNombre);
+            c.Lineas.Where(l => !l.EstaVacia).Select(DatosLinea).ToList(),
+            c.Moneda, c.ResponsableId, c.ResponsableNombre, c.Version, c.VersionDe, c.AprobadaPor, c.AprobadaEn, c.DescuentoAprobado);
+
+    public static LineaDatos DatosLinea(LineaCotizacion l) =>
+        new(l.ItemId, l.Descripcion.Trim(), l.Unidad, l.Cantidad, l.PrecioUnitario, l.PrecioLista, l.Opcional);
+
+    public static LineaCotizacion LeerLinea(LineaDatos l) => new()
+    {
+        ItemId = l.ItemId, Descripcion = l.Descripcion, Unidad = l.Unidad, Cantidad = l.Cantidad, PrecioUnitario = l.PrecioUnitario,
+        PrecioLista = l.PrecioLista, Opcional = l.Opcional,
+    };
 
     public static InteraccionDatos Datos(Interaccion i) =>
         new(i.Id, i.ClienteId, i.ContactoId, i.OportunidadId, i.TareaId, i.Tipo.ToString(), i.Fecha, i.Resumen.Trim(), Limpio(i.Resultado),
@@ -366,12 +395,14 @@ internal static class Registros
         ValidaHasta = FechaOrNull(r, "valida_hasta")!.Value, ModoIgv = Enum.Parse<ModoIgv>(r.Str("modo_igv")), Condiciones = r.StrOrNull("condiciones"),
         Estado = Enum.Parse<EstadoCotizacion>(r.Str("estado")), PedidoId = r.GuidOrNull("pedido_id"), CreadoEn = r.Time("creado_en"),
         Moneda = r.Str("moneda"), ResponsableId = r.GuidOrNull("responsable_id"), ResponsableNombre = r.StrOrNull("responsable_nombre"),
+        Version = r.Int("version"), VersionDe = r.GuidOrNull("version_de"), AprobadaPor = r.StrOrNull("aprobada_por"),
+        AprobadaEn = r.TimeOrNull("aprobada_en"), DescuentoAprobado = r.DecOrNull("descuento_aprobado"),
     };
 
     public static LineaCotizacion LeerLinea(SqliteDataReader r) => new()
     {
         ItemId = r.GuidOrNull("item_id"), Descripcion = r.Str("descripcion"), Unidad = r.Str("unidad"), Cantidad = r.Dec("cantidad"),
-        PrecioUnitario = r.Dec("precio_unitario"),
+        PrecioUnitario = r.Dec("precio_unitario"), PrecioLista = r.DecOrNull("precio_lista"), Opcional = r.Bool("opcional"),
     };
 
     public static Tarea LeerTarea(SqliteDataReader r) => new()

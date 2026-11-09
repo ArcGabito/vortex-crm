@@ -36,6 +36,9 @@ public static class CrmPermissions
     /// <summary>Fusionar clientes duplicados.</summary>
     public const string MergeCustomers = "customer.merge";
 
+    /// <summary>Aprobar cotizaciones con más descuento que el tope del vendedor (y enviarlas sin aprobación).</summary>
+    public const string ApproveDiscounts = "quote.approve_discount";
+
     public const string Seller = "vendedor";
     public const string SalesManager = "gerente_ventas";
     public const string ReadOnly = "consulta";
@@ -43,7 +46,7 @@ public static class CrmPermissions
     public static readonly PermissionMatrix Matrix = PermissionMatrix.Create(Seller,
         (ReadOnly, []),
         (Seller, [Sell, CreateCustomer]),
-        (SalesManager, [Sell, CreateCustomer, EditAny, Delete, EditSettings, ViewAudit, AssignCustomers, MergeCustomers]));
+        (SalesManager, [Sell, CreateCustomer, EditAny, Delete, EditSettings, ViewAudit, AssignCustomers, MergeCustomers, ApproveDiscounts]));
 
     public static string Describe(string permission) => permission switch
     {
@@ -56,6 +59,7 @@ public static class CrmPermissions
         EditCatalog => T("permiso.editcatalog"),
         EditSettings => T("permiso.editsettings"),
         ViewAudit => T("permiso.viewaudit"),
+        ApproveDiscounts => T("permiso.approvediscounts"),
         _ => permission,
     };
 }

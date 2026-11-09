@@ -62,6 +62,9 @@ public static class CrmRecordKinds
     public const string Lead = "lead";
     public const string Interaccion = "interaccion";
     public const string Plantilla = "plantilla";
+
+    /// <summary>Plantilla de cotización (líneas, condiciones, validez). Id: el de la plantilla.</summary>
+    public const string PlantillaCotizacion = "plantilla_cotizacion";
 }
 
 // ---------- Consumidos por el CRM ----------

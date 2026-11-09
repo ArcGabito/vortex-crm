@@ -67,9 +67,9 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
         await c.ExecAsync("""
             INSERT INTO parties (id, name, trade_name, kind, document_type, document_number, is_customer, is_supplier, email,
                                  phone, address_line, district, city, region, notes, is_active, version, is_deleted, pending, updated_at,
-                                 owner_id, owner_name, hub_data)
+                                 owner_id, owner_name, hub_data, price_list_id)
             VALUES ($id, $name, $trade, $kind, $doctype, $docnum, $customer, $supplier, $email, $phone, $line, $district, $city,
-                    $region, $notes, $active, $version, $deleted, 0, $updated, $owner, $ownerName, $hub)
+                    $region, $notes, $active, $version, $deleted, 0, $updated, $owner, $ownerName, $hub, $list)
             ON CONFLICT (id) DO UPDATE SET
                 name = excluded.name, trade_name = excluded.trade_name, kind = excluded.kind,
                 document_type = excluded.document_type, document_number = excluded.document_number,
@@ -77,7 +77,7 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
                 phone = excluded.phone, address_line = excluded.address_line, district = excluded.district, city = excluded.city,
                 region = excluded.region, notes = excluded.notes, is_active = excluded.is_active, version = excluded.version,
                 is_deleted = excluded.is_deleted, pending = 0, updated_at = excluded.updated_at, owner_id = excluded.owner_id,
-                owner_name = excluded.owner_name, hub_data = excluded.hub_data
+                owner_name = excluded.owner_name, hub_data = excluded.hub_data, price_list_id = excluded.price_list_id
             WHERE excluded.version > parties.version OR (excluded.version = parties.version AND parties.pending = 0)
             """, null, ("$id", change.EntityId), ("$name", d.Name), ("$trade", d.TradeName), ("$kind", d.Kind),
             ("$doctype", d.DocumentType), ("$docnum", d.DocumentNumber), ("$customer", d.IsCustomer),
@@ -85,7 +85,34 @@ public sealed partial class MasterDataService(CrmDatabase db, ICrmContext contex
             ("$district", d.Address?.District), ("$city", d.Address?.City), ("$region", d.Address?.Region), ("$notes", d.Notes),
             ("$active", d.IsActive), ("$version", change.Version), ("$deleted", Deleted(change.Operation, d.Meta)),
             ("$updated", d.Meta.UpdatedAt), ("$owner", d.Account?.OwnerUserId), ("$ownerName", d.Account?.OwnerName),
-            ("$hub", System.Text.Json.JsonSerializer.Serialize(d, VortexJson.Options)));
+            ("$hub", System.Text.Json.JsonSerializer.Serialize(d, VortexJson.Options)), ("$list", d.Credit?.PriceListId));
+    }
+
+    /// <summary>Copia de las listas de precios del hub (las crea el ERP): con ellas se pone el precio de lista a la cotización.</summary>
+    public async Task ApplyPriceListAsync(VortexMasterChange<VortexPriceList> change, CancellationToken ct = default)
+    {
+        var d = change.Data;
+        await using var c = await Db.OpenAsync(ct);
+        await using var tx = c.BeginTransaction();
+        var applied = await c.ExecAsync("""
+            INSERT INTO price_lists (id, code, name, currency_code, valid_from, valid_to, site_ids, is_active, is_deleted, version, updated_at)
+            VALUES ($id, $code, $name, $currency, $from, $to, $sites, $active, $deleted, $version, $updated)
+            ON CONFLICT (id) DO UPDATE SET code = excluded.code, name = excluded.name, currency_code = excluded.currency_code,
+                valid_from = excluded.valid_from, valid_to = excluded.valid_to, site_ids = excluded.site_ids,
+                is_active = excluded.is_active, is_deleted = excluded.is_deleted, version = excluded.version, updated_at = excluded.updated_at
+            WHERE excluded.version > price_lists.version
+            """, tx, ("$id", change.EntityId), ("$code", d.Code), ("$name", d.Name), ("$currency", d.CurrencyCode),
+            ("$from", d.ValidFrom?.ToString("yyyy-MM-dd")), ("$to", d.ValidTo?.ToString("yyyy-MM-dd")),
+            ("$sites", System.Text.Json.JsonSerializer.Serialize(d.SiteIds ?? [])), ("$active", d.IsActive),
+            ("$deleted", Deleted(change.Operation, d.Meta)), ("$version", change.Version), ("$updated", d.Meta.UpdatedAt));
+        if (applied > 0)
+        {
+            await c.ExecAsync("DELETE FROM price_list_lines WHERE list_id = $id", tx, ("$id", change.EntityId));
+            foreach (var line in (d.Lines ?? []).GroupBy(l => (l.ItemId, l.MinQuantity)).Select(g => g.Last()))
+                await c.ExecAsync("INSERT INTO price_list_lines (list_id, item_id, min_qty, price) VALUES ($id, $item, $min, $price)", tx,
+                    ("$id", change.EntityId), ("$item", line.ItemId), ("$min", line.MinQuantity), ("$price", line.Price));
+        }
+        await tx.CommitAsync(ct);
     }
 
     public async Task ApplyCompanyAsync(VortexMasterChange<VortexCompany> change, CancellationToken ct = default)

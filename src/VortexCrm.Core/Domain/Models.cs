@@ -43,22 +43,29 @@ public sealed record ItemRow(
     decimal? OnHand)
 {
     /// <summary>Línea de cotización con los datos del artículo copiados (no cambia si luego se edita el artículo).</summary>
-    public LineaCotizacion CrearLinea(Cotizacion cotizacion, decimal cantidad = 1) => new()
+    /// <remarks>Con lista de precios, el precio sale de la lista (con sus escalas por cantidad) y queda como precio de lista.</remarks>
+    public LineaCotizacion CrearLinea(Cotizacion cotizacion, decimal cantidad = 1, ListaPrecios? lista = null)
     {
-        ItemId = Id,
-        Descripcion = string.IsNullOrWhiteSpace(Description) ? Name : Description,
-        Unidad = Unit.ToUpperInvariant(),
-        Cantidad = cantidad,
-        PrecioUnitario = PrecioPara(cotizacion),
-    };
+        var precio = PrecioPara(cotizacion, lista?.PrecioDe(Id, cantidad));
+        return new()
+        {
+            ItemId = Id,
+            Descripcion = string.IsNullOrWhiteSpace(Description) ? Name : Description,
+            Unidad = Unit.ToUpperInvariant(),
+            Cantidad = cantidad,
+            PrecioUnitario = precio,
+            PrecioLista = precio,
+        };
+    }
 
     /// <summary>
     /// El precio de lista (con el impuesto del país incluido, salvo en EE. UU.) expresado como lo espera la cotización:
     /// "más impuesto" lo quita y "con impuesto" lo agrega si la lista no lo trae. Si el artículo no paga impuesto, el precio
     /// es el que es.
     /// </summary>
-    public decimal PrecioPara(Cotizacion cotizacion)
+    public decimal PrecioPara(Cotizacion cotizacion, decimal? precioDeLista = null)
     {
+        var Price = precioDeLista ?? this.Price;
         var regimen = cotizacion.Regimen;
         var tasa = regimen.RateOf(TaxCode);
         var decimales = VortexApi.Suite.Money.Currencies.Get(cotizacion.Moneda).Decimals;
@@ -117,10 +124,27 @@ public sealed record OportunidadVista(Oportunidad Oportunidad, string? Cliente, 
 
 public sealed record CotizacionVista(
     Guid Id, string Codigo, Guid? ClienteId, string? Cliente, EstadoCotizacion Estado, DateOnly FechaEmision, DateOnly ValidaHasta,
-    decimal Total, Guid? OportunidadId, Guid? PedidoId, DateTimeOffset CreadoEn, string Moneda = "PEN")
+    decimal Total, Guid? OportunidadId, Guid? PedidoId, DateTimeOffset CreadoEn, string Moneda = "PEN", bool PorAprobar = false)
 {
     public bool Vencida(DateOnly hoy) => Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada && ValidaHasta < hoy;
 }
+
+/// <summary>
+/// La lista de precios que rige para una cotización (la del cliente, si no la de la sede): precio por artículo con escalas
+/// por cantidad (rige la escala más alta que alcanza la cantidad). Sin lista, el precio es el del artículo.
+/// </summary>
+public sealed record ListaPrecios(Guid? Id, string? Nombre, IReadOnlyDictionary<Guid, IReadOnlyList<(decimal Min, decimal Precio)>> Precios)
+{
+    public static readonly ListaPrecios Ninguna = new(null, null, new Dictionary<Guid, IReadOnlyList<(decimal, decimal)>>());
+
+    public decimal? PrecioDe(Guid item, decimal cantidad) =>
+        Precios.TryGetValue(item, out var escalas) && escalas.LastOrDefault(e => e.Min <= Math.Max(cantidad, 1)) is { Min: > 0 } e
+            ? e.Precio
+            : null;
+}
+
+/// <summary>Plantilla de cotización (CRM-32): nombre y qué trae.</summary>
+public sealed record PlantillaCotizacionVista(Guid Id, string Nombre, IReadOnlyList<string> Productos);
 
 public sealed record TareaVista(Tarea Tarea, string? Cliente, string? Oportunidad);
 
@@ -141,7 +165,9 @@ public static class TiposActividad
 
 /// <summary>Ajustes de ventas de la organización (se replican entre equipos).</summary>
 /// <summary>Ajustes de ventas de la organización. <c>MotivosPerdida</c>: lista para elegir al marcar una oportunidad como perdida.</summary>
-public sealed record Ajustes(ModoIgv ModoIgvPredeterminado, string? CondicionesPredeterminadas, IReadOnlyList<string>? MotivosPerdida = null)
+/// <param name="DescuentoMaximo">Hasta cuánto descuento (sobre el precio de lista, en %) envía un vendedor sin aprobación; null: sin tope.</param>
+public sealed record Ajustes(ModoIgv ModoIgvPredeterminado, string? CondicionesPredeterminadas, IReadOnlyList<string>? MotivosPerdida = null,
+    decimal? DescuentoMaximo = null)
 {
     public IReadOnlyList<string> Motivos => MotivosPerdida is { Count: > 0 } m ? m : MotivosPredeterminados;
 

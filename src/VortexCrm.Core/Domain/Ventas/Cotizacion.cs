@@ -12,6 +12,9 @@ public enum EstadoCotizacion
     Enviada,
     Aceptada,
     Rechazada,
+
+    /// <summary>Hay una versión más nueva de esta cotización.</summary>
+    Reemplazada,
 }
 
 public static class EstadosCotizacion
@@ -36,6 +39,20 @@ public sealed class LineaCotizacion
     public decimal PrecioUnitario { get; set; }
 
     public decimal Importe => Math.Round(Cantidad * PrecioUnitario, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>
+    /// Precio de lista al cotizar (de la lista del cliente o de la sede, o el del artículo), en el modo de impuesto de la
+    /// cotización. Contra él se mide el descuento.
+    /// </summary>
+    public decimal? PrecioLista { get; set; }
+
+    /// <summary>Producto opcional: se ofrece aparte, no suma al total y no pasa al pedido.</summary>
+    public bool Opcional { get; set; }
+
+    /// <summary>Descuento sobre el precio de lista, en porcentaje (0 si no tiene precio de lista o no baja).</summary>
+    public decimal Descuento => PrecioLista is > 0 and var lista && PrecioUnitario < lista
+        ? Math.Round((lista - PrecioUnitario) / lista * 100, 2, MidpointRounding.AwayFromZero)
+        : 0;
 
     /// <summary>Una línea recién agregada que todavía no tiene nada escrito.</summary>
     public bool EstaVacia => string.IsNullOrWhiteSpace(Descripcion) && PrecioUnitario == 0 && ItemId is null;
@@ -74,12 +91,13 @@ public sealed class Cotizacion
 {
     public const int DiasDeValidezPredeterminados = 15;
 
-    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid Id { get; internal set; } = Guid.NewGuid();
 
     /// <summary>Número por equipo (<c>COT-3F0C-0012</c>), asignado al guardarla por primera vez.</summary>
     public string? Numero { get; internal set; }
 
-    public string Codigo => Numero ?? "Nueva";
+    /// <summary>Número con la versión (COT-…-000004 v2) desde la segunda.</summary>
+    public string Codigo => Numero is null ? "Nueva" : Version > 1 ? $"{Numero} v{Version}" : Numero;
 
     /// <summary>Cliente (empresa o persona del hub).</summary>
     public Guid? ClienteId { get; set; }
@@ -108,7 +126,7 @@ public sealed class Cotizacion
 
     public EstadoCotizacion Estado { get; internal set; } = EstadoCotizacion.Borrador;
 
-    public DateTimeOffset CreadoEn { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset CreadoEn { get; internal set; } = DateTimeOffset.UtcNow;
 
     /// <summary>Moneda de la cotización (ISO 4217); por defecto la de la empresa.</summary>
     public string Moneda { get; set; } = "PEN";
@@ -123,12 +141,33 @@ public sealed class Cotizacion
 
     public string NombreImpuesto => Regimen.TaxName;
 
+    /// <summary>Versión (1, 2, 3…): una nueva versión copia la anterior y la deja como Reemplazada.</summary>
+    public int Version { get; set; } = 1;
+
+    /// <summary>La primera versión (todas las versiones de una cotización apuntan a ella).</summary>
+    public Guid? VersionDe { get; set; }
+
+    /// <summary>Quién aprobó el descuento y hasta cuánto (si después se baja más el precio, hay que volver a aprobar).</summary>
+    public string? AprobadaPor { get; set; }
+    public DateTimeOffset? AprobadaEn { get; set; }
+    public decimal? DescuentoAprobado { get; set; }
+
+    /// <summary>El mayor descuento sobre el precio de lista entre las líneas que suman.</summary>
+    public decimal DescuentoMaximo => Lineas.Where(l => !l.Opcional).Select(l => l.Descuento).DefaultIfEmpty(0).Max();
+
+    /// <summary>Si con ese tope (null: sin tope) necesita la aprobación del gerente para enviarse.</summary>
+    public bool RequiereAprobacion(decimal? tope) => tope is { } t && DescuentoMaximo > t && (DescuentoAprobado ?? -1) < DescuentoMaximo;
+
     /// <summary>Vendedor responsable (usuario del hub): un vendedor solo edita las suyas.</summary>
     public Guid? ResponsableId { get; set; }
 
     public string? ResponsableNombre { get; set; }
 
-    public TotalesCotizacion Totales => TotalesCotizacion.Calcular(Lineas, ModoIgv, TasaImpuesto, Currencies.Get(Moneda).Decimals);
+    /// <summary>Totales de lo que se compra (las líneas opcionales no suman).</summary>
+    public TotalesCotizacion Totales => TotalesCotizacion.Calcular(Lineas.Where(l => !l.Opcional), ModoIgv, TasaImpuesto, Currencies.Get(Moneda).Decimals);
+
+    /// <summary>Lo que sumarían las opcionales si el cliente las toma.</summary>
+    public decimal TotalOpcionales => TotalesCotizacion.Calcular(Lineas.Where(l => l.Opcional), ModoIgv, TasaImpuesto, Currencies.Get(Moneda).Decimals).Total;
 
     /// <summary>Agrega la línea; si hay una línea vacía (como la que trae una cotización nueva), la reemplaza.</summary>
     public void AgregarLinea(LineaCotizacion linea)

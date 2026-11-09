@@ -18,15 +18,27 @@ public static class MensajeWhatsApp
         texto.AppendLine(T("whatsapp.te_envio", cotizacion.Codigo, negocio));
         texto.AppendLine();
 
-        foreach (var linea in cotizacion.Lineas.Take(MaximoLineas))
+        var lineas = cotizacion.Lineas.Where(l => !l.Opcional).ToList();
+        foreach (var linea in lineas.Take(MaximoLineas))
         {
             var cantidad = linea.Cantidad.ToString("0.##", FormatoPeru.Cultura);
             texto.AppendLine($"• {cantidad} × {linea.Descripcion}: {Dinero(cotizacion, linea.Importe)}");
         }
 
-        if (cotizacion.Lineas.Count > MaximoLineas)
+        if (lineas.Count > MaximoLineas)
         {
-            texto.AppendLine(T("whatsapp.y_mas", cotizacion.Lineas.Count - MaximoLineas));
+            texto.AppendLine(T("whatsapp.y_mas", lineas.Count - MaximoLineas));
+        }
+
+        var opcionales = cotizacion.Lineas.Where(l => l.Opcional).ToList();
+        if (opcionales.Count > 0)
+        {
+            texto.AppendLine(T("whatsapp.opcionales"));
+            foreach (var linea in opcionales.Take(MaximoLineas))
+            {
+                var cantidad = linea.Cantidad.ToString("0.##", FormatoPeru.Cultura);
+                texto.AppendLine($"◦ {cantidad} × {linea.Descripcion}: {Dinero(cotizacion, linea.Importe)}");
+            }
         }
 
         texto.AppendLine();

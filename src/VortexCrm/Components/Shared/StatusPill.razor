@@ -17,6 +17,7 @@
 
     public static (string Text, string Tone) ForCotizacion(CotizacionVista q, DateOnly hoy) =>
         q.PedidoId is not null ? (T("statuspill.con_pedido"), "good")
+        : q.PorAprobar ? (T("statuspill.por_aprobar"), "warn")
         : q.Vencida(hoy) ? (T("statuspill.vencida"), "bad")
         : ForEstado(q.Estado);
 
@@ -25,6 +26,7 @@
         EstadoCotizacion.Borrador => (Fmt.QuoteStatus(EstadoCotizacion.Borrador), "neutral"),
         EstadoCotizacion.Enviada => (Fmt.QuoteStatus(EstadoCotizacion.Enviada), "info"),
         EstadoCotizacion.Aceptada => (Fmt.QuoteStatus(EstadoCotizacion.Aceptada), "good"),
+        EstadoCotizacion.Reemplazada => (Fmt.QuoteStatus(EstadoCotizacion.Reemplazada), "neutral"),
         _ => (Fmt.QuoteStatus(EstadoCotizacion.Rechazada), "bad"),
     };
 }

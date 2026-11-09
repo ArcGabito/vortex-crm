@@ -56,12 +56,12 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 |---|---|---|---|
 | CRM-30 | Cotización con impuestos del país, moneda propia, PDF y WhatsApp | Hecho | 1 |
 | CRM-31 | Aceptación que genera el pedido en el ERP | Hecho | — |
-| CRM-32 | Plantillas de cotización y textos predefinidos | Pendiente | 4 |
-| CRM-33 | Listas de precios por cliente compartidas con el ERP y el POS | Pendiente | 4 |
-| CRM-34 | Descuento máximo por rol y aprobación del gerente | Pendiente | 4 |
-| CRM-35 | Versiones de una cotización | Pendiente | 4 |
-| CRM-36 | Aceptación en línea con firma (enlace público del hub) | Pendiente | 4 |
-| CRM-37 | Productos opcionales y validez de la oferta | Pendiente | 4 |
+| CRM-32 | Plantillas de cotización y textos predefinidos | Hecho | 4a |
+| CRM-33 | Listas de precios por cliente compartidas con el ERP y el POS | Hecho | 4a |
+| CRM-34 | Descuento máximo por rol y aprobación del gerente | Hecho | 4a |
+| CRM-35 | Versiones de una cotización | Hecho | 4a |
+| CRM-36 | Aceptación en línea con firma (enlace público del hub) | Pendiente | 4b |
+| CRM-37 | Productos opcionales y validez de la oferta | Hecho | 4a |
 
 ### Actividades y comunicación
 
@@ -198,6 +198,19 @@ abierta (también minimizada); macOS e iOS quedan para cuando haya esas platafor
   firma en línea, productos opcionales y validez.
 
 **Hub:** listas de precios (las mismas del ERP y el POS); enlace público firmado para aceptar cotizaciones.
+
+**Estado (2026-11):** 4a hecha. El precio de cada línea sale de la lista de precios del hub (`price_list`) que rige: la
+del cliente (`credit.priceListId`) o, si no tiene, la de la sede, vigente hoy y en la moneda de la cotización, con sus
+escalas por cantidad; sin lista, el del artículo. El precio de lista queda en la línea y contra él se mide el descuento;
+al cambiar cliente, cantidad, moneda, impuesto o sede se vuelve a calcular (lo puesto a mano se conserva). El gerente fija
+en los ajustes el descuento máximo del vendedor: una cotización que lo pasa se guarda, pero no se envía (ni por WhatsApp
+o correo) hasta que un gerente apruebe ese descuento; si después se baja más, hay que volver a aprobar. Filtro "Por
+aprobar" para el gerente. Versiones: desde una cotización enviada o rechazada se crea la v2, v3… con el mismo número, y la
+anterior queda Reemplazada (el pedido de una versión lleva `-V2`). Líneas opcionales: se muestran aparte en la pantalla,
+el PDF y WhatsApp, no suman al total ni pasan al pedido. Plantillas de cotización compartidas por el equipo (líneas,
+condiciones, impuesto y validez) que se llenan con el precio de lista de hoy. Pruebas en
+`CotizacionesEmpresarialesTests` y `SyncTests`. Queda para 4b: aceptación en línea con firma (CRM-36), que necesita el
+enlace público del hub.
 
 **Terminado cuando:** una cotización con un descuento mayor al permitido no se puede enviar sin la aprobación del
 gerente; el cliente la acepta desde el enlace y el pedido llega al ERP.

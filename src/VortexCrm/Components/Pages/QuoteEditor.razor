@@ -36,6 +36,24 @@
             </div>
         </div>
 
+        @if (editable && q.RequiereAprobacion(_ajustes.DescuentoMaximo))
+        {
+            <div class="alert warn">
+                <Icon Name="alert" Size="18" />
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                    <span>@T("quoteeditor.necesita_aprobacion", Pct(q.DescuentoMaximo), Pct(_ajustes.DescuentoMaximo ?? 0))</span>
+                    @if (Session.Can(CrmPermissions.ApproveDiscounts))
+                    {
+                        <button class="btn btn-dark btn-sm" style="align-self:flex-start" disabled="@_busy" @onclick="AprobarAsync"><Icon Name="check" Size="16" />@T("quoteeditor.aprobar_descuento")</button>
+                    }
+                </div>
+            </div>
+        }
+        else if (q.AprobadaPor is { } aprobo && q.DescuentoAprobado > 0)
+        {
+            <p class="muted" style="font-size:13px;margin:0">@T("quoteeditor.descuento_aprobado_por", Pct(q.DescuentoAprobado ?? 0), aprobo)</p>
+        }
+
         @if (_error is not null)
         {
             <div class="alert error"><Icon Name="alert" Size="18" /><span>@_error</span></div>
@@ -48,24 +66,58 @@
                     @if (editable)
                     {
                         <ItemPicker Placeholder="@(T("quoteeditor.agrega_del_catalogo_por_nombre"))" OnSelected="AgregarArticulo" />
+                        <div class="quote-tools">
+                            @if (_plantillas.Count > 0)
+                            {
+                                <select class="select" value="" @onchange="UsarPlantillaAsync" aria-label="@(T("quoteeditor.usar_plantilla"))">
+                                    <option value="">@T("quoteeditor.usar_plantilla")</option>
+                                    @foreach (var p in _plantillas)
+                                    {
+                                        <option value="@p.Id">@p.Nombre (@p.Productos.Count)</option>
+                                    }
+                                </select>
+                            }
+                            <button class="btn btn-sm btn-ghost" disabled="@(q.Lineas.All(l => l.EstaVacia))" @onclick="AbrirPlantilla"><Icon Name="copy" Size="16" />@T("quoteeditor.guardar_como_plantilla")</button>
+                        </div>
+                        @if (_lista.Nombre is { } nombreLista)
+                        {
+                            <span class="hint">@T("quoteeditor.precios_de_la_lista", nombreLista)</span>
+                        }
                     }
                     <div class="quote-lines">
                         <div class="quote-line head"><span>@T("quoteeditor.descripcion")</span><span>@T("quoteeditor.cantidad")</span><span>@T("quoteeditor.unidad")</span><span>@T("quoteeditor.unitario")</span><span style="text-align:right">@T("quoteeditor.importe")</span><span></span></div>
                         @foreach (var linea in q.Lineas)
                         {
-                            <div class="quote-line" @key="linea">
-                                <input class="control" placeholder="@(T("quoteeditor.descripcion"))" disabled="@(!editable)" @bind="linea.Descripcion" />
-                                <input class="control" type="number" min="0" step="any" disabled="@(!editable)" @bind="linea.Cantidad" @bind:event="oninput" />
-                                <input class="control" disabled="@(!editable)" @bind="linea.Unidad" />
-                                <input class="control" type="number" min="0" step="0.01" disabled="@(!editable)" @bind="linea.PrecioUnitario" @bind:event="oninput" />
-                                <span class="amount">@Fmt.Money(linea.Importe, q.Moneda)</span>
-                                @if (editable)
+                            <div class="quote-item @(linea.Opcional ? "optional" : "")" @key="linea">
+                                <div class="quote-line">
+                                    <input class="control" placeholder="@(T("quoteeditor.descripcion"))" disabled="@(!editable)" @bind="linea.Descripcion" />
+                                    <input class="control" type="number" min="0" step="any" disabled="@(!editable)" @bind="linea.Cantidad" @bind:event="onchange" @bind:after="RepreciarAsync" aria-label="@(T("quoteeditor.cantidad"))" />
+                                    <input class="control" disabled="@(!editable)" @bind="linea.Unidad" aria-label="@(T("quoteeditor.unidad"))" />
+                                    <input class="control" type="number" min="0" step="0.01" disabled="@(!editable)" @bind="linea.PrecioUnitario" @bind:event="oninput" aria-label="@(T("quoteeditor.unitario"))" />
+                                    <span class="amount">@Fmt.Money(linea.Importe, q.Moneda)</span>
+                                    @if (editable)
+                                    {
+                                        <button class="btn btn-ghost icon-btn sm" @onclick="() => q.Lineas.Remove(linea)" aria-label="@(T("quoteeditor.quitar"))"><Icon Name="x" Size="16" /></button>
+                                    }
+                                    else
+                                    {
+                                        <span></span>
+                                    }
+                                </div>
+                                @if (!linea.EstaVacia)
                                 {
-                                    <button class="btn btn-ghost icon-btn sm" @onclick="() => q.Lineas.Remove(linea)" aria-label="@(T("quoteeditor.quitar"))"><Icon Name="x" Size="16" /></button>
-                                }
-                                else
-                                {
-                                    <span></span>
+                                    <div class="quote-line-meta">
+                                        @if (linea.PrecioLista is { } lista && lista != linea.PrecioUnitario)
+                                        {
+                                            <span class="@(linea.Descuento > (_ajustes.DescuentoMaximo ?? 100) ? "warn-text" : "")">
+                                                @T("quoteeditor.lista_y_descuento", Fmt.Money(lista, q.Moneda), Pct(linea.Descuento))
+                                            </span>
+                                        }
+                                        <label class="check-row">
+                                            <input type="checkbox" disabled="@(!editable)" @bind="linea.Opcional" />
+                                            <span>@T("quoteeditor.opcional")</span>
+                                        </label>
+                                    </div>
                                 }
                             </div>
                         }
@@ -81,6 +133,10 @@
                             <dt>@q.NombreImpuesto (@((q.TasaImpuesto * 100).ToString("0.##", Fmt.Culture)) %)</dt><dd>@Fmt.Money(totales.Igv, q.Moneda)</dd>
                         }
                         <dt class="grand">@T("quoteeditor.total")</dt><dd class="grand">@Fmt.Money(totales.Total, q.Moneda)</dd>
+                        @if (q.Lineas.Any(l => l.Opcional))
+                        {
+                            <dt class="muted">@T("quoteeditor.opcionales_no_suman")</dt><dd class="muted">@Fmt.Money(q.TotalOpcionales, q.Moneda)</dd>
+                        }
                     </dl>
                     <p class="muted" style="font-size:12px;text-align:right">@MontoEnLetras.Monto(totales.Total, q.Moneda)</p>
                 </div>
@@ -135,7 +191,7 @@
                         <div class="form-row">
                             <div class="field">
                                 <label>@q.NombreImpuesto</label>
-                                <select class="select" disabled="@(!editable)" @bind="q.ModoIgv">
+                                <select class="select" disabled="@(!editable)" @bind="q.ModoIgv" @bind:after="RepreciarAsync">
                                     @foreach (var m in Enum.GetValues<ModoIgv>())
                                     {
                                         <option value="@m">@Fmt.TaxMode(m, q.NombreImpuesto, q.TasaImpuesto)</option>
@@ -144,7 +200,7 @@
                             </div>
                             <div class="field">
                                 <label>@T("quoteeditor.moneda")</label>
-                                <select class="select" disabled="@(!editable)" @bind="q.Moneda">
+                                <select class="select" disabled="@(!editable)" @bind="q.Moneda" @bind:after="RepreciarAsync">
                                     @foreach (var currency in VortexApi.Suite.Money.Currencies.List)
                                     {
                                         <option value="@currency.Code">@currency.Code · @currency.Name</option>
@@ -153,7 +209,7 @@
                             </div>
                             <div class="field">
                                 <label>@T("quoteeditor.sede_que_emite")</label>
-                                <select class="select" disabled="@(!editable)" @bind="q.SedeId">
+                                <select class="select" disabled="@(!editable)" @bind="q.SedeId" @bind:after="RepreciarAsync">
                                     <option value="">@T("quoteeditor.domicilio_fiscal")</option>
                                     @foreach (var s in _sedes)
                                     {
@@ -183,6 +239,15 @@
                                 case EstadoCotizacion.Enviada:
                                     <button class="btn btn-block btn-dark" @onclick="() => CambiarAsync(EstadoCotizacion.Aceptada)"><Icon Name="check" Size="18" />@T("quoteeditor.el_cliente_acepto")</button>
                                     <button class="btn btn-block btn-danger" @onclick="() => CambiarAsync(EstadoCotizacion.Rechazada)"><Icon Name="x" Size="18" />@T("quoteeditor.el_cliente_rechazo")</button>
+                                    <button class="btn btn-block" @onclick="NuevaVersionAsync"><Icon Name="copy" Size="18" />@T("quoteeditor.nueva_version")</button>
+                                    <p class="muted" style="font-size:12.5px;margin:0">@T("quoteeditor.nueva_version_explica")</p>
+                                    break;
+                                case EstadoCotizacion.Rechazada:
+                                    <p class="muted" style="font-size:13px">@T("quoteeditor.cotizacion_rechazada_puedes_crear_una")</p>
+                                    <button class="btn btn-block" @onclick="NuevaVersionAsync"><Icon Name="copy" Size="18" />@T("quoteeditor.nueva_version")</button>
+                                    break;
+                                case EstadoCotizacion.Reemplazada:
+                                    <p class="muted" style="font-size:13px">@T("quoteeditor.reemplazada")</p>
                                     break;
                                 case EstadoCotizacion.Aceptada when q.PedidoId is null:
                                     <p class="muted" style="font-size:13px">@T("quoteeditor.el_erp_ya_la_ve")</p>
@@ -195,6 +260,20 @@
                                     <p class="muted" style="font-size:13px">@T("quoteeditor.cotizacion_rechazada_puedes_crear_una")</p>
                                     break;
                             }
+                            @if (_versiones.Count > 1)
+                            {
+                                <div class="versions">
+                                    <span class="field-label">@T("quoteeditor.versiones")</span>
+                                    @foreach (var v in _versiones)
+                                    {
+                                        var (vt, vtone) = StatusPill.ForEstado(v.Estado);
+                                        <a class="list-row @(v.Id == q.Id ? "on" : "")" href="@($"cotizaciones/{v.Id}")">
+                                            <span style="flex:1">v@(v.Version) · @Fmt.Date(v.Fecha)</span>
+                                            <StatusPill Text="@vt" Tone="@vtone" />
+                                        </a>
+                                    }
+                                </div>
+                            }
                             @if (q.ClienteId is { } cliente)
                             {
                                 <a class="btn btn-block btn-ghost" href="@($"clientes/{cliente}")"><Icon Name="briefcase" Size="18" />@T("quoteeditor.ver_ficha_del_cliente")</a>
@@ -205,6 +284,22 @@
             </div>
         </div>
     </div>
+
+    @if (_nombrePlantilla is not null)
+    {
+        <Modal Title="@(T("quoteeditor.guardar_como_plantilla"))" Subtitle="@(T("quoteeditor.plantilla_explica"))" Size="sm" Error="@_error" OnClose="() => _nombrePlantilla = null">
+            <ChildContent>
+                <div class="field">
+                    <label>@T("quoteeditor.nombre_de_la_plantilla")</label>
+                    <input class="control" @bind="_nombrePlantilla" />
+                </div>
+            </ChildContent>
+            <Footer>
+                <button class="btn" @onclick="() => _nombrePlantilla = null">@T("quoteeditor.cancelar")</button>
+                <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarPlantillaAsync">@T("quoteeditor.guardar")</button>
+            </Footer>
+        </Modal>
+    }
 }
 
 @code {
@@ -215,8 +310,14 @@
     private Cotizacion? _cotizacion;
     private IReadOnlyList<Option> _clientes = [], _contactos = [], _oportunidades = [];
     private IReadOnlyList<SiteRow> _sedes = [];
-    private string? _error;
+    private IReadOnlyList<PlantillaCotizacionVista> _plantillas = [];
+    private IReadOnlyList<(Guid Id, int Version, EstadoCotizacion Estado, DateOnly Fecha)> _versiones = [];
+    private Ajustes _ajustes = new(ModoIgv.Incluido, null);
+    private ListaPrecios _lista = ListaPrecios.Ninguna;
+    private string? _error, _nombrePlantilla;
     private bool _busy;
+
+    private static string Pct(decimal valor) => valor.ToString("0.##", Fmt.Culture) + " %";
 
     protected override async Task LoadAsync()
     {
@@ -232,6 +333,11 @@
                 return;
             }
         }
+        _ajustes = await Crm.Clientes.ObtenerAjustesAsync();
+        _plantillas = await Crm.Cotizaciones.PlantillasAsync();
+        _versiones = await Crm.Cotizaciones.VersionesAsync(_cotizacion);
+        if (_cotizacion.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada)
+            _lista = await Crm.Cotizaciones.ListaPreciosAsync(_cotizacion.ClienteId, _cotizacion.SedeId, _cotizacion.Moneda);
         _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
         _sedes = await Crm.Master.GetSitesAsync(activeOnly: true);
         await CargarRelacionadosAsync();
@@ -250,9 +356,58 @@
         _cotizacion.ContactoId = null;
         _cotizacion.OportunidadId = null;
         await CargarRelacionadosAsync();
+        await RepreciarAsync();
     }
 
-    private void AgregarArticulo(ItemRow item) => _cotizacion!.AgregarLinea(item.CrearLinea(_cotizacion));
+    private void AgregarArticulo(ItemRow item) => _cotizacion!.AgregarLinea(item.CrearLinea(_cotizacion, 1, _lista));
+
+    /// <summary>Precio de lista según el cliente, la cantidad, la moneda y el impuesto (lo puesto a mano se conserva).</summary>
+    private async Task RepreciarAsync()
+    {
+        if (_cotizacion is { Estado: EstadoCotizacion.Borrador or EstadoCotizacion.Enviada } q)
+            _lista = await Crm.Cotizaciones.RepreciarAsync(q);
+    }
+
+    private async Task UsarPlantillaAsync(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+            _error = await TryAsync(() => Crm.Cotizaciones.AplicarPlantillaAsync(_cotizacion!, id));
+    }
+
+    private void AbrirPlantilla() => (_nombrePlantilla, _error) = (_cotizacion?.Lineas.FirstOrDefault()?.Descripcion ?? "", null);
+
+    private async Task GuardarPlantillaAsync()
+    {
+        _busy = true;
+        var nombre = _nombrePlantilla ?? "";
+        _error = await TryAsync(() => Crm.Cotizaciones.GuardarPlantillaAsync(nombre, _cotizacion!), T("quoteeditor.plantilla_guardada", nombre));
+        _busy = false;
+        if (_error is null)
+        {
+            _nombrePlantilla = null;
+            _plantillas = await Crm.Cotizaciones.PlantillasAsync();
+        }
+    }
+
+    private async Task AprobarAsync()
+    {
+        if (!await GuardarAsync())
+            return;
+        _error = await TryAsync(() => Crm.Cotizaciones.AprobarDescuentoAsync(_cotizacion!.Id), T("quoteeditor.descuento_aprobado"));
+        _cotizacion = await Crm.Cotizaciones.ObtenerAsync(_cotizacion!.Id);
+    }
+
+    private async Task NuevaVersionAsync()
+    {
+        Guid nueva = default;
+        _error = await TryAsync(async () => nueva = await Crm.Cotizaciones.NuevaVersionAsync(_cotizacion!.Id));
+        if (_error is null)
+        {
+            Toasts.Success(T("quoteeditor.version_creada"));
+            _cotizacion = null;
+            Nav.NavigateTo($"cotizaciones/{nueva}");
+        }
+    }
 
     private async Task<bool> GuardarAsync()
     {

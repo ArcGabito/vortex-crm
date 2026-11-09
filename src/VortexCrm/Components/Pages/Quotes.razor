@@ -23,10 +23,14 @@
         <div class="field" style="width:auto">
             <label>@T("quotes.estado")</label>
             <div class="segmented">
-                <button class="@(_estado is null ? "on" : "")" @onclick="async () => { _estado = null; await ReloadAsync(); }">@T("quotes.todas")</button>
+                <button class="@(_estado is null && !_porAprobar ? "on" : "")" @onclick="async () => { (_estado, _porAprobar) = (null, false); await ReloadAsync(); }">@T("quotes.todas")</button>
+                @if (Session.Can(CrmPermissions.ApproveDiscounts))
+                {
+                    <button class="@(_porAprobar ? "on" : "")" @onclick="async () => { (_estado, _porAprobar) = (null, true); await ReloadAsync(); }">@T("quotes.por_aprobar")</button>
+                }
                 @foreach (var e in EstadosCotizacion.Todos)
                 {
-                    <button class="@(_estado == e ? "on" : "")" @onclick="async () => { _estado = e; await ReloadAsync(); }">@StatusPill.ForEstado(e).Text</button>
+                    <button class="@(_estado == e ? "on" : "")" @onclick="async () => { (_estado, _porAprobar) = (e, false); await ReloadAsync(); }">@StatusPill.ForEstado(e).Text</button>
                 }
             </div>
         </div>
@@ -62,10 +66,15 @@
 @code {
     private IReadOnlyList<CotizacionVista> _cotizaciones = [];
     private EstadoCotizacion? _estado;
+    private bool _porAprobar;
     private string _busqueda = "";
     private CancellationTokenSource? _debounce;
 
-    protected override async Task LoadAsync() => _cotizaciones = await Crm.Cotizaciones.ListarAsync(_busqueda, _estado);
+    protected override async Task LoadAsync()
+    {
+        var todas = await Crm.Cotizaciones.ListarAsync(_busqueda, _estado);
+        _cotizaciones = _porAprobar ? todas.Where(q => q.PorAprobar).ToList() : todas;
+    }
 
     private async Task BuscarAsync(ChangeEventArgs e)
     {

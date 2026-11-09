@@ -195,5 +195,27 @@ internal static class Schema
         CREATE TABLE plantillas (
             id TEXT PRIMARY KEY, nombre TEXT NOT NULL, canal TEXT NOT NULL, asunto TEXT, cuerpo TEXT NOT NULL, actualizado_en TEXT NOT NULL);
         """,
+        // 7: cotizaciones empresariales (fase 4a). Versiones y aprobación del descuento de cada cotización; precio de lista y
+        // líneas opcionales; plantillas de cotización (registro del CRM); descuento máximo del vendedor en los ajustes; copia de
+        // las listas de precios del hub (price_list) y la lista de cada cliente (credit.priceListId, se vuelve a leer el feed).
+        """
+        ALTER TABLE cotizaciones ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE cotizaciones ADD COLUMN version_de TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN aprobada_por TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN aprobada_en TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN descuento_aprobado REAL;
+        ALTER TABLE cotizacion_lineas ADD COLUMN precio_lista REAL;
+        ALTER TABLE cotizacion_lineas ADD COLUMN opcional INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE ajustes ADD COLUMN descuento_maximo REAL;
+        CREATE TABLE plantillas_cotizacion (id TEXT PRIMARY KEY, nombre TEXT NOT NULL, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE TABLE price_lists (
+            id TEXT PRIMARY KEY, code TEXT NOT NULL, name TEXT NOT NULL, currency_code TEXT NOT NULL, valid_from TEXT, valid_to TEXT,
+            site_ids TEXT NOT NULL DEFAULT '[]', is_active INTEGER NOT NULL, is_deleted INTEGER NOT NULL DEFAULT 0,
+            version INTEGER NOT NULL, updated_at TEXT NOT NULL);
+        CREATE TABLE price_list_lines (
+            list_id TEXT NOT NULL, item_id TEXT NOT NULL, min_qty REAL NOT NULL, price REAL NOT NULL, PRIMARY KEY (list_id, item_id, min_qty));
+        ALTER TABLE parties ADD COLUMN price_list_id TEXT;
+        DELETE FROM sync_cursors WHERE stream = 'master';
+        """,
     ];
 }
