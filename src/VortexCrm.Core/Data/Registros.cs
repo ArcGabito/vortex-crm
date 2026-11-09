@@ -255,7 +255,8 @@ internal static class Registros
                     """, tx, ("$id", pc.Id), ("$nombre", pc.Nombre), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
                 return true;
 
-            case CrmRecordKinds.Regla or CrmRecordKinds.Secuencia or CrmRecordKinds.AsignacionLeads:
+            case CrmRecordKinds.Regla or CrmRecordKinds.Secuencia or CrmRecordKinds.AsignacionLeads or CrmRecordKinds.Equipo
+                or CrmRecordKinds.Visibilidad or CrmRecordKinds.PlanComisiones:
                 await c.ExecAsync($"INSERT OR REPLACE INTO {Tabla(kind)} (id, datos, actualizado_en) VALUES ($id, $datos, $actualizado)", tx,
                     ("$id", data.GetProperty("id").GetGuid()), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
                 return true;
@@ -312,7 +313,8 @@ internal static class Registros
         CrmRecordKinds.PlantillaCotizacion => "plantillas_cotizacion",
         CrmRecordKinds.Regla => "reglas",
         CrmRecordKinds.Secuencia => "secuencias",
-        CrmRecordKinds.AsignacionLeads => "configuracion",
+        CrmRecordKinds.AsignacionLeads or CrmRecordKinds.Visibilidad or CrmRecordKinds.PlanComisiones => "configuracion",
+        CrmRecordKinds.Equipo => "equipos",
         CrmRecordKinds.Disparo => "disparos",
         _ => null,
     };

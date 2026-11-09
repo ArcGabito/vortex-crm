@@ -18,14 +18,16 @@ public sealed class ServicioOportunidades(CrmDatabase db, ICrmContext context, T
     public async Task<IReadOnlyList<OportunidadVista>> ListarAsync(string? busqueda = null, Guid? clienteId = null, CancellationToken ct = default)
     {
         await using var c = await Db.OpenAsync(ct);
+        var visibles = await ServicioEquipos.VisiblesAsync(c, null, Context);
         return await c.QueryAsync("""
             SELECT o.*, p.name AS cliente, TRIM(k.nombres || ' ' || k.apellidos) AS contacto
             FROM oportunidades o LEFT JOIN parties p ON p.id = o.cliente_id LEFT JOIN contactos k ON k.id = o.contacto_id
             WHERE ($cliente IS NULL OR o.cliente_id = $cliente)
+              AND ($vis IS NULL OR o.responsable_id IS NULL OR o.responsable_id IN (SELECT value FROM json_each($vis)))
               AND ($q IS NULL OR o.titulo LIKE $like OR p.name LIKE $like)
             ORDER BY COALESCE(o.fecha_cierre_estimada, '9999') , o.creado_en DESC
             """, r => new OportunidadVista(Registros.LeerOportunidad(r), r.StrOrNull("cliente"), r.StrOrNull("contacto")), null,
-            ("$cliente", clienteId), ("$q", Clean(busqueda)), ("$like", Like(busqueda)));
+            ("$cliente", clienteId), ("$q", Clean(busqueda)), ("$like", Like(busqueda)), ("$vis", visibles));
     }
 
     public async Task<Oportunidad?> ObtenerAsync(Guid id, CancellationToken ct = default)

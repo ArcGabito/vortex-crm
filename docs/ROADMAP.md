@@ -35,7 +35,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 |---|---|---|---|
 | CRM-10 | Leads con origen, calificación y estado | Hecho | 2 |
 | CRM-11 | Conversión de lead a cliente, contacto y oportunidad en un paso | Hecho | 2 |
-| CRM-12 | Asignación automática de leads (por turno, territorio o carga) | Parcial: turno y carga (territorio en 5b) | 5a |
+| CRM-12 | Asignación automática de leads (por turno, territorio o carga) | Hecho: leads por turno o carga; clientes por territorio | 5a, 5b |
 | CRM-13 | Captura desde formularios web | Pendiente | 7 |
 
 ### Oportunidades y pronóstico
@@ -82,8 +82,8 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-50 | Roles (`vendedor`, `gerente_ventas`, `consulta`, `administrador`) validados en Core | Hecho | 1 |
 | CRM-51 | Vendedor responsable: cada uno cambia lo suyo, el gerente todo | Hecho | 1 |
 | CRM-52 | Auditoría de etapas, cotizaciones, pedidos y borrados | Hecho | 1 |
-| CRM-53 | Territorios y equipos de venta con visibilidad por jerarquía | Pendiente | 5 |
-| CRM-54 | Comisiones calculadas sobre lo ganado o lo cobrado | Pendiente | 5 |
+| CRM-53 | Territorios y equipos de venta con visibilidad por jerarquía | Hecho | 5b |
+| CRM-54 | Comisiones calculadas sobre lo ganado o lo cobrado | Hecho | 5b |
 | CRM-55 | Sedes por usuario | Hecho | 2 |
 
 ### Automatización y reportes
@@ -246,6 +246,14 @@ sincronización (cada 10 minutos como mucho, también sin conexión) en los equi
 registro replicado con Id determinista, igual que la tarea que crea, así no se repite aunque haya varios equipos o el
 vendedor la borre. Pruebas en `AutomatizacionTests`. Siguen: 5b (territorios, visibilidad por jerarquía y comisiones),
 5c (segmentos, campos personalizados y jerarquía de empresas) y 5d (reportes y tableros por rol).
+
+**Estado 5b (2026-11):** hecha. Pantalla Equipo: **equipos de venta** con líder, vendedores, **territorio** (ciudades,
+regiones o distritos) y equipo del que dependen. "Asignar clientes por territorio" da los clientes sin responsable al
+vendedor del equipo de su zona con menos clientes. **Visibilidad**: por defecto todos ven todo (como antes); por
+jerarquía, cada vendedor ve sus oportunidades, cotizaciones y leads, el líder los de su equipo y los de abajo, y el
+gerente todo (lo que no tiene responsable lo ven todos). **Comisiones** del mes por vendedor sobre lo ganado o lo cobrado
+a su cartera, con tasa general o por vendedor y un acelerador para lo que pasa la meta; cada uno ve la suya, el líder las
+de su equipo; exportación CSV. Registros nuevos `equipo`, `visibilidad` y `plan_comisiones`. Pruebas en `EquiposTests`.
 
 ## Fase 6: servicio al cliente · L
 

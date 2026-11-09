@@ -236,5 +236,10 @@ internal static class Schema
             id TEXT PRIMARY KEY, regla_id TEXT NOT NULL, registro_id TEXT NOT NULL, creado_en TEXT NOT NULL, actualizado_en TEXT NOT NULL);
         ALTER TABLE tareas ADD COLUMN origen TEXT;
         """,
+        // 10: equipos de venta (fase 5b). Equipo con líder, vendedores, territorio y equipo padre, como JSON; la visibilidad y
+        // el plan de comisiones van en configuracion.
+        """
+        CREATE TABLE equipos (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        """,
     ];
 }

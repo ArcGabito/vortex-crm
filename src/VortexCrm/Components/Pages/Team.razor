@@ -1,0 +1,289 @@
+@page "/equipo"
+@inherits CrmPage
+@inject FileExporter Exporter
+@using VortexCrm.Core.Domain.Equipos
+
+<SectionContent SectionName="page-title">@T("team.equipo")</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>@T("team.equipo_comercial")</h2>
+            <p>@T("team.explica")</p>
+        </div>
+        @if (_puedeAsignar)
+        {
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-outline" disabled="@_busy" @onclick="AsignarPorTerritorioAsync"><Icon Name="pin" Size="18" />@T("team.asignar_por_territorio")</button>
+                <button class="btn btn-dark" @onclick="() => Editar(null)"><Icon Name="plus" Size="18" />@T("team.nuevo_equipo")</button>
+            </div>
+        }
+    </div>
+
+    <div class="grid-cards">
+        @foreach (var e in _equipos)
+        {
+            <div class="card site-card" @key="e.Id">
+                <div class="two-line">
+                    <span class="t1">@e.Nombre</span>
+                    <span class="t2">@T("team.lider", e.LiderNombre ?? "—")@(e.PadreId is { } p && _equipos.FirstOrDefault(x => x.Id == p) is { } padre ? $" · {T("team.dentro_de", padre.Nombre)}" : "")</span>
+                </div>
+                <div class="chips">
+                    @foreach (var m in e.Miembros)
+                    {
+                        <span class="chip">@m.Nombre</span>
+                    }
+                </div>
+                @if (e.Zonas.Count > 0)
+                {
+                    <span class="muted" style="font-size:12.5px"><Icon Name="pin" Size="13" /> @string.Join(", ", e.Zonas)</span>
+                }
+                @if (_puedeAsignar)
+                {
+                    <div style="display:flex;gap:8px">
+                        <button class="btn btn-sm" @onclick="() => Editar(e)">@T("team.editar")</button>
+                        <button class="btn btn-sm btn-ghost" @onclick="() => EliminarAsync(e)">@T("team.eliminar")</button>
+                    </div>
+                }
+            </div>
+        }
+        @if (_equipos.Count == 0 && !Loading)
+        {
+            <EmptyState Icon="users" Title="@(T("team.sin_equipos"))" Text="@(T("team.sin_equipos_explica"))" />
+        }
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>@T("team.comisiones")</h3>
+                    <div class="sub">@Fmt.Month(_mes)</div>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <button class="btn btn-ghost icon-btn sm" @onclick="() => CambiarMesAsync(-1)" aria-label="@(T("team.mes_anterior"))"><Icon Name="chevron-left" Size="16" /></button>
+                    <button class="btn btn-ghost icon-btn sm" @onclick="() => CambiarMesAsync(1)" aria-label="@(T("team.mes_siguiente"))"><Icon Name="chevron-right" Size="16" /></button>
+                    <button class="btn btn-sm btn-ghost" disabled="@(_comisiones.Count == 0)" @onclick="ExportarAsync"><Icon Name="download" Size="16" />CSV</button>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (_comisiones.Count == 0)
+                {
+                    <p class="muted" style="margin:0">@T("team.sin_comisiones")</p>
+                }
+                @foreach (var c in _comisiones)
+                {
+                    <div class="list-row" @key="c.VendedorId">
+                        <span class="two-line" style="flex:1;min-width:0">
+                            <span class="t1">@c.Nombre</span>
+                            <span class="t2">@T("team.base", Fmt.Money(c.Base, _moneda), c.Operaciones)@(c.Avance is { } a ? $" · {T("team.avance_meta", a.ToString("0.#", Fmt.Culture))}" : "") · @c.Tasa.ToString("0.##", Fmt.Culture) %</span>
+                        </span>
+                        <strong>@Fmt.Money(c.Comision, _moneda)</strong>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@T("team.plan_de_comisiones")</h3>
+                        <div class="sub">@T("team.plan_explica")</div>
+                    </div>
+                    <button class="btn btn-dark btn-sm" disabled="@(_busy || !_puedeConfigurar)" @onclick="GuardarPlanAsync">@T("team.guardar")</button>
+                </div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+                    <div class="field">
+                        <label>@T("team.se_calcula_sobre")</label>
+                        <select class="select" disabled="@(!_puedeConfigurar)" @bind="_base">
+                            <option value="@BasesComision.Ganado">@T("team.base_ganado")</option>
+                            <option value="@BasesComision.Cobrado">@T("team.base_cobrado")</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label>@T("team.tasa")</label><input class="control" type="number" min="0" max="100" step="0.1" disabled="@(!_puedeConfigurar)" @bind="_tasa" /></div>
+                        <div class="field"><label>@T("team.tasa_sobre_meta")</label><input class="control" type="number" min="0" max="100" step="0.1" placeholder="@(T("team.sin_acelerador"))" disabled="@(!_puedeConfigurar)" @bind="_tasaSobreMeta" /></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@T("team.visibilidad")</h3>
+                        <div class="sub">@T("team.visibilidad_explica")</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="segmented">
+                        <button class="@(_visibilidad == Visibilidad.Todo ? "on" : "")" disabled="@(!_puedeConfigurar)" @onclick="() => VisibilidadAsync(Visibilidad.Todo)">@T("team.todos_ven_todo")</button>
+                        <button class="@(_visibilidad == Visibilidad.Jerarquia ? "on" : "")" disabled="@(!_puedeConfigurar)" @onclick="() => VisibilidadAsync(Visibilidad.Jerarquia)">@T("team.por_jerarquia")</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_editando is { } ed)
+{
+    <Modal Title="@(ed.Nombre.Length == 0 ? T("team.nuevo_equipo") : ed.Nombre)" Subtitle="@(T("team.se_comparte"))" Error="@_error" OnClose="() => _editando = null">
+        <ChildContent>
+            <div class="form-row">
+                <div class="field"><label>@T("team.nombre")</label><input class="control" @bind="ed.Nombre" /></div>
+                <div class="field">
+                    <label>@T("team.lider_del_equipo")</label>
+                    <select class="select" value="@ed.LiderId" @onchange="e => ed.LiderId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null">
+                        <option value="">—</option>
+                        @foreach (var v in _vendedores)
+                        {
+                            <option value="@v.Id">@v.Nombre</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <label>@T("team.vendedores")</label>
+                <div style="display:flex;gap:14px;flex-wrap:wrap">
+                    @foreach (var v in _vendedores)
+                    {
+                        <label class="check-row" @key="v.Id">
+                            <input type="checkbox" checked="@ed.Miembros.Any(m => m.Id == v.Id)" @onchange="e => Miembro(ed, v, e.Value is true)" />
+                            <span>@v.Nombre</span>
+                        </label>
+                    }
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label>@T("team.territorio")</label>
+                    <input class="control" placeholder="@(T("team.territorio_ej"))" @bind="_zonas" />
+                    <span class="hint">@T("team.territorio_explica")</span>
+                </div>
+                <div class="field">
+                    <label>@T("team.depende_de")</label>
+                    <select class="select" value="@ed.PadreId" @onchange="e => ed.PadreId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : null">
+                        <option value="">@T("team.ninguno")</option>
+                        @foreach (var o in _equipos.Where(x => x.Id != ed.Id))
+                        {
+                            <option value="@o.Id">@o.Nombre</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _editando = null">@T("team.cancelar")</button>
+            <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("team.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    private IReadOnlyList<EquipoVenta> _equipos = [];
+    private IReadOnlyList<Vendedor> _vendedores = [];
+    private IReadOnlyList<ComisionVendedor> _comisiones = [];
+    private DateOnly _mes = new(Fmt.Today.Year, Fmt.Today.Month, 1);
+    private Visibilidad _visibilidad;
+    private string _base = BasesComision.Ganado, _moneda = "PEN";
+    private decimal _tasa;
+    private decimal? _tasaSobreMeta;
+    private bool _busy, _planCargado;
+    private EquipoVenta? _editando;
+    private string? _zonas, _error;
+    private IReadOnlyDictionary<Guid, decimal>? _tasasPorVendedor;
+
+    private bool _puedeAsignar => Session.Can(CrmPermissions.AssignCustomers);
+    private bool _puedeConfigurar => Session.Can(CrmPermissions.EditSettings);
+
+    protected override async Task LoadAsync()
+    {
+        _equipos = await Crm.Equipos.EquiposAsync();
+        _vendedores = await Crm.Cartera.VendedoresAsync();
+        _visibilidad = await Crm.Equipos.VisibilidadAsync();
+        _comisiones = await Crm.Equipos.ComisionesAsync(_mes);
+        _moneda = (await Crm.Master.GetCompanyAsync())?.CurrencyCode ?? "PEN";
+        if (!_planCargado)
+        {
+            var plan = await Crm.Equipos.PlanAsync();
+            (_base, _tasa, _tasaSobreMeta, _tasasPorVendedor, _planCargado) = (plan.Base, plan.Tasa, plan.TasaSobreMeta, plan.TasaPorVendedor, true);
+        }
+    }
+
+    private async Task CambiarMesAsync(int meses)
+    {
+        _mes = _mes.AddMonths(meses);
+        _comisiones = await Crm.Equipos.ComisionesAsync(_mes);
+    }
+
+    private void Editar(EquipoVenta? e)
+    {
+        _error = null;
+        _editando = e is null ? new EquipoVenta() : new EquipoVenta
+        {
+            Id = e.Id, Nombre = e.Nombre, LiderId = e.LiderId, LiderNombre = e.LiderNombre, Miembros = [.. e.Miembros], Zonas = [.. e.Zonas], PadreId = e.PadreId,
+        };
+        _zonas = string.Join(", ", _editando.Zonas);
+    }
+
+    private static void Miembro(EquipoVenta e, Vendedor v, bool dentro)
+    {
+        e.Miembros.RemoveAll(m => m.Id == v.Id);
+        if (dentro)
+            e.Miembros.Add(v);
+    }
+
+    private async Task GuardarAsync()
+    {
+        var e = _editando!;
+        e.LiderNombre = _vendedores.FirstOrDefault(v => v.Id == e.LiderId)?.Nombre;
+        e.Zonas = (_zonas ?? "").Split(',', ';').Select(z => z.Trim()).Where(z => z.Length > 0).ToList();
+        _busy = true;
+        _error = await TryAsync(() => Crm.Equipos.GuardarEquipoAsync(e), T("team.equipo_guardado"));
+        _busy = false;
+        if (_error is null)
+        {
+            _editando = null;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task EliminarAsync(EquipoVenta e)
+    {
+        await RunAsync(() => Crm.Equipos.EliminarEquipoAsync(e.Id), T("team.equipo_eliminado"));
+        await ReloadAsync();
+    }
+
+    private async Task AsignarPorTerritorioAsync()
+    {
+        _busy = true;
+        await RunAsync(async () => Toasts.Success(T("team.asignados", await Crm.Cartera.AsignarPorTerritorioAsync())));
+        _busy = false;
+    }
+
+    private async Task VisibilidadAsync(Visibilidad v)
+    {
+        await RunAsync(() => Crm.Equipos.GuardarVisibilidadAsync(v), T("team.visibilidad_guardada"));
+        _visibilidad = await Crm.Equipos.VisibilidadAsync();
+    }
+
+    private async Task GuardarPlanAsync()
+    {
+        _busy = true;
+        await RunAsync(() => Crm.Equipos.GuardarPlanAsync(new PlanComisiones(_base, _tasa, _tasaSobreMeta, _tasasPorVendedor)), T("team.plan_guardado"));
+        _busy = false;
+        _comisiones = await Crm.Equipos.ComisionesAsync(_mes);
+    }
+
+    private async Task ExportarAsync()
+    {
+        var csv = new System.Text.StringBuilder(T("team.csv_cabecera") + "\n");
+        foreach (var c in _comisiones)
+            csv.AppendLine(string.Join(';', c.Nombre, c.Base.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                c.Meta?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), c.Tasa.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture),
+                c.Comision.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)));
+        var path = await Exporter.ExportAsync($"comisiones-{_mes:yyyy-MM}.csv", csv.ToString());
+        Toasts.Success(T("team.exportado", path));
+    }
+}
