@@ -59,6 +59,11 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
   `descuentoMaximo`. Registro nuevo `plantilla_cotizacion` (`nombre`, `modoIgv`, `condiciones`, `diasValidez`, `lineas`).
   `quote.accepted` y `order.created` llevan solo las líneas que no son opcionales; el pedido de una versión se numera
   `PED-…-V2`.
+- Fase 4b: las cotizaciones agregan `enlaceId`, `enlaceUrl`, `firmadaPor`, `firmadaCorreo`, `firmadaEn` y
+  `respuestaCliente`. El CRM crea el enlace público del hub de cada cotización (`POST api/public-links`, tipo `quote`,
+  Id de la cotización, vence al terminar su día de validez) y consume `hub.public_link.accepted|rejected`: aceptada →
+  Aceptada, `quote.accepted` y `order.created` (Ids deterministas, así varios equipos no los duplican); rechazada →
+  Rechazada. Una respuesta a una versión reemplazada no cambia nada y queda como nota para el vendedor.
 - Sedes por usuario: con sedes asignadas en el hub (`Access.SiteIds`), las cotizaciones solo salen de esas sedes.
 - Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
   todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos
@@ -89,6 +94,7 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 | `payment.received` (ERP) | Pago en la actividad del cliente (y en "Pagado") |
 | `invoice.voided` (ERP) | "Comprobante … anulado" con el motivo y el monto en negativo en la actividad del cliente: "Facturado" deja de contarlo (desde que el ERP envía `customerId`) |
 | `shipment.dispatched` (WMS) | Despacho con transportista y guía en la actividad del cliente |
+| `hub.public_link.accepted` / `rejected` (hub) | El cliente aceptó con su firma o rechazó la cotización desde su enlace: Aceptada (con pedido) o Rechazada, y una nota en la ficha |
 
 Cada evento se aplica una sola vez (`processed_events`); `schemaVersion` distinto de 1 o `data` ilegible se registran
 como ignorados y no traban el feed.

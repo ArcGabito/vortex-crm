@@ -158,6 +158,16 @@ public sealed class Cotizacion
     /// <summary>Si con ese tope (null: sin tope) necesita la aprobación del gerente para enviarse.</summary>
     public bool RequiereAprobacion(decimal? tope) => tope is { } t && DescuentoMaximo > t && (DescuentoAprobado ?? -1) < DescuentoMaximo;
 
+    /// <summary>Enlace público del hub para que el cliente la acepte con su firma (CRM-36).</summary>
+    public Guid? EnlaceId { get; set; }
+    public string? EnlaceUrl { get; set; }
+
+    /// <summary>Quién respondió desde el enlace (aceptó con su firma o rechazó), cuándo, y su comentario.</summary>
+    public string? FirmadaPor { get; set; }
+    public string? FirmadaCorreo { get; set; }
+    public DateTimeOffset? FirmadaEn { get; set; }
+    public string? RespuestaCliente { get; set; }
+
     /// <summary>Vendedor responsable (usuario del hub): un vendedor solo edita las suyas.</summary>
     public Guid? ResponsableId { get; set; }
 

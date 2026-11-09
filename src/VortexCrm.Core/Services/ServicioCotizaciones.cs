@@ -130,24 +130,30 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
                 T("error.cotizacion_reemplazada", cotizacion.Codigo));
             if (estado == EstadoCotizacion.Enviada)
                 await RequireDescuentoAprobadoAsync(c, tx, cotizacion);
-
-            var oportunidad = cotizacion.OportunidadId is { } op ? await ServicioOportunidades.ObtenerAsync(c, tx, op) : null;
-            var etapaAnterior = oportunidad?.Etapa;
-            var cambioOportunidad = cotizacion.CambiarEstado(estado, oportunidad, now);
-            await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
-            if (cambioOportunidad)
-                await ServicioOportunidades.GuardarAsync(c, tx, now, oportunidad!, etapaAnterior);
-            await AuditAsync(c, tx, now, "quote." + estado.ToString().ToLowerInvariant(), "quote", id, cotizacion.Numero,
-                $"Total {cotizacion.Totales.Total:0.##} {cotizacion.Moneda}");
-
-            if (estado == EstadoCotizacion.Aceptada && cotizacion.ClienteId is { } cliente)
-            {
-                await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.QuoteAccepted,
-                    new QuoteAccepted(cotizacion.Id, cotizacion.Numero, cliente, LineasDelCatalogo(cotizacion), cotizacion.Totales.Total, cotizacion.Moneda),
-                    subjectType: "quote", subjectId: cotizacion.Numero, id: DeterministicId.From("quote_accepted", cotizacion.Id));
-            }
+            await AplicarEstadoAsync(c, tx, now, cotizacion, estado);
             return 0;
         }, ct);
+    }
+
+    /// <summary>Cambia el estado, avanza la oportunidad, replica, audita y, al aceptarse, publica <c>quote.accepted</c>.</summary>
+    private async Task AplicarEstadoAsync(SqliteConnection c, SqliteTransaction tx, DateTimeOffset now, Cotizacion cotizacion,
+        EstadoCotizacion estado, string? detalle = null)
+    {
+        var oportunidad = cotizacion.OportunidadId is { } op ? await ServicioOportunidades.ObtenerAsync(c, tx, op) : null;
+        var etapaAnterior = oportunidad?.Etapa;
+        var cambioOportunidad = cotizacion.CambiarEstado(estado, oportunidad, now);
+        await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
+        if (cambioOportunidad)
+            await ServicioOportunidades.GuardarAsync(c, tx, now, oportunidad!, etapaAnterior);
+        await AuditAsync(c, tx, now, "quote." + estado.ToString().ToLowerInvariant(), "quote", cotizacion.Id, cotizacion.Numero,
+            detalle ?? $"Total {cotizacion.Totales.Total:0.##} {cotizacion.Moneda}");
+
+        if (estado == EstadoCotizacion.Aceptada && cotizacion.ClienteId is { } cliente)
+        {
+            await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.QuoteAccepted,
+                new QuoteAccepted(cotizacion.Id, cotizacion.Numero, cliente, LineasDelCatalogo(cotizacion), cotizacion.Totales.Total, cotizacion.Moneda),
+                subjectType: "quote", subjectId: cotizacion.Numero, id: DeterministicId.From("quote_accepted", cotizacion.Id));
+        }
     }
 
     /// <summary>Genera el pedido de una cotización aceptada: el WMS lo prepara y el ERP lo factura.</summary>
@@ -161,21 +167,32 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             RequireOwner(cotizacion!.ResponsableId, cotizacion.ResponsableNombre);
             Require(cotizacion!.Estado == EstadoCotizacion.Aceptada, T("error.solo_se_genera_el_pedido"));
             Require(cotizacion.PedidoId is null, T("error.la_cotizacion_ya_tiene_pedido_2"));
-            Require(cotizacion.Lineas.Where(l => !l.Opcional).All(l => l.ItemId is not null),
-                T("error.para_generar_el_pedido_todas"));
-
-            var pedidoId = PedidoIdPara(cotizacion.Id);
-            var numero = "PED-" + cotizacion.Numero!.Replace("COT-", "", StringComparison.Ordinal)
-                + (cotizacion.Version > 1 ? $"-V{cotizacion.Version}" : "");
-            await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.OrderCreated,
-                new OrderCreated(pedidoId, numero, cotizacion.ClienteId!.Value, cotizacion.SedeId, LineasDelCatalogo(cotizacion),
-                    cotizacion.Totales.Total, cotizacion.Moneda, cotizacion.Id),
-                subjectType: "order", subjectId: numero, id: pedidoId);
-            cotizacion.PedidoId = pedidoId;
-            await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
-            await AuditAsync(c, tx, now, "quote.order_created", "quote", id, cotizacion.Numero, numero);
-            return numero;
+            Require(PuedeGenerarPedido(cotizacion), T("error.para_generar_el_pedido_todas"));
+            return await PedidoAsync(c, tx, now, cotizacion);
         }, ct);
+    }
+
+    /// <summary>Todas las líneas que se compran son del catálogo (el ERP y el WMS necesitan el artículo).</summary>
+    private static bool PuedeGenerarPedido(Cotizacion cotizacion) =>
+        cotizacion.ClienteId is not null && cotizacion.Lineas.Where(l => !l.Opcional).All(l => l.ItemId is not null);
+
+    /// <param name="publicar">false si quien llama publica la cotización después en la misma transacción (los demás equipos
+    /// solo aplican un registro más nuevo: dos publicaciones con la misma hora dejarían la segunda sin replicar).</param>
+    private async Task<string> PedidoAsync(SqliteConnection c, SqliteTransaction tx, DateTimeOffset now, Cotizacion cotizacion,
+        bool publicar = true)
+    {
+        var pedidoId = PedidoIdPara(cotizacion.Id);
+        var numero = "PED-" + cotizacion.Numero!.Replace("COT-", "", StringComparison.Ordinal)
+            + (cotizacion.Version > 1 ? $"-V{cotizacion.Version}" : "");
+        await Outbox.EnqueueEventAsync(c, tx, now, SuiteEvents.OrderCreated,
+            new OrderCreated(pedidoId, numero, cotizacion.ClienteId!.Value, cotizacion.SedeId, LineasDelCatalogo(cotizacion),
+                cotizacion.Totales.Total, cotizacion.Moneda, cotizacion.Id),
+            subjectType: "order", subjectId: numero, id: pedidoId);
+        cotizacion.PedidoId = pedidoId;
+        if (publicar)
+            await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
+        await AuditAsync(c, tx, now, "quote.order_created", "quote", cotizacion.Id, cotizacion.Numero, numero);
+        return numero;
     }
 
     public Task EliminarAsync(Guid id, CancellationToken ct = default) =>
@@ -289,10 +306,11 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     /// Nueva versión de una cotización enviada o rechazada: copia las líneas y condiciones con el mismo número (v2, v3…), queda
     /// en borrador y la anterior pasa a Reemplazada. Devuelve el Id de la nueva.
     /// </summary>
-    public Task<Guid> NuevaVersionAsync(Guid id, CancellationToken ct = default)
+    public async Task<Guid> NuevaVersionAsync(Guid id, CancellationToken ct = default)
     {
         RequirePermission(CrmPermissions.Sell);
-        return InTransactionAsync(async (c, tx, now) =>
+        Guid? enlaceAnterior = null;
+        var nuevaId = await InTransactionAsync(async (c, tx, now) =>
         {
             var anterior = await ObtenerAsync(c, tx, id);
             Require(anterior is not null, T("error.la_cotizacion_no_existe"));
@@ -310,12 +328,20 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             nueva.ValidaHasta = hoy.AddDays(Math.Max(anterior.ValidaHasta.DayNumber - anterior.FechaEmision.DayNumber, 1));
             nueva.FechaEmision = hoy;
             (nueva.AprobadaPor, nueva.AprobadaEn, nueva.DescuentoAprobado) = (null, null, null);
+            (nueva.EnlaceId, nueva.EnlaceUrl, nueva.FirmadaPor, nueva.FirmadaCorreo, nueva.FirmadaEn, nueva.RespuestaCliente) =
+                (null, null, null, null, null, null);
             anterior.Estado = EstadoCotizacion.Reemplazada;
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, anterior.Id, Registros.Datos(anterior));
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, nueva.Id, Registros.Datos(nueva));
             await AuditAsync(c, tx, now, "quote.new_version", "quote", nueva.Id, nueva.Numero, nueva.Codigo);
+            enlaceAnterior = anterior.EnlaceId;
             return nueva.Id;
         }, ct);
+        // El enlace de la versión anterior deja de aceptar respuestas (sin conexión queda abierto: si el cliente la acepta,
+        // la respuesta llega a una versión reemplazada y queda como interacción para el vendedor).
+        if (enlaceAnterior is { } enlace)
+            await RetirarEnlaceAsync(enlace, ct);
+        return nuevaId;
     }
 
     /// <summary>Todas las versiones de la cotización (de la primera a la última).</summary>
@@ -396,6 +422,162 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         await RepreciarAsync(cotizacion, ct);
     }
 
+    // ---------- Aceptación en línea (CRM-36) ----------
+
+    /// <summary>
+    /// Enlace público del hub para que el cliente vea la cotización y la acepte con su firma (o la rechace). Necesita conexión.
+    /// Lleva una copia de la cotización tal como está; pedirlo otra vez (tras editarla) actualiza la copia con la misma URL.
+    /// Una cotización en borrador pasa a Enviada.
+    /// </summary>
+    public async Task<string> EnlaceParaAceptarAsync(Guid id, CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.Sell);
+        var hub = Context.Enlaces;
+        Require(hub is not null, T("error.enlace_sin_conexion"));
+        VortexApi.Client.VortexPublicLinkRequest pedido;
+        await using (var c = await Db.OpenAsync(ct))
+        {
+            var (cotizacion, cliente, contacto, empresa) = await DatosDeEnvioAsync(c, id);
+            RequireOwner(cotizacion.ResponsableId, cotizacion.ResponsableNombre);
+            Require(cotizacion.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada, T("error.enlace_solo_abierta"));
+            Require(cotizacion.ValidaHasta >= FormatoPeru.Hoy(Clock), T("error.enlace_vencida"));
+            var emisor = await EmisorAsync(c, cotizacion, empresa);
+            pedido = new("quote", cotizacion.Id, VenceEn(cotizacion), DocumentoPublico(cotizacion, emisor, ClienteCotizacion.Crear(cliente, contacto)),
+                Texts.CoreText.Language);
+        }
+
+        VortexApi.Client.VortexPublicLink enlace;
+        try
+        {
+            enlace = await hub!.CrearAsync(pedido, ct);
+        }
+        catch (Exception ex) when (ex is VortexApi.Client.VortexApiException or HttpRequestException or TaskCanceledException)
+        {
+            throw new CrmValidationException(T("error.enlace_sin_conexion"));
+        }
+
+        await InTransactionAsync(async (c, tx, now) =>
+        {
+            var cotizacion = (await ObtenerAsync(c, tx, id))!;
+            var nuevo = cotizacion.EnlaceId != enlace.Id || cotizacion.EnlaceUrl != enlace.Url;
+            (cotizacion.EnlaceId, cotizacion.EnlaceUrl) = (enlace.Id, enlace.Url);
+            if (cotizacion.Estado == EstadoCotizacion.Borrador)
+                await AplicarEstadoAsync(c, tx, now, cotizacion, EstadoCotizacion.Enviada, T("cotizacion.enlace_compartido"));
+            else if (nuevo)
+                await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Cotizacion, cotizacion.Id, Registros.Datos(cotizacion));
+            await AuditAsync(c, tx, now, "quote.link_shared", "quote", id, cotizacion.Numero, enlace.Url);
+            return 0;
+        }, ct);
+        return enlace.Url;
+    }
+
+    /// <summary>Cómo va el enlace en el hub (vistas, respuesta y firma); null sin conexión o sin enlace.</summary>
+    public async Task<VortexApi.Client.VortexPublicLink?> EstadoEnlaceAsync(Cotizacion cotizacion, CancellationToken ct = default)
+    {
+        if (cotizacion.EnlaceId is not { } id || Context.Enlaces is not { } hub)
+            return null;
+        try
+        {
+            return await hub.ObtenerAsync(id, ct);
+        }
+        catch (Exception ex) when (ex is VortexApi.Client.VortexApiException or HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private async Task RetirarEnlaceAsync(Guid enlace, CancellationToken ct)
+    {
+        if (Context.Enlaces is not { } hub)
+            return;
+        try
+        {
+            await hub.RetirarAsync(enlace, ct);
+        }
+        catch (Exception ex) when (ex is VortexApi.Client.VortexApiException or HttpRequestException or TaskCanceledException)
+        {
+            // Sin conexión, o el cliente ya respondió: la respuesta, si llega, se trata como de una versión reemplazada.
+        }
+    }
+
+    /// <summary>
+    /// Respuesta del cliente desde el enlace (<c>hub.public_link.accepted|rejected</c>). Aceptada: queda Aceptada con el
+    /// firmante, gana su oportunidad, publica <c>quote.accepted</c> y genera el pedido si todas sus líneas son del catálogo.
+    /// Rechazada: queda Rechazada con el comentario. En los dos casos queda una interacción en la ficha del cliente. La
+    /// reciben todos los equipos: los Ids deterministas evitan duplicados y lo que ya se aplicó no se repite.
+    /// </summary>
+    internal async Task<string?> AplicarRespuestaEnLineaAsync(SqliteConnection c, SqliteTransaction tx, DateTimeOffset now,
+        VortexApi.Client.VortexPublicLinkResponded r)
+    {
+        if (r.Product != CrmSyncHandlers.ProductCode || r.DocumentType != "quote")
+            return "ignorado: enlace de otro documento";
+        var cotizacion = await ObtenerAsync(c, tx, r.DocumentId);
+        if (cotizacion is null)
+            return "la cotización no está en este equipo";
+        if (cotizacion.FirmadaEn is not null || cotizacion.Estado is EstadoCotizacion.Aceptada)
+            return "ya aplicada";
+
+        var abierta = cotizacion.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada;
+        var firmante = r.SignerName ?? T("cotizacion.el_cliente");
+        var resumen = !abierta
+            ? T(r.Accepted ? "cotizacion.aceptada_no_vigente" : "cotizacion.rechazada_no_vigente", cotizacion.Codigo, firmante,
+                Fmt(cotizacion.Estado))
+            : T(r.Accepted ? "cotizacion.aceptada_en_linea" : "cotizacion.rechazada_en_linea", cotizacion.Codigo, firmante);
+        var interaccion = new Domain.Actividades.Interaccion
+        {
+            Id = DeterministicId.From("quote_online_response", r.LinkId),
+            ClienteId = cotizacion.ClienteId, ContactoId = cotizacion.ContactoId, OportunidadId = cotizacion.OportunidadId,
+            Tipo = Domain.Actividades.TipoInteraccion.Nota, Fecha = r.RespondedAt, CreadoEn = now, Resumen = resumen,
+            Resultado = r.Comment, ResponsableId = cotizacion.ResponsableId, ResponsableNombre = cotizacion.ResponsableNombre,
+        };
+        await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Interaccion, interaccion.Id, Registros.Datos(interaccion));
+        if (!abierta)
+            return $"respuesta a una cotización {cotizacion.Estado}";
+
+        (cotizacion.FirmadaPor, cotizacion.FirmadaCorreo, cotizacion.FirmadaEn, cotizacion.RespuestaCliente) =
+            (r.SignerName, r.SignerEmail, r.RespondedAt, r.Comment);
+        var detalle = T(r.Accepted ? "cotizacion.aceptada_en_linea" : "cotizacion.rechazada_en_linea", cotizacion.Codigo, firmante);
+        // Primero el estado (quote.accepted antes que order.created) y la cotización se publica una sola vez, ya con su pedido.
+        var pedido = r.Accepted && PuedeGenerarPedido(cotizacion);
+        if (pedido)
+            cotizacion.PedidoId = PedidoIdPara(cotizacion.Id);
+        await AplicarEstadoAsync(c, tx, now, cotizacion, r.Accepted ? EstadoCotizacion.Aceptada : EstadoCotizacion.Rechazada, detalle);
+        if (pedido)
+            await PedidoAsync(c, tx, now, cotizacion, publicar: false);
+        return null;
+    }
+
+    private static string Fmt(EstadoCotizacion estado) => T("enum.cotizacion." + estado.ToString().ToLowerInvariant());
+
+    /// <summary>Vence al terminar el día de validez (hora de la empresa), como máximo en un año.</summary>
+    private DateTimeOffset VenceEn(Cotizacion cotizacion)
+    {
+        var fin = new DateTimeOffset(cotizacion.ValidaHasta.AddDays(1).ToDateTime(TimeOnly.MinValue), FormatoPeru.ZonaHoraria);
+        var maximo = Clock.GetUtcNow().AddDays(365);
+        return fin < maximo ? fin : maximo;
+    }
+
+    /// <summary>La cotización como la ve el cliente en el enlace: lo mismo que el PDF (opcionales aparte, totales con impuesto).</summary>
+    internal static VortexApi.Client.VortexPublicDocument DocumentoPublico(Cotizacion q, EmisorPdf emisor, ClienteCotizacion cliente)
+    {
+        var totales = q.Totales;
+        var filas = new List<VortexApi.Client.VortexPublicDocumentTotal>();
+        if (q.ModoIgv != ModoIgv.NoAplica)
+        {
+            filas.Add(new(T("pdf.subtotal"), totales.Subtotal));
+            filas.Add(new($"{q.NombreImpuesto} ({(q.TasaImpuesto * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} %)", totales.Igv));
+        }
+        filas.Add(new(T("pdf.total"), totales.Total, Grand: true));
+        return new(
+            T("cotizacion.titulo_enlace"), q.Codigo, q.FechaEmision, q.ValidaHasta, q.Moneda,
+            new(emisor.Nombre, emisor.Ruc, emisor.Direccion, emisor.Email, emisor.Telefono),
+            new(cliente.Nombre, cliente.Documento, cliente.Direccion, cliente.Email, cliente.Telefono),
+            q.Lineas.Where(l => !l.EstaVacia)
+                .Select(l => new VortexApi.Client.VortexPublicDocumentLine(l.Descripcion, l.Cantidad, l.Unidad, l.PrecioUnitario, l.Importe, l.Opcional))
+                .ToList(),
+            filas, q.Condiciones, VortexApi.Suite.Money.Currencies.Get(q.Moneda).Decimals, q.ResponsableNombre);
+    }
+
     // ---------- Envío ----------
 
     /// <summary>Texto y enlace de WhatsApp (null si el teléfono no es un celular).</summary>
@@ -444,15 +626,20 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
     {
         await using var c = await Db.OpenAsync(ct);
         var (cotizacion, cliente, contacto, empresa) = await DatosDeEnvioAsync(c, id);
+        return GeneradorPdfCotizaciones.Generar(cotizacion, await EmisorAsync(c, cotizacion, empresa), ClienteCotizacion.Crear(cliente, contacto));
+    }
+
+    /// <summary>Quién emite: la empresa, con la dirección y el teléfono de la sede si la cotización sale de una.</summary>
+    private static async Task<EmisorPdf> EmisorAsync(SqliteConnection c, Cotizacion cotizacion, CompanyInfo? empresa)
+    {
         var sede = cotizacion.SedeId is { } s
             ? await c.FirstOrDefaultAsync("SELECT address_line, city, phone FROM sites WHERE id = $id",
                 r => new { Linea = r.StrOrNull("address_line"), Ciudad = r.StrOrNull("city"), Telefono = r.StrOrNull("phone") }, null, ("$id", s))
             : null;
         var direccion = string.Join(", ", new[] { sede?.Linea ?? empresa?.AddressLine, sede?.Ciudad ?? empresa?.City }
             .Where(p => !string.IsNullOrWhiteSpace(p)));
-        var emisor = new EmisorPdf(empresa?.DisplayName ?? T("pdf.mi_empresa"), empresa?.LegalName, empresa?.TaxId,
+        return new EmisorPdf(empresa?.DisplayName ?? T("pdf.mi_empresa"), empresa?.LegalName, empresa?.TaxId,
             direccion.Length == 0 ? null : direccion, sede?.Telefono ?? empresa?.Phone, empresa?.Email);
-        return GeneradorPdfCotizaciones.Generar(cotizacion, emisor, ClienteCotizacion.Crear(cliente, contacto));
     }
 
     // ---------- Internos ----------

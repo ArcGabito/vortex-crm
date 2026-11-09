@@ -260,6 +260,49 @@
                                     <p class="muted" style="font-size:13px">@T("quoteeditor.cotizacion_rechazada_puedes_crear_una")</p>
                                     break;
                             }
+                            @if (q.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada)
+                            {
+                                <div class="online-accept">
+                                    <span class="field-label">@T("quoteeditor.aceptacion_en_linea")</span>
+                                    @if (q.EnlaceUrl is { } url)
+                                    {
+                                        <input class="control" readonly value="@url" aria-label="@(T("quoteeditor.aceptacion_en_linea"))" />
+                                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                            <button class="btn btn-sm" @onclick="() => CopiarEnlaceAsync(url)"><Icon Name="copy" Size="16" />@T("quoteeditor.copiar_enlace")</button>
+                                            <button class="btn btn-sm btn-ghost" @onclick="() => Launcher.Default.OpenAsync(new Uri(url))"><Icon Name="external" Size="16" />@T("quoteeditor.abrir_enlace")</button>
+                                        </div>
+                                        <span class="muted" style="font-size:12.5px">
+                                            @(_enlace switch
+                                            {
+                                                null => T("quoteeditor.enlace_sin_estado"),
+                                                { Status: VortexApi.Client.VortexPublicLinkStatus.Revoked } => T("quoteeditor.enlace_retirado"),
+                                                { ViewCount: 0 } => T("quoteeditor.enlace_no_visto"),
+                                                var visto => T("quoteeditor.enlace_visto", visto.ViewCount, Fmt.DateTime(visto.LastViewedAt!.Value)),
+                                            })
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <p class="muted" style="font-size:12.5px;margin:0">@T("quoteeditor.enlace_explica")</p>
+                                    }
+                                    <button class="btn btn-block" disabled="@_busy" @onclick="EnlaceAsync"><Icon Name="external" Size="18" />@(q.EnlaceUrl is null ? T("quoteeditor.crear_enlace") : T("quoteeditor.actualizar_enlace"))</button>
+                                </div>
+                            }
+                            else if (q.FirmadaEn is { } firmadaEn)
+                            {
+                                <div class="online-accept">
+                                    <span class="field-label">@T("quoteeditor.aceptacion_en_linea")</span>
+                                    <span>@T(q.Estado == EstadoCotizacion.Rechazada ? "quoteeditor.rechazada_en_linea_por" : "quoteeditor.aceptada_en_linea_por", q.FirmadaPor ?? "—", Fmt.DateTime(firmadaEn))</span>
+                                    @if (q.RespuestaCliente is { } comentario)
+                                    {
+                                        <span class="muted" style="font-size:13px">“@comentario”</span>
+                                    }
+                                    @if (_enlace?.Signature is { } firma)
+                                    {
+                                        <img class="signature" src="@firma" alt="@(T("quoteeditor.firma_del_cliente"))" />
+                                    }
+                                </div>
+                            }
                             @if (_versiones.Count > 1)
                             {
                                 <div class="versions">
@@ -314,6 +357,7 @@
     private IReadOnlyList<(Guid Id, int Version, EstadoCotizacion Estado, DateOnly Fecha)> _versiones = [];
     private Ajustes _ajustes = new(ModoIgv.Incluido, null);
     private ListaPrecios _lista = ListaPrecios.Ninguna;
+    private VortexApi.Client.VortexPublicLink? _enlace;
     private string? _error, _nombrePlantilla;
     private bool _busy;
 
@@ -333,6 +377,12 @@
                 return;
             }
         }
+        else if (Id is { } abierta && await Crm.Cotizaciones.ObtenerAsync(abierta) is { } guardada && guardada.Estado != _cotizacion.Estado)
+        {
+            // El cliente la aceptó o rechazó desde el enlace (o la cambió otro equipo) mientras estaba abierta.
+            _cotizacion = guardada;
+        }
+        _ = CargarEnlaceAsync(_cotizacion);
         _ajustes = await Crm.Clientes.ObtenerAjustesAsync();
         _plantillas = await Crm.Cotizaciones.PlantillasAsync();
         _versiones = await Crm.Cotizaciones.VersionesAsync(_cotizacion);
@@ -407,6 +457,44 @@
             _cotizacion = null;
             Nav.NavigateTo($"cotizaciones/{nueva}");
         }
+    }
+
+    /// <summary>Vistas, respuesta y firma del enlace (desde el hub, sin trabar la pantalla si no hay conexión).</summary>
+    private async Task CargarEnlaceAsync(Cotizacion cotizacion)
+    {
+        if (cotizacion.EnlaceId is null)
+        {
+            _enlace = null;
+            return;
+        }
+        var enlace = await Crm.Cotizaciones.EstadoEnlaceAsync(cotizacion);
+        await InvokeAsync(() =>
+        {
+            _enlace = enlace;
+            StateHasChanged();
+        });
+    }
+
+    private async Task EnlaceAsync()
+    {
+        if (!await GuardarAsync())
+            return;
+        _busy = true;
+        string? url = null;
+        _error = await TryAsync(async () => url = await Crm.Cotizaciones.EnlaceParaAceptarAsync(_cotizacion!.Id), T("quoteeditor.enlace_listo"));
+        _busy = false;
+        _cotizacion = await Crm.Cotizaciones.ObtenerAsync(_cotizacion!.Id);
+        if (_error is null && url is not null)
+        {
+            await Microsoft.Maui.ApplicationModel.DataTransfer.Clipboard.Default.SetTextAsync(url);
+            _ = CargarEnlaceAsync(_cotizacion!);
+        }
+    }
+
+    private async Task CopiarEnlaceAsync(string url)
+    {
+        await Microsoft.Maui.ApplicationModel.DataTransfer.Clipboard.Default.SetTextAsync(url);
+        Toasts.Success(T("quoteeditor.enlace_copiado"));
     }
 
     private async Task<bool> GuardarAsync()

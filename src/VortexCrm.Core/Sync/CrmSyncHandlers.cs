@@ -23,7 +23,7 @@ namespace VortexCrm.Core.Sync;
 /// </list>
 /// Cada evento se aplica una sola vez (tabla <c>processed_events</c>) y en una transacción junto con su efecto.
 /// </summary>
-public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, TimeProvider clock)
+public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, TimeProvider clock, ServicioCotizaciones cotizaciones)
 {
     public const string ProductCode = "CRM";
 
@@ -46,7 +46,16 @@ public sealed class CrmSyncHandlers(CrmDatabase db, MasterDataService master, Ti
         .OnEvent(SuiteEvents.InvoiceIssued, HandleInvoiceIssuedAsync)
         .OnEvent(SuiteEvents.PaymentReceived, HandlePaymentReceivedAsync)
         .OnEvent(SuiteEvents.InvoiceVoided, HandleInvoiceVoidedAsync)
-        .OnEvent(SuiteEvents.ShipmentDispatched, HandleShipmentDispatchedAsync);
+        .OnEvent(SuiteEvents.ShipmentDispatched, HandleShipmentDispatchedAsync)
+        .OnEvent(VortexHubEvents.PublicLinkResponses, HandlePublicLinkRespondedAsync);
+
+    // ---------- Respuesta del cliente desde el enlace público del hub ----------
+
+    /// <summary>El cliente aceptó (con su firma) o rechazó la cotización desde su enlace.</summary>
+    public Task HandlePublicLinkRespondedAsync(VortexEvent e, CancellationToken ct = default) =>
+        ApplyOnceAsync<VortexPublicLinkResponded>(e, (r, c, tx) => e.Source != "HUB"
+            ? Task.FromResult<string?>("ignorado: hub.public_link solo lo publica el hub")
+            : cotizaciones.AplicarRespuestaEnLineaAsync(c, tx, clock.GetUtcNow(), r), ct);
 
     // ---------- Otros equipos del CRM ----------
 

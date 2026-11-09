@@ -27,7 +27,7 @@ public sealed class CrmWorkspace
         Actividades = new ServicioActividades(db, context, clock);
         Audit = new AuditService(db, context, clock);
         SyncStore = new SqliteSyncStore(db);
-        SyncHandlers = new CrmSyncHandlers(db, Master, clock);
+        SyncHandlers = new CrmSyncHandlers(db, Master, clock, Cotizaciones);
         SyncHandlers.TasksChanged += () => _ = Tareas.ReprogramarAvisosAsync();
     }
 

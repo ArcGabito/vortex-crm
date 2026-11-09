@@ -74,6 +74,23 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
 
     public bool Can(string permission) => CrmPermissions.Matrix.Can(Session?.Access.Role, Session?.User.Role, permission);
 
+    /// <summary>Enlaces públicos del hub (aceptación de cotizaciones en línea); necesitan conexión.</summary>
+    public IEnlacesPublicos? Enlaces => Session is not null && _sessions is { } sessions && _client is { } client
+        ? new EnlacesHub(sessions, client)
+        : null;
+
+    private sealed class EnlacesHub(VortexSessionManager sessions, VortexApiClient client) : IEnlacesPublicos
+    {
+        public Task<VortexPublicLink> CrearAsync(VortexPublicLinkRequest enlace, CancellationToken ct = default) =>
+            sessions.WithAccessTokenAsync(token => client.CreatePublicLinkAsync(token, enlace, ct), ct);
+
+        public Task<VortexPublicLink?> ObtenerAsync(Guid id, CancellationToken ct = default) =>
+            sessions.WithAccessTokenAsync(token => client.GetPublicLinkAsync(token, id, ct), ct);
+
+        public Task RetirarAsync(Guid id, CancellationToken ct = default) =>
+            sessions.WithAccessTokenAsync(async token => { await client.RevokePublicLinkAsync(token, id, ct); return 0; }, ct);
+    }
+
     public Guid? UserId => Session?.User.Id;
     public string UserName => Session?.User.FullName ?? "";
     public string DeviceTag => DeviceIdentity.Tag(_deviceId);

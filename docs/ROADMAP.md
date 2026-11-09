@@ -60,7 +60,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-33 | Listas de precios por cliente compartidas con el ERP y el POS | Hecho | 4a |
 | CRM-34 | Descuento máximo por rol y aprobación del gerente | Hecho | 4a |
 | CRM-35 | Versiones de una cotización | Hecho | 4a |
-| CRM-36 | Aceptación en línea con firma (enlace público del hub) | Pendiente | 4b |
+| CRM-36 | Aceptación en línea con firma (enlace público del hub) | Hecho | 4b |
 | CRM-37 | Productos opcionales y validez de la oferta | Hecho | 4a |
 
 ### Actividades y comunicación
@@ -209,8 +209,16 @@ aprobar" para el gerente. Versiones: desde una cotización enviada o rechazada s
 anterior queda Reemplazada (el pedido de una versión lleva `-V2`). Líneas opcionales: se muestran aparte en la pantalla,
 el PDF y WhatsApp, no suman al total ni pasan al pedido. Plantillas de cotización compartidas por el equipo (líneas,
 condiciones, impuesto y validez) que se llenan con el precio de lista de hoy. Pruebas en
-`CotizacionesEmpresarialesTests` y `SyncTests`. Queda para 4b: aceptación en línea con firma (CRM-36), que necesita el
-enlace público del hub.
+`CotizacionesEmpresarialesTests` y `SyncTests`.
+
+4b hecha (2026-11): "Crear enlace para aceptar" sube al hub una copia de la cotización (`api/public-links`) y la deja
+Enviada; el enlace se copia y va en el mensaje de WhatsApp y del correo. El cliente la ve en `/p/{token}` (en el idioma
+del vendedor) y la acepta con nombre y firma dibujada, o la rechaza. La respuesta llega por el feed
+(`hub.public_link.accepted|rejected`): la cotización queda Aceptada con el firmante, gana su oportunidad, publica
+`quote.accepted` y genera el pedido (`order.created`) si todas sus líneas son del catálogo; o queda Rechazada con el
+comentario. En los dos casos queda una nota en la ficha del cliente. La pantalla muestra cuántas veces abrió el enlace y,
+tras la respuesta, la firma. Editar la cotización y volver a pedir el enlace actualiza la copia (misma URL); una versión
+nueva retira el enlace anterior. Pruebas en `AceptacionEnLineaTests`. Fase 4 terminada.
 
 **Terminado cuando:** una cotización con un descuento mayor al permitido no se puede enviar sin la aprobación del
 gerente; el cliente la acepta desde el enlace y el pedido llega al ERP.

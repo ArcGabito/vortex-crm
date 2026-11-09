@@ -45,6 +45,12 @@ public static class MensajeWhatsApp
         var nota = cotizacion.ModoIgv == ModoIgv.NoAplica ? "" : T("whatsapp.incluye", cotizacion.NombreImpuesto);
         texto.AppendLine(T("whatsapp.total", Dinero(cotizacion, cotizacion.Totales.Total), nota));
         texto.Append(T("whatsapp.valida_hasta", cotizacion.ValidaHasta.ToString("dd/MM/yyyy", FormatoPeru.Cultura)));
+        if (cotizacion.EnlaceUrl is { } enlace && cotizacion.Estado is EstadoCotizacion.Borrador or EstadoCotizacion.Enviada)
+        {
+            texto.AppendLine();
+            texto.AppendLine();
+            texto.Append(T("whatsapp.acepta_en_linea", enlace));
+        }
 
         return texto.ToString();
     }

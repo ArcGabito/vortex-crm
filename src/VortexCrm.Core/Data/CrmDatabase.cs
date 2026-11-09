@@ -217,5 +217,14 @@ internal static class Schema
         ALTER TABLE parties ADD COLUMN price_list_id TEXT;
         DELETE FROM sync_cursors WHERE stream = 'master';
         """,
+        // 8: aceptación en línea (fase 4b). Enlace público del hub y la respuesta del cliente (firmante, fecha, comentario).
+        """
+        ALTER TABLE cotizaciones ADD COLUMN enlace_id TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN enlace_url TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN firmada_por TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN firmada_correo TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN firmada_en TEXT;
+        ALTER TABLE cotizaciones ADD COLUMN respuesta_cliente TEXT;
+        """,
     ];
 }
