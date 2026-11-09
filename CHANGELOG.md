@@ -8,6 +8,9 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Equipos y comisiones (fase 5b):** equipos de venta con líder, vendedores, territorio y jerarquía; asignación de
+  clientes por territorio; visibilidad por jerarquía (opcional); comisiones del mes sobre lo ganado o lo cobrado con
+  acelerador sobre la meta y exportación. Pantalla Equipo.
 - **Automatización (fase 5a):** reglas que crean tareas o inician secuencias (oportunidad sin movimiento, cotización sin
   respuesta o por vencer, lead sin contactar, posventa), con la de oportunidad quieta 15 días activa por defecto;
   secuencias de seguimiento que se detienen solas al cerrarse la oportunidad o el lead; reparto de leads nuevos por turno

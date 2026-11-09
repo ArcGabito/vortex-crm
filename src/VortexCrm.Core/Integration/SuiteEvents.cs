@@ -77,6 +77,15 @@ public static class CrmRecordKinds
 
     /// <summary>Una regla ya saltó para un registro (no se repite en otro equipo). Id determinista.</summary>
     public const string Disparo = "disparo";
+
+    /// <summary>Equipo de venta (líder, vendedores, territorio, equipo padre). Id: el del equipo.</summary>
+    public const string Equipo = "equipo";
+
+    /// <summary>Visibilidad de los registros (todo o por jerarquía). Id fijo.</summary>
+    public const string Visibilidad = "visibilidad";
+
+    /// <summary>Plan de comisiones. Id fijo.</summary>
+    public const string PlanComisiones = "plan_comisiones";
 }
 
 // ---------- Consumidos por el CRM ----------

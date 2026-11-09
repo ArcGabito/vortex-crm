@@ -18,12 +18,14 @@ public sealed class ServicioLeads(CrmDatabase db, ICrmContext context, TimeProvi
     public async Task<IReadOnlyList<Lead>> ListarAsync(string? busqueda = null, string? estado = null, CancellationToken ct = default)
     {
         await using var c = await Db.OpenAsync(ct);
+        var visibles = await ServicioEquipos.VisiblesAsync(c, null, Context);
         return await c.QueryAsync("""
             SELECT * FROM leads
             WHERE ($estado IS NULL OR estado = $estado)
+              AND ($vis IS NULL OR responsable_id IS NULL OR responsable_id IN (SELECT value FROM json_each($vis)))
               AND ($q IS NULL OR nombre LIKE $like OR empresa LIKE $like OR documento LIKE $like OR email LIKE $like OR telefono LIKE $like)
             ORDER BY CASE estado WHEN 'nuevo' THEN 0 WHEN 'contactado' THEN 1 WHEN 'calificado' THEN 2 ELSE 3 END, creado_en DESC
-            """, Registros.LeerLead, null, ("$estado", Clean(estado)), ("$q", Clean(busqueda)), ("$like", Like(busqueda)));
+            """, Registros.LeerLead, null, ("$estado", Clean(estado)), ("$q", Clean(busqueda)), ("$like", Like(busqueda)), ("$vis", visibles));
     }
 
     public async Task<Lead?> ObtenerAsync(Guid id, CancellationToken ct = default)

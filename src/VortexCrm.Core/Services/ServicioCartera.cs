@@ -60,6 +60,40 @@ public sealed class ServicioCartera(CrmDatabase db, ICrmContext context, TimePro
     }
 
     /// <summary>
+    /// Reparte los clientes sin responsable por territorio (CRM-53): el cliente cuya ciudad, región o distrito está en las zonas
+    /// de un equipo va al vendedor de ese equipo con menos clientes (o al líder si no tiene vendedores). Devuelve cuántos asignó.
+    /// </summary>
+    public Task<int> AsignarPorTerritorioAsync(CancellationToken ct = default)
+    {
+        RequirePermission(CrmPermissions.AssignCustomers);
+        return InTransactionAsync(async (c, tx, now) =>
+        {
+            var equipos = (await ServicioEquipos.EquiposAsync(c, tx)).Where(e => e.Zonas.Count > 0).ToList();
+            if (equipos.Count == 0)
+                return 0;
+            var carga = (await c.QueryAsync("SELECT owner_id, COUNT(*) AS n FROM parties WHERE owner_id IS NOT NULL AND is_deleted = 0 GROUP BY owner_id",
+                r => (Id: r.Guid("owner_id"), N: r.Int("n")), tx)).ToDictionary(x => x.Id, x => x.N);
+            var libres = await c.QueryAsync("""
+                SELECT * FROM parties WHERE is_customer = 1 AND is_active = 1 AND is_deleted = 0 AND owner_id IS NULL ORDER BY name
+                """, MasterDataService.ReadParty, tx);
+            var asignados = 0;
+            foreach (var cliente in libres)
+            {
+                if (equipos.FirstOrDefault(e => e.Cubre(cliente)) is not { } equipo)
+                    continue;
+                var candidatos = equipo.Miembros.Count > 0 ? equipo.Miembros
+                    : [new Domain.Vendedor(equipo.LiderId!.Value, equipo.LiderNombre ?? "?")];
+                var elegido = candidatos.OrderBy(v => carga.GetValueOrDefault(v.Id)).ThenBy(v => v.Nombre).First();
+                await CambiarResponsableAsync(c, tx, now, cliente.Id, elegido.Id, elegido.Nombre, auditar: false);
+                carga[elegido.Id] = carga.GetValueOrDefault(elegido.Id) + 1;
+                asignados++;
+            }
+            await AuditAsync(c, tx, now, "customer.assigned_by_territory", "party", null, null, $"{asignados} clientes");
+            return asignados;
+        }, ct);
+    }
+
+    /// <summary>
     /// Pasa todos los clientes de un vendedor a otro (o los deja sin responsable) y, con ellos, sus oportunidades
     /// abiertas. Devuelve cuántos clientes se movieron.
     /// </summary>

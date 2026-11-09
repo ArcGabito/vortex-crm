@@ -27,6 +27,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
         await using var c = await Db.OpenAsync(ct);
         var (regimen, _) = await FiscalAsync(c, null);
         var tope = (await ServicioClientes.AjustesAsync(c)).DescuentoMaximo;
+        var visibles = await ServicioEquipos.VisiblesAsync(c, null, Context);
         return await c.QueryAsync("""
             SELECT q.*, p.name AS cliente,
                    (SELECT COALESCE(MAX((l.precio_lista - l.precio_unitario) * 100.0 / l.precio_lista), 0) FROM cotizacion_lineas l
@@ -35,6 +36,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
             FROM cotizaciones q LEFT JOIN parties p ON p.id = q.cliente_id
             WHERE ($estado IS NULL OR q.estado = $estado) AND ($cliente IS NULL OR q.cliente_id = $cliente)
               AND ($oportunidad IS NULL OR q.oportunidad_id = $oportunidad)
+              AND ($vis IS NULL OR q.responsable_id IS NULL OR q.responsable_id IN (SELECT value FROM json_each($vis)))
               AND ($q IS NULL OR q.numero LIKE $like OR p.name LIKE $like OR p.document_number LIKE $like)
             ORDER BY q.creado_en DESC
             """, r =>
@@ -55,7 +57,7 @@ public sealed class ServicioCotizaciones(CrmDatabase db, ICrmContext context, Ti
                     DateOnly.Parse(r.Str("valida_hasta"), System.Globalization.CultureInfo.InvariantCulture), total, r.GuidOrNull("oportunidad_id"),
                     r.GuidOrNull("pedido_id"), r.Time("creado_en"), r.Str("moneda"), porAprobar);
             }, null, ("$estado", estado?.ToString()), ("$cliente", clienteId), ("$oportunidad", oportunidadId), ("$q", Clean(busqueda)),
-            ("$like", Like(busqueda)));
+            ("$like", Like(busqueda)), ("$vis", visibles));
     }
 
     public async Task<Cotizacion?> ObtenerAsync(Guid id, CancellationToken ct = default)

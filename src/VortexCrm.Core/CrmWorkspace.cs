@@ -26,6 +26,7 @@ public sealed class CrmWorkspace
         Cartera = new ServicioCartera(db, context, clock);
         Actividades = new ServicioActividades(db, context, clock);
         Automatizacion = new ServicioAutomatizacion(db, context, clock);
+        Equipos = new ServicioEquipos(db, context, clock);
         Audit = new AuditService(db, context, clock);
         SyncStore = new SqliteSyncStore(db);
         SyncHandlers = new CrmSyncHandlers(db, Master, clock, Cotizaciones);
@@ -44,6 +45,7 @@ public sealed class CrmWorkspace
     public ServicioCartera Cartera { get; }
     public ServicioActividades Actividades { get; }
     public ServicioAutomatizacion Automatizacion { get; }
+    public ServicioEquipos Equipos { get; }
     public AuditService Audit { get; }
     public SqliteSyncStore SyncStore { get; }
     public CrmSyncHandlers SyncHandlers { get; }

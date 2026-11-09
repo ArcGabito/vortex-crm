@@ -69,6 +69,9 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
   `asignacion_leads` (Id fijo; `asignacion` con `modo` y `vendedores`) y `disparo` (`reglaId`, `registroId`; Id
   determinista: regla + registro + situación). Las tareas agregan `origen` (`regla:{id}` o
   `secuencia:{id}:{tipo}:{registroId}`) y las automáticas tienen Id determinista.
+- Fase 5b: registros nuevos `equipo` (`nombre`, `liderId`, `liderNombre`, `miembros`, `zonas`, `padreId`), `visibilidad`
+  (Id fijo: `todo` o `jerarquia`) y `plan_comisiones` (Id fijo: `base`, `tasa`, `tasaSobreMeta`, `tasaPorVendedor`).
+  Asignar por territorio cambia el `account` del cliente en el hub como la asignación a mano.
 - Sedes por usuario: con sedes asignadas en el hub (`Access.SiteIds`), las cotizaciones solo salen de esas sedes.
 - Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
   todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos
