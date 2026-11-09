@@ -61,6 +61,33 @@ public sealed class SyncTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task El_tope_de_descuento_la_aprobacion_las_versiones_y_las_plantillas_llegan_al_otro_equipo()
+    {
+        await _a.Crm.Clientes.GuardarAjustesAsync(new Ajustes(ModoIgv.Incluido, null, null, DescuentoMaximo: 5));
+        var q = await _a.Crm.Cotizaciones.NuevaAsync(_a.Customer);
+        var cafe = (await _a.Crm.Master.GetItemAsync(_a.Coffee))!;
+        q.AgregarLinea(cafe.CrearLinea(q, 10));
+        q.Lineas[0].PrecioUnitario = 16.65m;   // 10 % debajo de la lista
+        await _a.Crm.Cotizaciones.GuardarAsync(q);
+        await _a.Crm.Cotizaciones.AprobarDescuentoAsync(q.Id);
+        await _a.Crm.Cotizaciones.CambiarEstadoAsync(q.Id, EstadoCotizacion.Enviada);
+        _a.Clock.Advance(TimeSpan.FromMinutes(1));
+        var v2 = await _a.Crm.Cotizaciones.NuevaVersionAsync(q.Id);
+        await _a.Crm.Cotizaciones.GuardarPlantillaAsync("Café por caja", q);
+
+        await ReplicarAsync(_a, _b);
+
+        Assert.Equal(5m, (await _b.Crm.Clientes.ObtenerAjustesAsync()).DescuentoMaximo);
+        var anterior = (await _b.Crm.Cotizaciones.ObtenerAsync(q.Id))!;
+        Assert.Equal((EstadoCotizacion.Reemplazada, 10m), (anterior.Estado, anterior.DescuentoAprobado!.Value));
+        Assert.Equal((18.5m, 10m), (anterior.Lineas[0].PrecioLista!.Value, anterior.DescuentoMaximo));
+        var nueva = (await _b.Crm.Cotizaciones.ObtenerAsync(v2))!;
+        Assert.Equal(("COT-EQPA-0001 v2", q.Id), (nueva.Codigo, nueva.VersionDe!.Value));
+        Assert.True(Assert.Single(await _b.Crm.Cotizaciones.ListarAsync(), x => x.Id == v2).PorAprobar);
+        Assert.Equal("Café por caja", Assert.Single(await _b.Crm.Cotizaciones.PlantillasAsync()).Nombre);
+    }
+
+    [Fact]
     public async Task El_ultimo_cambio_gana_y_los_eventos_repetidos_o_viejos_no_lo_pisan()
     {
         var oportunidad = new Oportunidad { Titulo = "Versión A", ClienteId = _a.Customer };

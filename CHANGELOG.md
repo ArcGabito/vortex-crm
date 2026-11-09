@@ -8,6 +8,11 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Cotizaciones empresariales (fase 4a):** precio de lista desde las listas de precios del hub (la del cliente o la de
+  la sede, con escalas por cantidad) y descuento de cada línea contra ese precio. Descuento máximo del vendedor en los
+  ajustes: la cotización que lo pasa no se envía sin la aprobación del gerente (filtro "Por aprobar"). Versiones de una
+  cotización (v2, v3…; la anterior queda Reemplazada). Productos opcionales que se ofrecen aparte y no suman ni pasan al
+  pedido. Plantillas de cotización compartidas por el equipo.
 - **Actividades (fase 3):** interacciones con el cliente (llamada, WhatsApp, correo, reunión, visita, nota) con su
   resultado en la ficha; completar una tarea pide qué pasó y lo deja como interacción. Vista semanal de tareas.
   Plantillas de WhatsApp y correo con datos del cliente, configurables por el gerente. Envío de la cotización por

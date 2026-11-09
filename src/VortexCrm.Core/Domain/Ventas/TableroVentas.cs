@@ -38,7 +38,7 @@ public sealed record TableroVentas(
             .Select(o => (Mes: MesDe(DateOnly.FromDateTime(o.CerradoEn!.Value.ToOffset(FormatoPeru.ZonaHoraria).DateTime)), o.Monto))
             .ToList();
         var cotizadas = cotizaciones
-            .Where(q => q.Estado != EstadoCotizacion.Borrador)
+            .Where(q => q.Estado is not (EstadoCotizacion.Borrador or EstadoCotizacion.Reemplazada))
             .Select(q => (Mes: MesDe(q.Emision), q.Total))
             .ToList();
 

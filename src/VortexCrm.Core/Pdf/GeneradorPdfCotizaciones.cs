@@ -159,10 +159,24 @@ public static class GeneradorPdfCotizaciones
             encabezado.Cells[i].AddParagraph(titulos[i]);
         }
 
-        for (var i = 0; i < cotizacion.Lineas.Count; i++)
+        // Primero lo que se compra; las opcionales van al final, aparte y sin sumar al total.
+        var lineas = cotizacion.Lineas.Where(l => !l.Opcional).ToList();
+        var opcionales = cotizacion.Lineas.Where(l => l.Opcional).ToList();
+        for (var i = 0; i < lineas.Count + opcionales.Count; i++)
         {
-            var linea = cotizacion.Lineas[i];
+            if (i == lineas.Count)
+            {
+                var titulo = tabla.AddRow();
+                titulo.TopPadding = Unit.FromCentimeter(0.25);
+                titulo.Cells[0].MergeRight = 5;
+                var p = titulo.Cells[0].AddParagraph(T("pdf.opcionales"));
+                p.Format.Font.Bold = true;
+                p.Format.Font.Color = GrisTexto;
+            }
+            var linea = i < lineas.Count ? lineas[i] : opcionales[i - lineas.Count];
             var fila = tabla.AddRow();
+            if (linea.Opcional)
+                fila.Format.Font.Color = GrisTexto;
             fila.TopPadding = Unit.FromCentimeter(0.1);
             fila.BottomPadding = Unit.FromCentimeter(0.1);
             fila.Cells[0].AddParagraph((i + 1).ToString(FormatoPeru.Cultura));

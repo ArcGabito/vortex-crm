@@ -82,15 +82,16 @@ public sealed class ServicioClientes(CrmDatabase db, ICrmContext context, TimePr
                 $"{ajustes.ModoIgvPredeterminado}; condiciones: {Clean(ajustes.CondicionesPredeterminadas) ?? "(ninguna)"}");
             await Registros.PublicarAsync(c, tx, now, CrmRecordKinds.Ajustes, Guid.Empty,
                 new Registros.AjustesDatos(ajustes.ModoIgvPredeterminado.ToString(), Clean(ajustes.CondicionesPredeterminadas),
-                    ajustes.MotivosPerdida?.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct().ToList()));
+                    ajustes.MotivosPerdida?.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct().ToList(), ajustes.DescuentoMaximo));
             return 0;
         }, ct);
     }
 
-    internal static async Task<Ajustes> AjustesAsync(SqliteConnection c) =>
+    internal static async Task<Ajustes> AjustesAsync(SqliteConnection c, SqliteTransaction? tx = null) =>
         await c.FirstOrDefaultAsync("SELECT * FROM ajustes WHERE id = 1",
             r => new Ajustes(Enum.Parse<ModoIgv>(r.Str("modo_igv")), r.StrOrNull("condiciones"),
-                r.StrOrNull("motivos_perdida") is { } m ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(m) : null))
+                r.StrOrNull("motivos_perdida") is { } m ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(m) : null,
+                r.DecOrNull("descuento_maximo")), tx)
         ?? new Ajustes(ModoIgv.Incluido, null);
 
     // ---------- Actividad que informan los otros sistemas ----------

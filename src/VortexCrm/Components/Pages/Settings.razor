@@ -37,6 +37,11 @@
                         <textarea class="control" rows="3" placeholder="@(T("settings.forma_de_pago_tiempo_de"))" @bind="_condiciones"></textarea>
                     </div>
                     <div class="field">
+                        <label>@T("settings.descuento_maximo")</label>
+                        <input class="control" type="number" inputmode="decimal" min="0" max="100" step="0.5" placeholder="@(T("settings.sin_tope"))" @bind="_descuentoMaximo" />
+                        <span class="hint">@T("settings.descuento_maximo_explica")</span>
+                    </div>
+                    <div class="field">
                         <label>@T("settings.motivos_de_perdida")</label>
                         <textarea class="control" rows="5" placeholder="@(T("settings.un_motivo_por_linea"))" @bind="_motivos"></textarea>
                     </div>
@@ -318,13 +323,15 @@
 
     private ModoIgv _modoIgv;
     private string? _condiciones, _motivos;
+    private decimal? _descuentoMaximo;
     private bool _busy, _ajustesCargados;
 
     private async Task GuardarAjustesAsync()
     {
         _busy = true;
         await RunAsync(() => Crm.Clientes.GuardarAjustesAsync(new Ajustes(_modoIgv, _condiciones,
-            (_motivos ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))), T("settings.ajustes_de_ventas_guardados"));
+            (_motivos ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), _descuentoMaximo)),
+            T("settings.ajustes_de_ventas_guardados"));
         _busy = false;
     }
 
@@ -346,7 +353,8 @@
         if (!_ajustesCargados)
         {
             var ajustes = await Crm.Clientes.ObtenerAjustesAsync();
-            (_modoIgv, _condiciones, _ajustesCargados) = (ajustes.ModoIgvPredeterminado, ajustes.CondicionesPredeterminadas, true);
+            (_modoIgv, _condiciones, _descuentoMaximo, _ajustesCargados) = (ajustes.ModoIgvPredeterminado, ajustes.CondicionesPredeterminadas,
+                ajustes.DescuentoMaximo, true);
             _motivos = string.Join("\n", ajustes.Motivos);
         }
         _sites = await Crm.Master.GetSitesAsync(activeOnly: true);
