@@ -226,5 +226,15 @@ internal static class Schema
         ALTER TABLE cotizaciones ADD COLUMN firmada_en TEXT;
         ALTER TABLE cotizaciones ADD COLUMN respuesta_cliente TEXT;
         """,
+        // 9: automatización (fase 5a). Reglas, secuencias y la asignación de leads como JSON; disparos (qué regla ya saltó
+        // para qué registro, para que no se repita en otro equipo); origen de las tareas automáticas.
+        """
+        CREATE TABLE reglas (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE TABLE secuencias (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE TABLE configuracion (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE TABLE disparos (
+            id TEXT PRIMARY KEY, regla_id TEXT NOT NULL, registro_id TEXT NOT NULL, creado_en TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        ALTER TABLE tareas ADD COLUMN origen TEXT;
+        """,
     ];
 }

@@ -8,6 +8,10 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Automatización (fase 5a):** reglas que crean tareas o inician secuencias (oportunidad sin movimiento, cotización sin
+  respuesta o por vencer, lead sin contactar, posventa), con la de oportunidad quieta 15 días activa por defecto;
+  secuencias de seguimiento que se detienen solas al cerrarse la oportunidad o el lead; reparto de leads nuevos por turno
+  o por carga. Cada regla salta una sola vez aunque el vendedor tenga varios equipos. Pantalla Automatización.
 - **Aceptación en línea (fase 4b):** enlace público del hub para que el cliente revise la cotización y la acepte con su
   firma o la rechace, sin usuario. Al aceptarla, la cotización queda Aceptada con el firmante, gana su oportunidad y el
   pedido llega al ERP solo. El enlace va en el mensaje de WhatsApp y del correo; la pantalla muestra si el cliente lo

@@ -64,6 +64,11 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
   Id de la cotización, vence al terminar su día de validez) y consume `hub.public_link.accepted|rejected`: aceptada →
   Aceptada, `quote.accepted` y `order.created` (Ids deterministas, así varios equipos no los duplican); rechazada →
   Rechazada. Una respuesta a una versión reemplazada no cambia nada y queda como nota para el vendedor.
+- Fase 5a: registros nuevos `regla` (`nombre`, `disparador`, `dias`, `accion`, `tituloTarea`, `tipoTarea`,
+  `diasParaVencer`, `secuenciaId`, `activa`), `secuencia` (`nombre`, `pasos` con `dia`, `tipo`, `titulo`),
+  `asignacion_leads` (Id fijo; `asignacion` con `modo` y `vendedores`) y `disparo` (`reglaId`, `registroId`; Id
+  determinista: regla + registro + situación). Las tareas agregan `origen` (`regla:{id}` o
+  `secuencia:{id}:{tipo}:{registroId}`) y las automáticas tienen Id determinista.
 - Sedes por usuario: con sedes asignadas en el hub (`Access.SiteIds`), las cotizaciones solo salen de esas sedes.
 - Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
   todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos

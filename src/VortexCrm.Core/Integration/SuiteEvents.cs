@@ -65,6 +65,18 @@ public static class CrmRecordKinds
 
     /// <summary>Plantilla de cotización (líneas, condiciones, validez). Id: el de la plantilla.</summary>
     public const string PlantillaCotizacion = "plantilla_cotizacion";
+
+    /// <summary>Regla de automatización (disparador y acción). Id: el de la regla.</summary>
+    public const string Regla = "regla";
+
+    /// <summary>Secuencia de seguimiento (pasos con plazos). Id: el de la secuencia.</summary>
+    public const string Secuencia = "secuencia";
+
+    /// <summary>Asignación automática de leads (modo y vendedores). Id fijo.</summary>
+    public const string AsignacionLeads = "asignacion_leads";
+
+    /// <summary>Una regla ya saltó para un registro (no se repite en otro equipo). Id determinista.</summary>
+    public const string Disparo = "disparo";
 }
 
 // ---------- Consumidos por el CRM ----------

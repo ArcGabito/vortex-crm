@@ -49,7 +49,7 @@ public sealed class Lead
 
     public Guid? OportunidadId { get; internal set; }
 
-    public DateTimeOffset CreadoEn { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset CreadoEn { get; internal set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset? ConvertidoEn { get; internal set; }
 

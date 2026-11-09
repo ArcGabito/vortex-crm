@@ -113,10 +113,19 @@
         {
             <button class="btn btn-danger" style="margin-right:auto" @onclick="EliminarAsync"><Icon Name="trash" Size="16" />@T("oportunidadmodal.eliminar")</button>
         }
+        @if (!Nueva && Valor.Etapa.EstaAbierta() && Session.Can(CrmPermissions.Sell))
+        {
+            <button class="btn btn-ghost" @onclick="() => _secuencia = true"><Icon Name="play" Size="16" />@T("secuenciamodal.iniciar_secuencia")</button>
+        }
         <button class="btn" @onclick="OnClose">@T("oportunidadmodal.cancelar")</button>
         <button class="btn btn-dark" disabled="@_busy" @onclick="GuardarAsync">@T("oportunidadmodal.guardar")</button>
     </Footer>
 </Modal>
+
+@if (_secuencia)
+{
+    <SecuenciaModal OportunidadId="Valor.Id" Nombre="@Valor.Titulo" OnClose="() => _secuencia = false" />
+}
 
 @code {
     [Parameter, EditorRequired] public Oportunidad Valor { get; set; } = null!;
@@ -125,6 +134,7 @@
     [Parameter] public EventCallback OnSaved { get; set; }
 
     private IReadOnlyList<Option> _clientes = [], _contactos = [];
+    private bool _secuencia;
     private IReadOnlyList<Embudo> _embudos = [];
     private Embudo _embudo = Embudo.Predeterminado;
     private IReadOnlyList<string> _motivos = [];

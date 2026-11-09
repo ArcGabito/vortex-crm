@@ -315,6 +315,33 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
         }
     }
 
+    private DateTimeOffset _lastAutomation = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Reglas de automatización (fase 5a) sobre los registros de este usuario: después de sincronizar (para ver lo que
+    /// hicieron los otros equipos), como mucho cada 10 minutos, también sin conexión.
+    /// </summary>
+    private async Task RunAutomationAsync(CancellationToken ct)
+    {
+        if (Workspace is not { } crm || DateTimeOffset.Now - _lastAutomation < TimeSpan.FromMinutes(10))
+            return;
+        _lastAutomation = DateTimeOffset.Now;
+        try
+        {
+            var result = await crm.Automatizacion.EjecutarAsync(ct);
+            if (result.Total > 0)
+            {
+                await crm.Tareas.ReprogramarAvisosAsync(ct);
+                NotifyLocalChange();
+                DataChanged?.Invoke();
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Automatización");
+        }
+    }
+
     private async Task SyncOnceAsync(CancellationToken ct)
     {
         if (_sync is null || Workspace is null)
@@ -362,6 +389,7 @@ public sealed class AppSession(HubSettings settings, ISessionStore sessionStore,
             _syncing = false;
         }
 
+        await RunAutomationAsync(ct);
         await RefreshCountersAsync();
         if (hadData)
             await ApplyRegionAsync();

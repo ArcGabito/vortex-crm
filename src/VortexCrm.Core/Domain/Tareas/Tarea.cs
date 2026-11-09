@@ -56,6 +56,11 @@ public sealed class Tarea
 
     public string? Notas { get; set; }
 
+    /// <summary>Quién la creó sola: <c>regla:{id}</c> o <c>secuencia:{id}</c>; null si la creó una persona.</summary>
+    public string? Origen { get; set; }
+
+    public bool EsAutomatica => Origen is not null;
+
     public DateTimeOffset CreadoEn { get; init; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset? CompletadaEn { get; internal set; }

@@ -1266,6 +1266,13 @@ a.list-row:hover { background: var(--surface-2); }
 .quote-line-meta .check-row { font-size: 12.5px; gap: 6px; }
 .quote-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .quote-tools .select { width: auto; min-width: 0; flex: 1 1 180px; }
+.rule-row.off .t1 { color: var(--text-2); }
+.sequence { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.sequence:last-child { border-bottom: none; padding-bottom: 0; }
+.sequence ol { margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 2px; }
+.sequence-step { grid-template-columns: 80px 140px minmax(0, 1fr) 36px; }
+.auto-tag { margin-left: 8px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); vertical-align: middle; }
+@media (max-width: 960px) { .sequence-step { grid-template-columns: 70px minmax(0, 1fr) 36px; } .sequence-step > input:nth-child(3) { grid-column: 1 / -1; } }
 .online-accept { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .online-accept .control[readonly] { font-size: 12.5px; color: var(--text-2); }
 .online-accept .signature { max-width: 100%; max-height: 120px; object-fit: contain; align-self: flex-start; background: #fff; border: 1px solid var(--border); border-radius: 8px; }

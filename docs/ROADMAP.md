@@ -35,7 +35,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 |---|---|---|---|
 | CRM-10 | Leads con origen, calificación y estado | Hecho | 2 |
 | CRM-11 | Conversión de lead a cliente, contacto y oportunidad en un paso | Hecho | 2 |
-| CRM-12 | Asignación automática de leads (por turno, territorio o carga) | Pendiente | 5 |
+| CRM-12 | Asignación automática de leads (por turno, territorio o carga) | Parcial: turno y carga (territorio en 5b) | 5a |
 | CRM-13 | Captura desde formularios web | Pendiente | 7 |
 
 ### Oportunidades y pronóstico
@@ -48,7 +48,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-23 | Productos en la oportunidad (monto calculado) | Hecho | 2 |
 | CRM-24 | Pronóstico ponderado por mes y por vendedor | Hecho | 2 |
 | CRM-25 | Metas y cuotas por vendedor y equipo, con avance | Hecho | 2 |
-| CRM-26 | Alertas de oportunidades estancadas | Pendiente | 5 |
+| CRM-26 | Alertas de oportunidades estancadas | Hecho | 5a |
 
 ### Cotizaciones (CPQ)
 
@@ -73,7 +73,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-43 | Registro de llamadas, correos y WhatsApp en la ficha | Hecho | 3 |
 | CRM-44 | Plantillas de correo y WhatsApp | Hecho | 3 |
 | CRM-45 | Envío de la cotización por correo con el PDF | Hecho | 3 |
-| CRM-46 | Secuencias de seguimiento (varios pasos con plazos) | Pendiente | 5 |
+| CRM-46 | Secuencias de seguimiento (varios pasos con plazos) | Hecho | 5a |
 
 ### Equipo y control
 
@@ -91,7 +91,7 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | # | Requisito | Estado | Fase |
 |---|---|---|---|
 | CRM-60 | Avance de etapa al enviar y aceptar una cotización | Hecho | — |
-| CRM-61 | Reglas (si pasa X, crear tarea, asignar o avisar) | Pendiente | 5 |
+| CRM-61 | Reglas (si pasa X, crear tarea, asignar o avisar) | Hecho | 5a |
 | CRM-62 | Reportes: embudo por etapa, conversión, ciclo de venta, actividad y ranking | Parcial: panel con pipeline y ganadas | 5 |
 | CRM-63 | Tableros por rol y exportación a Excel y PDF | Pendiente | 5 |
 
@@ -235,6 +235,17 @@ repetidas.
 
 **Terminado cuando:** una oportunidad quieta 15 días crea una tarea a su responsable una sola vez aunque haya varios
 equipos abiertos.
+
+**Estado (2026-11):** 5a (automatización) hecha. Reglas configurables por el gerente (Configuración → Automatización):
+oportunidad sin movimiento, cotización enviada sin respuesta o por vencer, lead nuevo sin contactar y oportunidad ganada
+(posventa), con días; la acción crea una tarea al responsable (título con `{registro}`, tipo y plazo) o inicia una
+secuencia. Sin reglas guardadas rige la predeterminada: oportunidad quieta 15 días → tarea. Secuencias de seguimiento
+(pasos con día, tipo y título) que se inician sobre una oportunidad o un lead y se detienen solas al cerrarse. Reparto de
+leads nuevos sin responsable por turno o por carga entre los vendedores elegidos. Las reglas corren tras cada
+sincronización (cada 10 minutos como mucho, también sin conexión) en los equipos del responsable; cada disparo es un
+registro replicado con Id determinista, igual que la tarea que crea, así no se repite aunque haya varios equipos o el
+vendedor la borre. Pruebas en `AutomatizacionTests`. Siguen: 5b (territorios, visibilidad por jerarquía y comisiones),
+5c (segmentos, campos personalizados y jerarquía de empresas) y 5d (reportes y tableros por rol).
 
 ## Fase 6: servicio al cliente · L
 

@@ -75,6 +75,7 @@
                                         {
                                             <button @onclick="() => CambiarAsync(l, EstadosLead.Calificado)"><Icon Name="check" Size="18" />@T("leads.calificar")</button>
                                         }
+                                        <button @onclick="() => _secuenciaDe = l"><Icon Name="play" Size="18" />@T("secuenciamodal.iniciar_secuencia")</button>
                                         <button @onclick="() => IniciarConversionAsync(l)"><Icon Name="arrows" Size="18" />@T("leads.convertir")</button>
                                         <button class="danger" @onclick="() => IniciarDescarte(l)"><Icon Name="ban" Size="18" />@T("leads.descartar")</button>
                                     </KebabMenu>
@@ -236,7 +237,14 @@
     </Modal>
 }
 
+@if (_secuenciaDe is { } sl)
+{
+    <SecuenciaModal LeadId="sl.Id" Nombre="@sl.Titulo" OnClose="() => _secuenciaDe = null" />
+}
+
 @code {
+    private Lead? _secuenciaDe;
+
     private static readonly (string Valor, string Texto)[] Pestanas =
     [
         ("", T("leads.abiertos")), (EstadosLead.Nuevo, T("leads.estado.nuevo")), (EstadosLead.Contactado, T("leads.estado.contactado")),
