@@ -241,5 +241,14 @@ internal static class Schema
         """
         CREATE TABLE equipos (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
         """,
+        // 11: segmentos (fase 5c). Etiquetas y matriz de cada cliente, definiciones de campos personalizados (JSON), sus valores por
+        // registro (JSON) y los segmentos guardados (JSON).
+        """
+        CREATE TABLE perfiles_cliente (id TEXT PRIMARY KEY, matriz_id TEXT, etiquetas TEXT NOT NULL DEFAULT '[]', actualizado_en TEXT NOT NULL);
+        CREATE INDEX ix_perfiles_cliente_matriz ON perfiles_cliente (matriz_id);
+        CREATE TABLE campos_personalizados (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE TABLE valores_campos (id TEXT PRIMARY KEY, entidad TEXT NOT NULL, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        CREATE TABLE listas_guardadas (id TEXT PRIMARY KEY, datos TEXT NOT NULL, actualizado_en TEXT NOT NULL);
+        """,
     ];
 }

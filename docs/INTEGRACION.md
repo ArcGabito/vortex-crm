@@ -72,6 +72,10 @@ Se guardan en la base local y se replican a los demás equipos de la organizaci�
 - Fase 5b: registros nuevos `equipo` (`nombre`, `liderId`, `liderNombre`, `miembros`, `zonas`, `padreId`), `visibilidad`
   (Id fijo: `todo` o `jerarquia`) y `plan_comisiones` (Id fijo: `base`, `tasa`, `tasaSobreMeta`, `tasaPorVendedor`).
   Asignar por territorio cambia el `account` del cliente en el hub como la asignación a mano.
+- Fase 5c: registros nuevos `perfil_cliente` (Id: el del cliente; `etiquetas`, `matrizId`), `campo_personalizado`
+  (`entidad`, `nombre`, `tipo`, `opciones`, `obligatorio`, `orden`, `activo`), `valores_campos` (Id: el del cliente,
+  oportunidad o cotización; `entidad`, `valores` por Id de campo, como texto normalizado) y `lista_guardada` (`nombre`,
+  `filtro`, `compartida`, `creadaPorId`).
 - Sedes por usuario: con sedes asignadas en el hub (`Access.SiteIds`), las cotizaciones solo salen de esas sedes.
 - Roles del CRM (`session.Access.Role`): `vendedor` (sin rol asignado; trabaja lo suyo), `gerente_ventas` (edita lo de
   todos, elimina, cambia los ajustes y ve la auditoría), `consulta` (solo ve) y `administrador` (todo, también productos

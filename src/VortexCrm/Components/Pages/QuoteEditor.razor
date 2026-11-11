@@ -1,6 +1,7 @@
 @page "/cotizaciones/nueva"
 @page "/cotizaciones/{Id:guid}"
 @inherits CrmPage
+@using VortexCrm.Core.Domain.Segmentos
 @inject FileExporter Exporter
 
 <SectionContent SectionName="page-title">@T("quoteeditor.cotizacion")</SectionContent>
@@ -323,6 +324,7 @@
                             }
                         </div>
                     </div>
+                    <CamposPersonalizados Entidad="@EntidadesCampo.Cotizacion" RegistroId="q.Id" />
                 }
             </div>
         </div>

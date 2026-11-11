@@ -75,6 +75,12 @@ internal static class Registros
 
     public sealed record MetaDatos(Guid Id, DateOnly Mes, Guid? ResponsableId, string? ResponsableNombre, decimal Monto);
 
+    /// <summary>Etiquetas y matriz de un cliente; <c>Id</c> es el del cliente.</summary>
+    public sealed record PerfilClienteDatos(Guid Id, IReadOnlyList<string> Etiquetas, Guid? MatrizId);
+
+    /// <summary>Valores de los campos personalizados de un registro (por Id de campo); <c>Id</c> es el del registro.</summary>
+    public sealed record ValoresCamposDatos(Guid Id, string Entidad, IReadOnlyDictionary<Guid, string> Valores);
+
     // ---------- Publicar ----------
 
     /// <summary>Guarda el registro (gana siempre: es el cambio más reciente en este equipo) y encola su réplica.</summary>
@@ -255,8 +261,23 @@ internal static class Registros
                     """, tx, ("$id", pc.Id), ("$nombre", pc.Nombre), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
                 return true;
 
+            case CrmRecordKinds.PerfilCliente:
+                var pf = data.Deserialize<PerfilClienteDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO perfiles_cliente (id, matriz_id, etiquetas, actualizado_en) VALUES ($id, $matriz, $etiquetas, $actualizado)
+                    """, tx, ("$id", pf.Id), ("$matriz", pf.MatrizId), ("$etiquetas", JsonSerializer.Serialize(pf.Etiquetas ?? [])),
+                    ("$actualizado", actualizado));
+                return true;
+
+            case CrmRecordKinds.ValoresCampos:
+                var vc = data.Deserialize<ValoresCamposDatos>(VortexJson.Options)!;
+                await c.ExecAsync("""
+                    INSERT OR REPLACE INTO valores_campos (id, entidad, datos, actualizado_en) VALUES ($id, $entidad, $datos, $actualizado)
+                    """, tx, ("$id", vc.Id), ("$entidad", vc.Entidad), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
+                return true;
+
             case CrmRecordKinds.Regla or CrmRecordKinds.Secuencia or CrmRecordKinds.AsignacionLeads or CrmRecordKinds.Equipo
-                or CrmRecordKinds.Visibilidad or CrmRecordKinds.PlanComisiones:
+                or CrmRecordKinds.Visibilidad or CrmRecordKinds.PlanComisiones or CrmRecordKinds.CampoPersonalizado or CrmRecordKinds.ListaGuardada:
                 await c.ExecAsync($"INSERT OR REPLACE INTO {Tabla(kind)} (id, datos, actualizado_en) VALUES ($id, $datos, $actualizado)", tx,
                     ("$id", data.GetProperty("id").GetGuid()), ("$datos", data.GetRawText()), ("$actualizado", actualizado));
                 return true;
@@ -316,6 +337,10 @@ internal static class Registros
         CrmRecordKinds.AsignacionLeads or CrmRecordKinds.Visibilidad or CrmRecordKinds.PlanComisiones => "configuracion",
         CrmRecordKinds.Equipo => "equipos",
         CrmRecordKinds.Disparo => "disparos",
+        CrmRecordKinds.PerfilCliente => "perfiles_cliente",
+        CrmRecordKinds.CampoPersonalizado => "campos_personalizados",
+        CrmRecordKinds.ValoresCampos => "valores_campos",
+        CrmRecordKinds.ListaGuardada => "listas_guardadas",
         _ => null,
     };
 

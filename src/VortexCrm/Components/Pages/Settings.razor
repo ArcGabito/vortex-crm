@@ -1,6 +1,7 @@
 @page "/configuracion"
 @inherits CrmPage
 @using VortexApi.Client.Sync
+@using VortexCrm.Core.Domain.Segmentos
 
 <SectionContent SectionName="page-title">@T("settings.configuracion")</SectionContent>
 
@@ -213,6 +214,39 @@
             </div>
 
             <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@T("settings.campos")</h3>
+                        <div class="sub">@T("settings.campos_explica")</div>
+                    </div>
+                    @if (Session.Can(CrmPermissions.EditSettings))
+                    {
+                        <button class="btn btn-sm" @onclick="() => _campo = new CampoEditor()"><Icon Name="plus" Size="16" />@T("settings.nuevo_campo")</button>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (_campos.Count == 0)
+                    {
+                        <div class="list-row"><span class="muted">@T("settings.sin_campos")</span></div>
+                    }
+                    @foreach (var campoFila in _campos)
+                    {
+                        <div class="list-row" @key="campoFila.Id" style="@(Session.Can(CrmPermissions.EditSettings) ? "cursor:pointer" : null)"
+                             @onclick="() => { if (Session.Can(CrmPermissions.EditSettings)) _campo = CampoEditor.De(campoFila); }">
+                            <div class="two-line" style="flex:1;min-width:0">
+                                <span class="t1">@campoFila.Nombre@(campoFila.Obligatorio ? " *" : "")</span>
+                                <span class="t2">@T("settings.entidad." + campoFila.Entidad) · @T("settings.tipo." + campoFila.Tipo)@(campoFila.Opciones is { Count: > 0 } ops ? $" · {string.Join(", ", ops)}" : "")</span>
+                            </div>
+                            @if (!campoFila.Activo)
+                            {
+                                <span class="tag">@T("settings.inactivo")</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
                 <div class="card-head"><h3>@T("settings.acerca_de")</h3></div>
                 <div class="card-body">
                     <div class="list-row">
@@ -276,6 +310,50 @@
     </Modal>
 }
 
+@if (_campo is { } ce)
+{
+    <Modal Title="@(ce.Id == Guid.Empty ? T("settings.nuevo_campo") : ce.Nombre)" Size="sm" Error="@_errorCampo" OnClose="() => _campo = null">
+        <ChildContent>
+            <div class="field">
+                <label>@T("settings.nombre")</label>
+                <input class="control" maxlength="60" placeholder="@(T("settings.campo_nombre_ej"))" @bind="ce.Nombre" />
+            </div>
+            <div class="field">
+                <label>@T("settings.campo_aplica_a")</label>
+                <select class="select" @bind="ce.Entidad" disabled="@(ce.Id != Guid.Empty)">
+                    @foreach (var entidad in EntidadesCampo.Todas)
+                    {
+                        <option value="@entidad">@T("settings.entidad." + entidad)</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>@T("settings.campo_tipo")</label>
+                <select class="select" @bind="ce.Tipo">
+                    @foreach (var tipo in TiposCampo.Todos)
+                    {
+                        <option value="@tipo">@T("settings.tipo." + tipo)</option>
+                    }
+                </select>
+            </div>
+            @if (ce.Tipo == TiposCampo.Lista)
+            {
+                <div class="field">
+                    <label>@T("settings.campo_opciones")</label>
+                    <textarea class="control" rows="4" @bind="ce.Opciones"></textarea>
+                    <span class="hint">@T("settings.una_por_linea")</span>
+                </div>
+            }
+            <label class="check"><input type="checkbox" @bind="ce.Obligatorio" />@T("settings.campo_obligatorio")</label>
+            <label class="check"><input type="checkbox" @bind="ce.Activo" />@T("settings.campo_activo")</label>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _campo = null">@T("settings.cancelar")</button>
+            <button class="btn btn-dark" @onclick="GuardarCampoAsync">@T("settings.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     private const string SourceUrl = "https://github.com/ArcGabito/vortex-crm";
     private const string IssuesUrl = SourceUrl + "/issues";
@@ -289,6 +367,44 @@
     [Inject] private IServicioRecordatorios Recordatorios { get; set; } = null!;
 
     private IReadOnlyList<Plantilla> _plantillas = [];
+
+    /// <summary>Edición de un campo personalizado (fase 5c): las opciones van una por línea.</summary>
+    private sealed class CampoEditor
+    {
+        public Guid Id { get; set; }
+        public string Entidad { get; set; } = EntidadesCampo.Cliente;
+        public string Nombre { get; set; } = "";
+        public string Tipo { get; set; } = TiposCampo.Texto;
+        public string? Opciones { get; set; }
+        public bool Obligatorio { get; set; }
+        public bool Activo { get; set; } = true;
+        public int Orden { get; set; }
+
+        public static CampoEditor De(CampoPersonalizado c) => new()
+        {
+            Id = c.Id, Entidad = c.Entidad, Nombre = c.Nombre, Tipo = c.Tipo, Opciones = c.Opciones is null ? null : string.Join("\n", c.Opciones),
+            Obligatorio = c.Obligatorio, Activo = c.Activo, Orden = c.Orden,
+        };
+
+        public CampoPersonalizado Campo() => new(Id, Entidad, Nombre, Tipo,
+            Opciones?.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), Obligatorio, Orden, Activo);
+    }
+
+    private IReadOnlyList<CampoPersonalizado> _campos = [];
+    private CampoEditor? _campo;
+    private string? _errorCampo;
+
+    private async Task GuardarCampoAsync()
+    {
+        if (_campo is not { } ce)
+            return;
+        _errorCampo = await TryAsync(() => Crm.Segmentos.GuardarCampoAsync(ce.Campo()), T("settings.campo_guardado"));
+        if (_errorCampo is null)
+        {
+            _campo = null;
+            _campos = await Crm.Segmentos.CamposAsync(incluirInactivos: true);
+        }
+    }
     private Plantilla? _plantilla;
     private string? _errorPlantilla;
 
@@ -309,6 +425,7 @@
         {
             _plantilla = null;
             await CargarPlantillasAsync();
+        _campos = await Crm.Segmentos.CamposAsync(incluirInactivos: true);
         }
     }
 

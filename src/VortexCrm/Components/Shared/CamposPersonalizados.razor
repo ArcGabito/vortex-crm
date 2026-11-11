@@ -1,0 +1,96 @@
+@inject AppSession Session
+@using VortexCrm.Core.Domain.Segmentos
+@* Campos personalizados de un cliente, una oportunidad o una cotización (fase 5c). Sin campos definidos no muestra nada. *@
+@if (_campos.Count > 0)
+{
+    <div class="@(Tarjeta ? "card" : "")">
+        @if (Tarjeta)
+        {
+            <div class="card-head"><h3>@T("campos.titulo")</h3></div>
+        }
+        <div class="@(Tarjeta ? "card-body" : "")" style="display:flex;flex-direction:column;gap:10px">
+            @if (_error is not null)
+            {
+                <div class="alert warn"><Icon Name="alert" Size="18" /><span>@_error</span></div>
+            }
+            @foreach (var campo in _campos)
+            {
+                <div class="field" @key="campo.Id">
+                    <label>@campo.Nombre@(campo.Obligatorio ? " *" : "")</label>
+                    @switch (campo.Tipo)
+                    {
+                        case TiposCampo.Lista:
+                            <select class="select" value="@Valor(campo)" @onchange="e => _valores[campo.Id] = e.Value?.ToString()" disabled="@(!_puede)">
+                                <option value="">—</option>
+                                @foreach (var opcion in campo.Opciones ?? [])
+                                {
+                                    <option value="@opcion">@opcion</option>
+                                }
+                            </select>
+                            break;
+                        case TiposCampo.SiNo:
+                            <select class="select" value="@Valor(campo)" @onchange="e => _valores[campo.Id] = e.Value?.ToString()" disabled="@(!_puede)">
+                                <option value="">—</option>
+                                <option value="true">@T("segmentos.si")</option>
+                                <option value="false">@T("segmentos.no")</option>
+                            </select>
+                            break;
+                        case TiposCampo.Fecha:
+                            <input class="control" type="date" value="@Valor(campo)" @onchange="e => _valores[campo.Id] = e.Value?.ToString()" disabled="@(!_puede)" />
+                            break;
+                        case TiposCampo.Numero:
+                            <input class="control" inputmode="decimal" value="@Valor(campo)" @onchange="e => _valores[campo.Id] = e.Value?.ToString()" disabled="@(!_puede)" />
+                            break;
+                        default:
+                            <input class="control" maxlength="500" value="@Valor(campo)" @onchange="e => _valores[campo.Id] = e.Value?.ToString()" disabled="@(!_puede)" />
+                            break;
+                    }
+                </div>
+            }
+            @if (_puede)
+            {
+                <button class="btn btn-sm btn-dark" style="align-self:flex-start" disabled="@_busy" @onclick="GuardarAsync">@T("campos.guardar")</button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Entidad { get; set; } = EntidadesCampo.Cliente;
+    [Parameter, EditorRequired] public Guid RegistroId { get; set; }
+
+    /// <summary>Con su propia tarjeta (en una ficha) o sin ella (dentro de un formulario).</summary>
+    [Parameter] public bool Tarjeta { get; set; } = true;
+
+    private CrmWorkspace Crm => Session.Workspace!;
+    private IReadOnlyList<CampoPersonalizado> _campos = [];
+    private Dictionary<Guid, string?> _valores = [];
+    private string? _error;
+    private bool _busy;
+    private bool _puede => Session.Can(CrmPermissions.Sell);
+
+    private string Valor(CampoPersonalizado campo) => _valores.GetValueOrDefault(campo.Id) ?? "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _campos = await Crm.Segmentos.CamposAsync(Entidad);
+        _valores = (await Crm.Segmentos.ValoresAsync(RegistroId)).ToDictionary(x => x.Key, x => (string?)x.Value);
+        _error = null;
+    }
+
+    private async Task GuardarAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Crm.Segmentos.GuardarValoresAsync(Entidad, RegistroId, _campos.ToDictionary(x => x.Id, x => _valores.GetValueOrDefault(x.Id)));
+            Session.NotifyLocalChange();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        _busy = false;
+    }
+}

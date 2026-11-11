@@ -1,5 +1,6 @@
 @page "/clientes/{Id:guid}"
 @inherits CrmPage
+@using VortexCrm.Core.Domain.Segmentos
 
 <SectionContent SectionName="page-title">@T("customerdetail.cliente")</SectionContent>
 
@@ -172,6 +173,9 @@
                         }
                     </div>
                 </div>
+
+                <SegmentacionCliente ClienteId="c.Id" />
+                <CamposPersonalizados Entidad="@EntidadesCampo.Cliente" RegistroId="c.Id" />
 
                 <div class="card">
                     <div class="card-head"><h3>@T("customerdetail.contactos")</h3><button class="btn btn-sm" @onclick="NuevoContacto"><Icon Name="plus" Size="16" />@T("customerdetail.nuevo")</button></div>

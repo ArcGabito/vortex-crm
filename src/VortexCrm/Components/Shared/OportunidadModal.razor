@@ -1,4 +1,5 @@
 @inject AppSession Session
+@using VortexCrm.Core.Domain.Segmentos
 @* Alta y edición de una oportunidad del pipeline: embudo, etapa de ese embudo, cierre, competidor y motivo si se perdió. *@
 <Modal Title="@(Nueva ? T("oportunidadmodal.nueva_oportunidad") : T("oportunidadmodal.editar_oportunidad"))" Subtitle="@(T("oportunidadmodal.se_comparte_con_los_demas"))" Error="@_error" OnClose="OnClose">
     <ChildContent>
@@ -107,6 +108,10 @@
             <label>@T("oportunidadmodal.notas")</label>
             <textarea class="control" rows="3" @bind="Valor.Notas"></textarea>
         </div>
+        @if (!Nueva)
+        {
+            <CamposPersonalizados Entidad="@EntidadesCampo.Oportunidad" RegistroId="Valor.Id" Tarjeta="false" />
+        }
     </ChildContent>
     <Footer>
         @if (!Nueva && Session.Can(CrmPermissions.Delete))
