@@ -8,6 +8,9 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Segmentos (fase 5c):** etiquetas por cliente y segmentos en Clientes (etiquetas, ciudad, responsable, inactividad,
+  campo personalizado) guardados con nombre, privados o compartidos, y exportables a CSV. Campos personalizados en
+  clientes, oportunidades y cotizaciones, definidos en Configuración. Matriz y sucursales del cliente en su ficha.
 - **Equipos y comisiones (fase 5b):** equipos de venta con líder, vendedores, territorio y jerarquía; asignación de
   clientes por territorio; visibilidad por jerarquía (opcional); comisiones del mes sobre lo ganado o lo cobrado con
   acelerador sobre la meta y exportación. Pantalla Equipo.

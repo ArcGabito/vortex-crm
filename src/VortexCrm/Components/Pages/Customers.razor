@@ -1,5 +1,7 @@
 @page "/clientes"
 @inherits CrmPage
+@using VortexCrm.Core.Domain.Segmentos
+@inject FileExporter Exporter
 
 <SectionContent SectionName="page-title">@T("customers.clientes_2")</SectionContent>
 
@@ -42,7 +44,53 @@
                 }
             </div>
         </div>
+        <div class="field" style="width:auto">
+            <label>@T("customers.segmento")</label>
+            <select class="select" value="@(_lista?.ToString() ?? "")" @onchange="ElegirListaAsync">
+                <option value="">@T("customers.todos_los_clientes")</option>
+                @foreach (var l in _listas)
+                {
+                    <option value="@l.Id">@l.Nombre@(l.Compartida ? "" : $" ({T("customers.privado")})")</option>
+                }
+            </select>
+        </div>
+        <div class="field" style="width:auto">
+            <label>@T("customers.ciudad")</label>
+            <input class="control" style="width:140px" value="@_ciudad" @onchange="async e => { _ciudad = e.Value?.ToString(); _pagina = 1; await ReloadAsync(); }" />
+        </div>
+        <div class="field" style="width:auto">
+            <label>@T("customers.sin_actividad")</label>
+            <select class="select" value="@(_inactivos?.ToString() ?? "")" @onchange="async e => { _inactivos = int.TryParse(e.Value?.ToString(), out var d) ? d : null; _pagina = 1; await ReloadAsync(); }">
+                <option value="">—</option>
+                @foreach (var dias in new[] { 30, 60, 90, 180 })
+                {
+                    <option value="@dias">@T("customers.n_dias", dias)</option>
+                }
+            </select>
+        </div>
+        <div style="display:flex;gap:8px;align-self:flex-end;flex-wrap:wrap">
+            <button class="btn btn-outline" @onclick="() => (_guardando, _nombreLista, _compartida, _error) = (true, null, false, null)"><Icon Name="plus" Size="16" />@T("customers.guardar_segmento")</button>
+            <button class="btn btn-outline" @onclick="ExportarAsync"><Icon Name="download" Size="16" />@T("customers.exportar")</button>
+            @if (_lista is { } listaActual && _listas.FirstOrDefault(x => x.Id == listaActual) is { } elegida && (elegida.CreadaPorId == Session.UserId || Session.Can(CrmPermissions.EditAny)))
+            {
+                <button class="btn btn-ghost" @onclick="() => EliminarListaAsync(elegida.Id)">@T("customers.eliminar_segmento")</button>
+            }
+        </div>
     </div>
+
+    @if (_etiquetas.Count > 0)
+    {
+        <div class="chips" style="margin-bottom:12px">
+            @foreach (var uso in _etiquetas.Take(15))
+            {
+                <button class="chip @(_tags.Contains(uso.Etiqueta) ? "on" : "")" @onclick="() => AlternarEtiquetaAsync(uso.Etiqueta)">#@uso.Etiqueta <span class="muted">@uso.Clientes</span></button>
+            }
+            @if (_tags.Count > 1)
+            {
+                <button class="chip @(_todas ? "on" : "")" @onclick="async () => { _todas = !_todas; _pagina = 1; await ReloadAsync(); }">@T("customers.todas_las_etiquetas")</button>
+            }
+        </div>
+    }
 
     @if (_resultado is { } page)
     {
@@ -56,13 +104,21 @@
                 <table class="data">
                     <thead><tr><th>@T("customers.cliente")</th><th>@T("customers.documento")</th><th>@T("customers.contacto")</th><th>@T("customers.responsable")</th><th></th></tr></thead>
                     <tbody>
-                        @foreach (var p in page.Items)
+                        @foreach (var fila in page.Items)
                         {
+                            var p = fila.Cliente;
                             <tr @key="p.Id" style="cursor:pointer" @onclick="@(() => Nav.NavigateTo($"clientes/{p.Id}"))">
                                 <td>
                                     <div class="cell-main">
                                         <Avatar Text="@p.Name" Size="34" />
-                                        <div class="two-line"><span class="t1">@p.DisplayName</span><span class="t2">@(p.TradeName is null ? (p.Kind == "Person" ? T("customers.persona") : T("customers.empresa")) : p.Name)</span></div>
+                                        <div class="two-line">
+                                            <span class="t1">@p.DisplayName</span>
+                                            <span class="t2">@(p.TradeName is null ? (p.Kind == "Person" ? T("customers.persona") : T("customers.empresa")) : p.Name)@(fila.MatrizNombre is null ? "" : $" · {T("customers.sucursal_de", fila.MatrizNombre)}")</span>
+                                            @if (fila.Etiquetas.Count > 0)
+                                            {
+                                                <span class="t2">@string.Join(" ", fila.Etiquetas.Select(e => "#" + e))</span>
+                                            }
+                                        </div>
                                     </div>
                                 </td>
                                 <td><div class="two-line"><span class="t1">@(p.DocumentNumber ?? "—")</span><span class="t2">@p.DocumentType</span></div></td>
@@ -228,6 +284,23 @@
     </Modal>
 }
 
+@if (_guardando)
+{
+    <Modal Title="@(T("customers.guardar_segmento"))" Subtitle="@(T("customers.guardar_segmento_explica"))" Size="sm" Error="@_error" OnClose="() => _guardando = false">
+        <ChildContent>
+            <div class="field">
+                <label>@T("customers.nombre_segmento")</label>
+                <input class="control" @bind="_nombreLista" placeholder="@(T("customers.ej_segmento"))" />
+            </div>
+            <label class="check"><input type="checkbox" @bind="_compartida" />@T("customers.compartir_segmento")</label>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => _guardando = false">@T("customers.cancelar")</button>
+            <button class="btn btn-dark" @onclick="GuardarListaAsync">@T("customers.guardar")</button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     private sealed class ClienteForm
     {
@@ -248,7 +321,83 @@
 
     private static (string Valor, string Etiqueta)[] Carteras => [("", T("customers.todos")), ("mine", T("customers.mis_clientes")), ("free", T("customers.sin_responsable"))];
 
-    private PagedResult<PartyRow>? _resultado;
+    private PagedResult<ClienteSegmento>? _resultado;
+    private IReadOnlyList<ListaGuardada> _listas = [];
+    private IReadOnlyList<UsoEtiqueta> _etiquetas = [];
+    private readonly List<string> _tags = [];
+    private bool _todas, _guardando, _compartida;
+    private Guid? _lista;
+    private string? _ciudad, _nombreLista;
+    private int? _inactivos;
+
+    /// <summary>El filtro en pantalla: el del segmento elegido más la búsqueda, la cartera, las etiquetas y los demás criterios.</summary>
+    private FiltroClientes Filtro()
+    {
+        var baseFiltro = _listas.FirstOrDefault(l => l.Id == _lista)?.Filtro ?? new FiltroClientes();
+        return baseFiltro with
+        {
+            Busqueda = string.IsNullOrWhiteSpace(_busqueda) ? baseFiltro.Busqueda : _busqueda,
+            ResponsableId = _cartera == "mine" ? Session.UserId : baseFiltro.ResponsableId,
+            SinResponsable = _cartera == "free" || baseFiltro.SinResponsable,
+            Etiquetas = _tags.Count > 0 ? [.. (baseFiltro.Etiquetas ?? []), .. _tags] : baseFiltro.Etiquetas,
+            TodasLasEtiquetas = _tags.Count > 0 ? _todas : baseFiltro.TodasLasEtiquetas,
+            Ciudad = string.IsNullOrWhiteSpace(_ciudad) ? baseFiltro.Ciudad : _ciudad,
+            SinActividadDias = _inactivos ?? baseFiltro.SinActividadDias,
+        };
+    }
+
+    private async Task ElegirListaAsync(ChangeEventArgs e)
+    {
+        _lista = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _pagina = 1;
+        await ReloadAsync();
+    }
+
+    private async Task AlternarEtiquetaAsync(string etiqueta)
+    {
+        if (!_tags.Remove(etiqueta))
+            _tags.Add(etiqueta);
+        _pagina = 1;
+        await ReloadAsync();
+    }
+
+    private async Task GuardarListaAsync()
+    {
+        var filtro = Filtro() with { ResponsableId = _cartera == "mine" ? Session.UserId : null };
+        Guid id = default;
+        _error = await TryAsync(async () => id = await Crm.Segmentos.GuardarListaAsync(
+            new ListaGuardada(Guid.Empty, _nombreLista ?? "", filtro, _compartida, null, null)), T("customers.segmento_guardado"));
+        if (_error is null)
+        {
+            _guardando = false;
+            (_lista, _cartera, _ciudad, _inactivos, _todas) = (id, "", null, null, false);
+            _tags.Clear();
+            _busqueda = "";
+            await ReloadAsync();
+        }
+    }
+
+    private async Task EliminarListaAsync(Guid id)
+    {
+        await RunAsync(() => Crm.Segmentos.EliminarListaAsync(id), T("customers.segmento_eliminado"));
+        _lista = null;
+        await ReloadAsync();
+    }
+
+    private async Task ExportarAsync()
+    {
+        try
+        {
+            var csv = await Crm.Segmentos.ExportarCsvAsync(Filtro());
+            var bytes = new System.Text.UTF8Encoding(true).GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(csv)).ToArray();
+            var path = await Exporter.ExportBytesAsync($"vortex-crm-clientes-{Fmt.Today:yyyyMMdd}.csv", bytes, "text/csv");
+            Toasts.Success(T("home.exportado", Path.GetFileName(path)));
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+    }
     private string _cartera = "";
     private IReadOnlyList<GrupoDuplicados> _duplicados = [];
     private readonly Dictionary<string, Guid> _principal = [];
@@ -274,8 +423,9 @@
 
     protected override async Task LoadAsync()
     {
-        _resultado = await Crm.Master.GetPartiesAsync(_busqueda, customers: true, suppliers: null, _pagina, 15,
-            owner: _cartera == "mine" ? Session.UserId : null, unassigned: _cartera == "free");
+        _listas = await Crm.Segmentos.ListasAsync();
+        _etiquetas = await Crm.Segmentos.EtiquetasAsync();
+        _resultado = await Crm.Segmentos.BuscarAsync(Filtro(), _pagina, 15);
         if (Session.Can(CrmPermissions.MergeCustomers))
             _duplicados = await Crm.Cartera.DuplicadosAsync();
     }

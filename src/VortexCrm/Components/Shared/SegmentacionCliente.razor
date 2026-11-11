@@ -1,0 +1,134 @@
+@inject AppSession Session
+@using VortexCrm.Core.Domain.Segmentos
+@* Etiquetas del cliente, su matriz y sus sucursales (fase 5c). *@
+<div class="card">
+    <div class="card-head"><h3>@T("segmentacion.titulo")</h3></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:12px">
+        @if (_error is not null)
+        {
+            <div class="alert warn"><Icon Name="alert" Size="18" /><span>@_error</span></div>
+        }
+        <div class="field">
+            <label>@T("segmentacion.etiquetas")</label>
+            <div class="chips" style="flex-wrap:wrap">
+                @foreach (var etiqueta in _etiquetas)
+                {
+                    <span class="chip on">#@etiqueta
+                        @if (Session.Can(CrmPermissions.Sell))
+                        {
+                            <button class="link-btn" style="color:inherit" aria-label="@(T("segmentacion.quitar"))" @onclick="() => QuitarAsync(etiqueta)"><Icon Name="x" Size="12" /></button>
+                        }
+                    </span>
+                }
+                @if (_etiquetas.Count == 0)
+                {
+                    <span class="muted">@T("segmentacion.sin_etiquetas")</span>
+                }
+            </div>
+            @if (Session.Can(CrmPermissions.Sell))
+            {
+                <div style="display:flex;gap:6px;margin-top:6px">
+                    <input class="control" list="etiquetas-usadas" placeholder="@(T("segmentacion.nueva_etiqueta"))" @bind="_nueva" @onkeydown="TeclaAsync" />
+                    <datalist id="etiquetas-usadas">
+                        @foreach (var uso in _usadas)
+                        {
+                            <option value="@uso.Etiqueta"></option>
+                        }
+                    </datalist>
+                    <button class="btn btn-sm" @onclick="AgregarAsync"><Icon Name="plus" Size="16" />@T("segmentacion.agregar")</button>
+                </div>
+            }
+        </div>
+        <div class="field">
+            <label>@T("segmentacion.matriz")</label>
+            <select class="select" value="@(_matriz?.ToString() ?? "")" @onchange="CambiarMatrizAsync" disabled="@(!Session.Can(CrmPermissions.Sell))">
+                <option value="">@T("segmentacion.sin_matriz")</option>
+                @foreach (var o in _clientes.Where(x => x.Id != ClienteId))
+                {
+                    <option value="@o.Id">@o.Label</option>
+                }
+            </select>
+        </div>
+        @if (_grupo is { Sucursales.Count: > 0 } grupoCliente)
+        {
+            <div class="field">
+                <label>@T("segmentacion.sucursales", grupoCliente.Sucursales.Count)</label>
+                @foreach (var s in grupoCliente.Sucursales)
+                {
+                    <a class="list-row" href="@($"clientes/{s.Id}")"><span style="flex:1">@s.DisplayName</span><span class="muted">@s.City</span></a>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid ClienteId { get; set; }
+
+    private CrmWorkspace Crm => Session.Workspace!;
+    private List<string> _etiquetas = [];
+    private IReadOnlyList<UsoEtiqueta> _usadas = [];
+    private IReadOnlyList<Option> _clientes = [];
+    private GrupoEmpresarial? _grupo;
+    private Guid? _matriz;
+    private string? _nueva, _error;
+
+    protected override async Task OnParametersSetAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        var perfil = await Crm.Segmentos.PerfilAsync(ClienteId);
+        _etiquetas = perfil.Etiquetas.ToList();
+        _matriz = perfil.MatrizId;
+        _usadas = await Crm.Segmentos.EtiquetasAsync();
+        _clientes = await Crm.Master.GetPartyOptionsAsync(suppliers: false);
+        _grupo = await Crm.Segmentos.GrupoAsync(ClienteId);
+    }
+
+    private async Task GuardarAsync(IEnumerable<string> etiquetas)
+    {
+        _error = null;
+        try
+        {
+            await Crm.Segmentos.GuardarEtiquetasAsync(ClienteId, etiquetas);
+            Session.NotifyLocalChange();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        await CargarAsync();
+    }
+
+    private async Task AgregarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_nueva))
+            return;
+        var nueva = _nueva;
+        _nueva = null;
+        await GuardarAsync([.. _etiquetas, nueva]);
+    }
+
+    private async Task TeclaAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await AgregarAsync();
+    }
+
+    private Task QuitarAsync(string etiqueta) => GuardarAsync(_etiquetas.Where(x => x != etiqueta));
+
+    private async Task CambiarMatrizAsync(ChangeEventArgs e)
+    {
+        _error = null;
+        try
+        {
+            await Crm.Segmentos.AsignarMatrizAsync(ClienteId, Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
+            Session.NotifyLocalChange();
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+        await CargarAsync();
+    }
+}

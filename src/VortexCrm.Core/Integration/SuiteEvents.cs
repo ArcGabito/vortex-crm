@@ -86,6 +86,18 @@ public static class CrmRecordKinds
 
     /// <summary>Plan de comisiones. Id fijo.</summary>
     public const string PlanComisiones = "plan_comisiones";
+
+    /// <summary>Etiquetas y matriz de un cliente (fase 5c). Id: el del cliente (party del hub).</summary>
+    public const string PerfilCliente = "perfil_cliente";
+
+    /// <summary>Definición de un campo personalizado. Id: el del campo.</summary>
+    public const string CampoPersonalizado = "campo_personalizado";
+
+    /// <summary>Valores de los campos personalizados de un cliente, oportunidad o cotización. Id: el del registro.</summary>
+    public const string ValoresCampos = "valores_campos";
+
+    /// <summary>Segmento de clientes guardado (filtro con nombre). Id: el de la lista.</summary>
+    public const string ListaGuardada = "lista_guardada";
 }
 
 // ---------- Consumidos por el CRM ----------

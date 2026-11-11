@@ -25,9 +25,9 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 | CRM-02 | Ficha de 360° con la actividad de la suite (ventas, comprobantes, pagos, despachos) | Hecho | — |
 | CRM-03 | Responsable comercial del cliente y reasignación de cartera | Hecho | 2c |
 | CRM-04 | Detección y fusión de duplicados | Hecho | 2c |
-| CRM-05 | Segmentos y etiquetas, con listas guardadas | Pendiente | 5 |
-| CRM-06 | Campos personalizados en clientes, oportunidades y cotizaciones | Pendiente | 5 |
-| CRM-07 | Jerarquía de empresas (matriz y sucursales) | Pendiente | 5 |
+| CRM-05 | Segmentos y etiquetas, con listas guardadas | Hecho | 5c |
+| CRM-06 | Campos personalizados en clientes, oportunidades y cotizaciones | Hecho | 5c |
+| CRM-07 | Jerarquía de empresas (matriz y sucursales) | Hecho | 5c |
 
 ### Leads
 
@@ -254,6 +254,15 @@ jerarquía, cada vendedor ve sus oportunidades, cotizaciones y leads, el líder 
 gerente todo (lo que no tiene responsable lo ven todos). **Comisiones** del mes por vendedor sobre lo ganado o lo cobrado
 a su cartera, con tasa general o por vendedor y un acelerador para lo que pasa la meta; cada uno ve la suya, el líder las
 de su equipo; exportación CSV. Registros nuevos `equipo`, `visibilidad` y `plan_comisiones`. Pruebas en `EquiposTests`.
+
+**Estado 5c (2026-11):** hecha. **Etiquetas** por cliente (minúsculas, hasta 20) y **segmentos** en Clientes: búsqueda,
+cartera, etiquetas (cualquiera o todas), ciudad, sin actividad en 30/60/90/180 días y valor de un campo personalizado;
+el filtro se guarda con nombre, privado o compartido, y se exporta a CSV (protegido contra fórmulas). **Campos
+personalizados** (texto, número, fecha, lista, sí/no; obligatorios o no) que el gerente define en Configuración para
+clientes, oportunidades y cotizaciones; los valores se validan y normalizan por tipo. **Jerarquía de empresas**: matriz
+y sucursales del cliente (sin ciclos, hasta 5 niveles) en la ficha. Todo son registros del CRM: `perfil_cliente`,
+`campo_personalizado`, `valores_campos` y `lista_guardada`; el cliente sigue siendo el party del hub. Pruebas en
+`SegmentosTests`. Sigue 5d (reportes y tableros por rol).
 
 ## Fase 6: servicio al cliente · L
 
