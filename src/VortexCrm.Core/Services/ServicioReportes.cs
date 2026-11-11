@@ -12,7 +12,7 @@ using static VortexCrm.Core.Texts.CoreText;
 namespace VortexCrm.Core.Services;
 
 /// <summary>Etapa abierta del embudo: oportunidades que hoy están en ella.</summary>
-public sealed record EtapaEmbudo(EtapaOportunidad Etapa, int Oportunidades, decimal Monto);
+public sealed record EtapaReporte(EtapaOportunidad Etapa, int Oportunidades, decimal Monto);
 
 /// <summary>Resultado de un vendedor en el periodo (ranking, actividad y conversión).</summary>
 public sealed record FilaVendedor(Guid? Id, string Nombre, int Ganadas, decimal MontoGanado, int Perdidas, decimal? TasaCierre,
@@ -24,7 +24,7 @@ public sealed record FilaVendedor(Guid? Id, string Nombre, int Ganadas, decimal 
 /// su equipo y el gerente todo.
 /// </summary>
 /// <param name="Alcance">Quién lo ve: <c>todo</c> (gerente), <c>equipo</c> (líder) o <c>propio</c> (vendedor).</param>
-public sealed record ReporteVentas(DateOnly Desde, DateOnly Hasta, string Alcance, string Moneda, IReadOnlyList<EtapaEmbudo> Embudo,
+public sealed record ReporteVentas(DateOnly Desde, DateOnly Hasta, string Alcance, string Moneda, IReadOnlyList<EtapaReporte> Embudo,
     int LeadsNuevos, int LeadsConvertidos, int CotizacionesEnviadas, int CotizacionesAceptadas, int Ganadas, decimal MontoGanado, int Perdidas,
     decimal? TicketPromedio, decimal? CicloDias, int Interacciones, int TareasHechas, IReadOnlyList<FilaVendedor> Vendedores,
     IReadOnlyList<(string Motivo, int Veces)> MotivosPerdida)
@@ -121,7 +121,7 @@ public sealed class ServicioReportes(CrmDatabase db, ICrmContext context, TimePr
         }).OrderByDescending(f => f.MontoGanado).ThenByDescending(f => f.Ganadas).ThenBy(f => f.Nombre, StringComparer.CurrentCultureIgnoreCase).ToList();
 
         var embudo = new[] { EtapaOportunidad.Prospecto, EtapaOportunidad.Cotizado, EtapaOportunidad.Negociacion }
-            .Select(e => new EtapaEmbudo(e, ops.Count(o => o.Etapa == e), ops.Where(o => o.Etapa == e).Sum(o => o.Monto))).ToList();
+            .Select(e => new EtapaReporte(e, ops.Count(o => o.Etapa == e), ops.Where(o => o.Etapa == e).Sum(o => o.Monto))).ToList();
 
         return new ReporteVentas(desde, hasta, alcance, moneda, embudo, leads.Count, leads.Count(l => l.Estado == EstadosLead.Convertido),
             enviadas, aceptadas, ganadas.Count, ganadas.Sum(o => o.Monto), perdidas.Count,
