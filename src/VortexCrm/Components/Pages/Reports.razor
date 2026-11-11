@@ -1,0 +1,221 @@
+@page "/reportes"
+@inherits CrmPage
+@inject FileExporter Exporter
+
+<SectionContent SectionName="page-title">@T("reportes.reportes")</SectionContent>
+
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h2>@(_r is null ? T("reportes.reportes") : T("reportes.tablero_" + _r.Alcance))</h2>
+            <p>@T("reportes.explica")</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-outline" disabled="@(_r is null)" @onclick="CsvAsync"><Icon Name="download" Size="18" />@T("reportes.excel")</button>
+            <button class="btn btn-dark" disabled="@(_r is null)" @onclick="PdfAsync"><Icon Name="file" Size="18" />@T("reportes.pdf")</button>
+        </div>
+    </div>
+
+    <div class="filters">
+        <div class="field" style="width:auto">
+            <label>@T("reportes.periodo")</label>
+            <div class="segmented">
+                @foreach (var (clave, etiqueta) in Periodos)
+                {
+                    <button class="@(_periodo == clave ? "on" : "")" @onclick="() => ElegirAsync(clave)">@etiqueta</button>
+                }
+            </div>
+        </div>
+        <div class="field" style="width:auto">
+            <label>@T("reportes.desde")</label>
+            <input class="control" type="date" value="@_desde.ToString("yyyy-MM-dd")" @onchange="e => FechaAsync(e, true)" />
+        </div>
+        <div class="field" style="width:auto">
+            <label>@T("reportes.hasta")</label>
+            <input class="control" type="date" value="@_hasta.ToString("yyyy-MM-dd")" @onchange="e => FechaAsync(e, false)" />
+        </div>
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="alert warn"><Icon Name="alert" Size="18" /><span>@_error</span></div>
+    }
+
+    @if (_r is { } rep)
+    {
+        <div class="stat-strip boxed" style="margin-bottom:20px">
+            <StatTile Icon="star" Label="@(T("reportes.monto_ganado"))" Value="@Fmt.Money(rep.MontoGanado, rep.Moneda)" Hint="@(T("reportes.n_ganadas", rep.Ganadas))" />
+            <StatTile Icon="target" Label="@(T("reportes.tasa_cierre"))" Value="@Pct(rep.TasaCierre)" Hint="@(T("reportes.n_perdidas", rep.Perdidas))" />
+            <StatTile Icon="clock" Label="@(T("reportes.ciclo_dias"))" Value="@(rep.CicloDias is { } ciclo ? ciclo.ToString("0.#", Fmt.Culture) : "—")"
+                      Hint="@(rep.TicketPromedio is { } ticket ? T("reportes.ticket_de", Fmt.Money(ticket, rep.Moneda)) : null)" />
+            <StatTile Icon="layers" Label="@(T("reportes.monto_abierto"))" Value="@Fmt.Money(rep.MontoAbierto, rep.Moneda)" />
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-head"><h3>@T("reportes.embudo")</h3></div>
+                <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+                    @foreach (var etapa in rep.Embudo)
+                    {
+                        var ancho = rep.MontoAbierto > 0 ? (int)Math.Round(100 * etapa.Monto / rep.MontoAbierto) : 0;
+                        <div>
+                            <div style="display:flex;justify-content:space-between"><span>@T("enum.etapa." + etapa.Etapa.ToString().ToLowerInvariant()) · @etapa.Oportunidades</span><strong>@Fmt.Money(etapa.Monto, rep.Moneda)</strong></div>
+                            <div class="bar"><span style="width:@(ancho)%"></span></div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-head"><h3>@T("reportes.conversion")</h3></div>
+                <div class="card-body">
+                    <dl class="kv">
+                        <dt>@T("reportes.leads_nuevos")</dt><dd>@rep.LeadsNuevos · @Pct(rep.ConversionLeads) @T("reportes.convertidos")</dd>
+                        <dt>@T("reportes.cotizaciones_enviadas")</dt><dd>@rep.CotizacionesEnviadas · @Pct(rep.AceptacionCotizaciones) @T("reportes.aceptadas")</dd>
+                        <dt>@T("reportes.interacciones")</dt><dd>@rep.Interacciones</dd>
+                        <dt>@T("reportes.tareas")</dt><dd>@rep.TareasHechas</dd>
+                        @if (rep.MotivosPerdida.Count > 0)
+                        {
+                            <dt>@T("reportes.motivos_perdida")</dt><dd>@string.Join(", ", rep.MotivosPerdida.Take(4).Select(m => $"{m.Motivo} ({m.Veces})"))</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:20px">
+            <div class="card-head"><h3>@T("reportes.ranking")</h3></div>
+            @if (rep.Vendedores.Count == 0)
+            {
+                <div class="card-body"><span class="muted">@T("reportes.sin_datos")</span></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>@T("reportes.vendedor")</th><th class="num">@T("reportes.monto_ganado")</th><th class="num">@T("reportes.meta")</th>
+                                <th class="num">@T("reportes.ganadas")</th><th class="num">@T("reportes.tasa_cierre")</th><th class="num">@T("reportes.ciclo_dias")</th>
+                                <th class="num">@T("reportes.interacciones")</th><th class="num">@T("reportes.tareas")</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (fila, puesto) in rep.Vendedores.Select((f, i) => (f, i + 1)))
+                            {
+                                <tr @key="fila.Id">
+                                    <td>@puesto</td>
+                                    <td><div class="cell-main"><Avatar Text="@fila.Nombre" Size="28" /><span>@fila.Nombre</span></div></td>
+                                    <td class="num"><strong>@Fmt.Money(fila.MontoGanado, rep.Moneda)</strong></td>
+                                    <td class="num">@(fila.Meta is { } meta && meta > 0 ? $"{Math.Round(100 * fila.MontoGanado / meta)} %" : "—")</td>
+                                    <td class="num">@fila.Ganadas / @(fila.Ganadas + fila.Perdidas)</td>
+                                    <td class="num">@Pct(fila.TasaCierre)</td>
+                                    <td class="num">@(fila.CicloDias is { } dias ? dias.ToString("0.#", Fmt.Culture) : "—")</td>
+                                    <td class="num">@fila.Interacciones</td>
+                                    <td class="num">@fila.TareasHechas</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private ReporteVentas? _r;
+    private string _periodo = "mes";
+    private DateOnly _desde, _hasta;
+    private string? _error;
+
+    private IEnumerable<(string, string)> Periodos =>
+    [
+        ("mes", T("reportes.este_mes")), ("anterior", T("reportes.mes_anterior")), ("trimestre", T("reportes.trimestre")), ("anio", T("reportes.este_anio")),
+    ];
+
+    private static string Pct(decimal? valor) => valor is { } v ? $"{v.ToString("0.#", Fmt.Culture)} %" : "—";
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        Rango("mes");
+    }
+
+    private void Rango(string periodo)
+    {
+        var hoy = Fmt.Today;
+        var inicioMes = new DateOnly(hoy.Year, hoy.Month, 1);
+        (_desde, _hasta) = periodo switch
+        {
+            "anterior" => (inicioMes.AddMonths(-1), inicioMes.AddDays(-1)),
+            "trimestre" => (new DateOnly(hoy.Year, (hoy.Month - 1) / 3 * 3 + 1, 1), hoy),
+            "anio" => (new DateOnly(hoy.Year, 1, 1), hoy),
+            _ => (inicioMes, hoy),
+        };
+        _periodo = periodo;
+    }
+
+    private async Task ElegirAsync(string periodo)
+    {
+        Rango(periodo);
+        await ReloadAsync();
+    }
+
+    private async Task FechaAsync(ChangeEventArgs e, bool inicio)
+    {
+        if (!DateOnly.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var fecha))
+            return;
+        if (inicio)
+            _desde = fecha;
+        else
+            _hasta = fecha;
+        _periodo = "";
+        await ReloadAsync();
+    }
+
+    protected override async Task LoadAsync()
+    {
+        _error = null;
+        try
+        {
+            _r = await Crm.Reportes.GenerarAsync(_desde, _hasta);
+        }
+        catch (CrmValidationException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task CsvAsync()
+    {
+        if (_r is not { } rep)
+            return;
+        try
+        {
+            var bytes = new System.Text.UTF8Encoding(true).GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(ServicioReportes.Csv(rep))).ToArray();
+            var path = await Exporter.ExportBytesAsync($"vortex-crm-reporte-{rep.Desde:yyyyMMdd}-{rep.Hasta:yyyyMMdd}.csv", bytes, "text/csv");
+            Toasts.Success(T("home.exportado", Path.GetFileName(path)));
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+    }
+
+    private async Task PdfAsync()
+    {
+        if (_r is not { } rep)
+            return;
+        try
+        {
+            var empresa = (await Crm.Master.GetCompanyAsync())?.DisplayName ?? "Vortex CRM";
+            var bytes = VortexCrm.Core.Pdf.GeneradorPdfReportes.Generar(rep, empresa, Fmt.Culture);
+            var path = await Exporter.ExportBytesAsync($"vortex-crm-reporte-{rep.Desde:yyyyMMdd}-{rep.Hasta:yyyyMMdd}.pdf", bytes, "application/pdf");
+            Toasts.Success(T("home.exportado", Path.GetFileName(path)));
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
+        }
+    }
+}
