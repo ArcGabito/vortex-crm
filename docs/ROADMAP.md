@@ -92,8 +92,8 @@ Estados: **Hecho**, **Parcial** (existe una parte; la fase indica qué falta) y 
 |---|---|---|---|
 | CRM-60 | Avance de etapa al enviar y aceptar una cotización | Hecho | — |
 | CRM-61 | Reglas (si pasa X, crear tarea, asignar o avisar) | Hecho | 5a |
-| CRM-62 | Reportes: embudo por etapa, conversión, ciclo de venta, actividad y ranking | Parcial: panel con pipeline y ganadas | 5 |
-| CRM-63 | Tableros por rol y exportación a Excel y PDF | Pendiente | 5 |
+| CRM-62 | Reportes: embudo por etapa, conversión, ciclo de venta, actividad y ranking | Hecho | 5d |
+| CRM-63 | Tableros por rol y exportación a Excel y PDF | Hecho: Excel como CSV | 5d |
 
 ### Servicio al cliente
 
@@ -263,6 +263,13 @@ clientes, oportunidades y cotizaciones; los valores se validan y normalizan por 
 y sucursales del cliente (sin ciclos, hasta 5 niveles) en la ficha. Todo son registros del CRM: `perfil_cliente`,
 `campo_personalizado`, `valores_campos` y `lista_guardada`; el cliente sigue siendo el party del hub. Pruebas en
 `SegmentosTests`. Sigue 5d (reportes y tableros por rol).
+
+**Estado 5d (2026-11):** hecha; fase 5 terminada. Pantalla Reportes con periodo (este mes, mes anterior, trimestre, año o
+fechas): monto ganado, tasa de cierre, ciclo de venta y ticket promedio; embudo de lo abierto por etapa; conversión de
+leads y aceptación de cotizaciones; interacciones y tareas hechas; motivos de pérdida; **ranking por vendedor** con avance
+contra su meta. Es un **tablero por rol**: el vendedor ve su desempeño, el líder su equipo (y los de abajo) y el gerente toda
+la empresa, siempre, aunque la visibilidad de registros sea "todos ven todo". Exportación a **CSV** (se abre en Excel) y
+**PDF** (A4, PDFsharp). Pruebas en `ReportesTests`.
 
 ## Fase 6: servicio al cliente · L
 

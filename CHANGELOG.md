@@ -8,6 +8,8 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- **Reportes (fase 5d):** embudo, conversión de leads y cotizaciones, tasa de cierre, ciclo de venta, actividad, motivos de
+  pérdida y ranking por vendedor con su meta; tablero según el rol (propio, equipo o empresa) y exportación a CSV y PDF.
 - **Segmentos (fase 5c):** etiquetas por cliente y segmentos en Clientes (etiquetas, ciudad, responsable, inactividad,
   campo personalizado) guardados con nombre, privados o compartidos, y exportables a CSV. Campos personalizados en
   clientes, oportunidades y cotizaciones, definidos en Configuración. Matriz y sucursales del cliente en su ficha.
