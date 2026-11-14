@@ -11,7 +11,8 @@
             <p>@T("reportes.explica")</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-outline" disabled="@(_r is null)" @onclick="CsvAsync"><Icon Name="download" Size="18" />@T("reportes.excel")</button>
+            <button class="btn btn-outline" disabled="@(_r is null)" @onclick="XlsxAsync"><Icon Name="download" Size="18" />@T("reportes.excel")</button>
+            <button class="btn btn-outline" disabled="@(_r is null)" @onclick="CsvAsync"><Icon Name="download" Size="18" />@T("reportes.csv")</button>
             <button class="btn btn-dark" disabled="@(_r is null)" @onclick="PdfAsync"><Icon Name="file" Size="18" />@T("reportes.pdf")</button>
         </div>
     </div>
@@ -183,6 +184,23 @@
         catch (CrmValidationException ex)
         {
             _error = ex.Message;
+        }
+    }
+
+    private async Task XlsxAsync()
+    {
+        if (_r is not { } rep)
+            return;
+        try
+        {
+            var empresa = (await Crm.Master.GetCompanyAsync())?.DisplayName ?? "Vortex CRM";
+            var path = await Exporter.ExportBytesAsync($"vortex-crm-reporte-{rep.Desde:yyyyMMdd}-{rep.Hasta:yyyyMMdd}.xlsx", ServicioReportes.Xlsx(rep, empresa),
+                VortexApi.Suite.Export.XlsxWriter.ContentType);
+            Toasts.Success(T("home.exportado", Path.GetFileName(path)));
+        }
+        catch (Exception ex)
+        {
+            Toasts.Error(ex.Message);
         }
     }
 
