@@ -8,6 +8,8 @@ y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+- Reportes en **Excel (.xlsx)** con hojas Resumen, Embudo y Ranking (números, importes y porcentajes tipados), además de
+  CSV y PDF.
 - **Reportes (fase 5d):** embudo, conversión de leads y cotizaciones, tasa de cierre, ciclo de venta, actividad, motivos de
   pérdida y ranking por vendedor con su meta; tablero según el rol (propio, equipo o empresa) y exportación a CSV y PDF.
 - **Segmentos (fase 5c):** etiquetas por cliente y segmentos en Clientes (etiquetas, ciudad, responsable, inactividad,

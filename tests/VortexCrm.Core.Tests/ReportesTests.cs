@@ -56,6 +56,15 @@ public sealed class ReportesTests : IAsyncLifetime
 
         var csv = ServicioReportes.Csv(r);
         Assert.Contains("Ana,2,1500", csv);
+        var xlsx = ServicioReportes.Xlsx(r, "Vortex SAC");
+        using (var zip = new System.IO.Compression.ZipArchive(new MemoryStream(xlsx)))
+        {
+            Assert.Equal(3, zip.Entries.Count(e => e.FullName.StartsWith("xl/worksheets/")));
+            var ranking = System.Xml.Linq.XDocument.Load(zip.GetEntry("xl/worksheets/sheet3.xml")!.Open());
+            var values = ranking.Descendants().Where(e => e.Name.LocalName == "c").Select(e => e.Value).ToList();
+            Assert.Contains("Ana", values);
+            Assert.Contains("1500", values);   // monto ganado como número
+        }
         var pdf = GeneradorPdfReportes.Generar(r, "Vortex SAC", CultureInfo.GetCultureInfo("es-PE"));
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
 

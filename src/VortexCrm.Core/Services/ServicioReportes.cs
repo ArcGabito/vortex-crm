@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using VortexApi.Suite.Export;
 using VortexCrm.Core.Data;
 using VortexCrm.Core.Domain;
 using VortexCrm.Core.Domain.Comun;
@@ -134,6 +135,32 @@ public sealed class ServicioReportes(CrmDatabase db, ICrmContext context, TimePr
     private static DateTimeOffset Dia(DateOnly dia) => new(dia.ToDateTime(TimeOnly.MinValue), FormatoPeru.ZonaHoraria);
 
     private static string Instante(DateOnly dia) => SqliteExtensions.Time(Dia(dia));
+
+    /// <summary>El reporte en Excel (.xlsx): hojas Resumen, Embudo y Ranking, con números, importes y porcentajes tipados.</summary>
+    public static byte[] Xlsx(ReporteVentas r, string empresa)
+    {
+        static decimal? Num(string v) => decimal.TryParse(v, NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : null;
+        var periodo = $"{T("reportes.periodo")}: {r.Desde:yyyy-MM-dd} – {r.Hasta:yyyy-MM-dd} · {r.Moneda}";
+        var titulo = $"{empresa} · {T("reportes.titulo")}";
+        var resumen = new XlsxSheet(T("reportes.resumen"), [new(T("reportes.indicador")), new(T("reportes.valor"), XlsxColumnType.Number)],
+            Resumen(r).Select(x => new object?[] { x.Etiqueta, Num(x.Valor) }), null, titulo, periodo);
+        var embudo = new XlsxSheet(T("reportes.embudo"),
+            [new(T("reportes.etapa")), new(T("reportes.oportunidades"), XlsxColumnType.Number), new(T("reportes.monto"), XlsxColumnType.Money)],
+            r.Embudo.Select(e => new object?[] { T("enum.etapa." + e.Etapa.ToString().ToLowerInvariant()), e.Oportunidades, e.Monto }),
+            [T("reportes.total"), r.Embudo.Sum(e => e.Oportunidades), r.MontoAbierto], titulo, periodo);
+        var ranking = new XlsxSheet(T("reportes.ranking"),
+        [
+            new(T("reportes.vendedor")), new(T("reportes.ganadas"), XlsxColumnType.Number), new(T("reportes.monto_ganado"), XlsxColumnType.Money),
+            new(T("reportes.perdidas"), XlsxColumnType.Number), new(T("reportes.tasa_cierre"), XlsxColumnType.Percent),
+            new(T("reportes.ciclo_dias"), XlsxColumnType.Number), new(T("reportes.interacciones"), XlsxColumnType.Number),
+            new(T("reportes.tareas"), XlsxColumnType.Number), new(T("reportes.leads_convertidos"), XlsxColumnType.Number),
+            new(T("reportes.meta"), XlsxColumnType.Money),
+        ], r.Vendedores.Select(f => new object?[] { f.Nombre, f.Ganadas, f.MontoGanado, f.Perdidas, f.TasaCierre, f.CicloDias, f.Interacciones,
+            f.TareasHechas, f.LeadsConvertidos, f.Meta }),
+            [T("reportes.total"), r.Ganadas, r.MontoGanado, r.Perdidas, r.TasaCierre, r.CicloDias, r.Interacciones, r.TareasHechas, r.LeadsConvertidos, null],
+            titulo, periodo);
+        return XlsxWriter.Write(resumen, embudo, ranking);
+    }
 
     /// <summary>El reporte en CSV (UTF-8, separado por comas) para abrirlo en Excel: resumen y ranking por vendedor.</summary>
     public static string Csv(ReporteVentas r)
